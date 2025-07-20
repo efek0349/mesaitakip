@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --vh: 1vh;
+    --modal-safe-height: 85vh;
+    --modal-safe-padding: 16px;
+    --nav-bar-height: 0px;
+  }
+  
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    /* Android için tam ekran desteği */
+    height: 100%;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    /* Android için tam ekran desteği */
+    height: 100%;
+    height: calc(var(--vh, 1vh) * 100);
+    position: relative;
+  }
+  
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Android navigasyon çubuğu için özel stiller */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .android-safe-modal {
+      padding-bottom: env(safe-area-inset-bottom);
+      margin-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .android-safe-button {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+    }
+  }
+}
+
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Gelişmiş Android güvenli alan desteği */
+  .pb-safe {
+    padding-bottom: var(--modal-safe-padding, 16px);
+  }
+  
+  .mb-safe {
+    margin-bottom: var(--modal-safe-padding, 0px);
+  }
+  
+  .h-safe {
+    height: var(--modal-safe-height, 85vh);
+  }
+  
+  .max-h-safe {
+    max-height: var(--modal-safe-height, 85vh);
+  }
+  
+  /* Android için gelişmiş buton stilleri */
+  .min-h-touch {
+    min-height: 48px;
+  }
+  
+  .android-button {
+    min-height: 56px; /* Android Material Design standardı */
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  
+  /* Android input field optimizasyonları */
+  input[type="number"] {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Android klavye için özel davranış */
+  @media (pointer: coarse) {
+    input[type="number"] {
+      font-size: 16px; /* iOS zoom'u önlemek için */
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    
+    input[type="number"]:focus {
+      -webkit-user-select: all;
+      user-select: all;
+    }
+  }
+  
+  /* Modal için özel Android stilleri */
+  .modal-android {
+    max-height: var(--modal-safe-height, 85vh);
+    margin-bottom: var(--modal-safe-padding, 0px);
+  }
+  
+  /* Navigasyon çubuğu yüksekliği kadar boşluk */
+  .pb-nav {
+    padding-bottom: var(--nav-bar-height, 0px);
+  }
+  
+  /* Dinamik viewport yüksekliği */
+  .h-screen-dynamic {
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  .min-h-screen-dynamic {
+    min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+}
