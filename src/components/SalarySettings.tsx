@@ -58,8 +58,9 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
         `}
         style={isAndroid ? getModalStyle() : undefined}
       >
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
+        {/* Sabit Header */}
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4 sm:p-6 pb-3 sm:pb-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
                 <div className="w-6 h-6 text-green-600 flex items-center justify-center text-lg font-bold">₺</div>
@@ -73,7 +74,10 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
+        </div>
 
+        {/* Scrollable Content */}
+        <div className="p-4 sm:p-6 pt-2 sm:pt-3">
           <div className="space-y-4 sm:space-y-6">
             {/* Kişisel Bilgiler */}
             <div className="bg-gray-50 rounded-lg p-4">

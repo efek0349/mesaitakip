@@ -104,8 +104,9 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
         `}
         style={isAndroid ? getModalStyle() : undefined}
       >
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
+        {/* Sabit Header */}
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4 sm:p-6 pb-3 sm:pb-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg sm:text-xl font-bold text-gray-800">
               {existingEntry ? 'Mesai Düzenle' : 'Mesai Ekle'}
             </h2>
@@ -116,7 +117,10 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
+        </div>
           
+        {/* Scrollable Content */}
+        <div className="p-4 sm:p-6 pt-2 sm:pt-3">
           <div className="mb-4 sm:mb-6">
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <Clock className="w-5 h-5 text-blue-500" />

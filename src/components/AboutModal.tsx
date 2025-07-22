@@ -21,8 +21,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         `}
         style={isAndroid ? getModalStyle() : undefined}
       >
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
+        {/* Sabit Header */}
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4 sm:p-6 pb-3 sm:pb-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <User className="w-6 h-6 text-blue-600" />
@@ -36,7 +37,10 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
+        </div>
 
+        {/* Scrollable Content */}
+        <div className="p-4 sm:p-6 pt-2 sm:pt-3">
           <div className="space-y-6">
             {/* App Info */}
             <div className="text-center">
@@ -129,7 +133,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
 
             {/* Version */}
             <div className="text-center">
-              <p className="text-xs text-gray-400 mt-2">Sürüm 1.1.0</p>
+              <p className="text-xs text-gray-400 mt-2">Sürüm 1.2.0</p>
             </div>
           </div>
 

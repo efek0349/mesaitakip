@@ -110,6 +110,12 @@
     margin-bottom: var(--modal-safe-padding, 0px);
   }
   
+  /* Sticky header için özel stiller */
+  .sticky {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+  
   /* Navigasyon çubuğu yüksekliği kadar boşluk */
   .pb-nav {
     padding-bottom: var(--nav-bar-height, 0px);

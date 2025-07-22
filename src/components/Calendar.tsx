@@ -116,27 +116,29 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
                   ? 'active:bg-blue-50 active:scale-95' 
                   : 'text-gray-300 cursor-not-allowed'
                 }
-                ${isTodayDate 
-                  ? 'bg-blue-500 text-white font-bold' 
-                  : isHolidayDate && isInCurrentMonth
+                ${!isTodayDate && isHolidayDate && isInCurrentMonth
                   ? getHolidayColorClass(holiday)
-                  : !isHolidayDate && isSaturday && isInCurrentMonth
+                  : !isTodayDate && !isHolidayDate && isSaturday && isInCurrentMonth
                   ? 'bg-orange-100 text-orange-700'
-                  : !isHolidayDate && isSunday && isInCurrentMonth
+                  : !isTodayDate && !isHolidayDate && isSunday && isInCurrentMonth
                   ? 'bg-purple-100 text-purple-700'
+                  : ''
+                }
+                ${isTodayDate 
+                  ? 'bg-blue-500 text-white font-bold ring-2 ring-blue-300 ring-offset-1' 
                   : ''
                 }
               `}
             >
-              <span className="text-sm font-medium">
+              <span className={`text-sm font-medium ${isTodayDate ? 'text-white' : ''}`}>
                 {date.getDate()}
               </span>
               
               {/* Tatil etiketi */}
               {holiday && isInCurrentMonth && (
-                <div className={`text-xs px-1 py-0.5 rounded-full mt-0.5 leading-tight font-bold ${
+                <div className={`text-xs px-1 py-0.5 rounded-full mt-0.5 leading-tight font-medium ${
                   isTodayDate 
-                    ? 'bg-white text-blue-500' 
+                    ? 'bg-white/90 text-blue-600 shadow-sm' 
                     : holiday.type === 'religious'
                     ? 'bg-white text-green-700'
                     : 'bg-white text-red-700'
@@ -147,19 +149,19 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
               
               {/* Mesai etiketi */}
               {overtimeEntry && isInCurrentMonth && (
-                <div className={`
-                  text-xs px-1 py-0.5 rounded-full ${holiday ? 'mt-0' : 'mt-0.5'} leading-tight
-                  ${isTodayDate 
-                    ? 'bg-white text-blue-500' 
+                <div className={`text-xs px-1 py-0.5 rounded-full leading-tight font-medium ${
+                  holiday ? 'mt-0' : 'mt-0.5'
+                } ${
+                  isTodayDate 
+                    ? 'bg-white/90 text-blue-600 shadow-sm' 
                     : isHolidayDate
-                    ? 'bg-white text-gray-700 bg-opacity-90'
+                    ? 'bg-white/95 text-gray-800 shadow-sm'
                     : isSaturday
                     ? 'bg-orange-200 text-orange-800'
                     : isSunday
                     ? 'bg-purple-200 text-purple-800'
                     : 'bg-blue-100 text-blue-700'
-                  }
-                `}>
+                }`}>
                   {formatHours(overtimeEntry.totalHours)}
                 </div>
               )}
