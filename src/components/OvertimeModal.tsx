@@ -99,7 +99,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
       <div 
         className={`
-          bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto
+          bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto
           ${isAndroid ? 'modal-android android-safe-modal' : 'max-h-[85vh] mb-safe'}
         `}
         style={isAndroid ? getModalStyle() : undefined}
