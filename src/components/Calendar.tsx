@@ -110,7 +110,7 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
               key={uniqueKey}
               onClick={() => handleDateClick(date)}
               className={`
-                aspect-square flex flex-col items-center justify-center p-1 rounded-lg text-sm
+                aspect-square flex flex-col items-center justify-center p-1 rounded-lg text-sm relative
                 transition-all duration-200 cursor-pointer touch-manipulation min-h-[3rem]
                 ${isInCurrentMonth 
                   ? 'active:bg-blue-50 active:scale-95' 
@@ -136,9 +136,9 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
               
               {/* Tatil etiketi */}
               {holiday && isInCurrentMonth && (
-                <div className={`text-xs px-1 py-0.5 rounded-full mt-0.5 leading-tight font-medium ${
+                <div className={`absolute top-0 left-0 text-xs px-1 rounded-br font-medium ${
                   isTodayDate 
-                    ? 'bg-white/90 text-blue-600 shadow-sm' 
+                    ? 'bg-white/90 text-blue-600' 
                     : holiday.type === 'religious'
                     ? 'bg-white text-green-700'
                     : 'bg-white text-red-700'
@@ -149,13 +149,11 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
               
               {/* Mesai etiketi */}
               {overtimeEntry && isInCurrentMonth && (
-                <div className={`text-xs px-1 py-0.5 rounded-full leading-tight font-medium ${
-                  holiday ? 'mt-0' : 'mt-0.5'
-                } ${
+                <div className={`absolute bottom-0 right-0 text-xs px-1 rounded-tl font-medium ${
                   isTodayDate 
-                    ? 'bg-white/90 text-blue-600 shadow-sm' 
+                    ? 'bg-white/90 text-blue-600' 
                     : isHolidayDate
-                    ? 'bg-white/95 text-gray-800 shadow-sm'
+                    ? 'bg-white/95 text-gray-800'
                     : isSaturday
                     ? 'bg-orange-200 text-orange-800'
                     : isSunday
