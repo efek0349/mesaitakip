@@ -13,7 +13,7 @@ Modern ve kullanıcı dostu bir mesai takip uygulaması. React, TypeScript ve Ta
 - **Mobil Uyumlu**: Android APK desteği ile mobil cihazlarda sorunsuz çalışma
 - **Modern Tasarım**: Kullanıcı dostu arayüz ve smooth animasyonlar
 
-## 🚀 Kurulum ve Çalıştırma
+## 🚀 Android için Kurulum ve Paketleme
 
 Uygulamayı yerel ortamınızda çalıştırmak için aşağıdaki adımları takip edin:
 
