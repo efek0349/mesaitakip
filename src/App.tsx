@@ -9,12 +9,12 @@ import { DataBackupModal } from './components/DataBackupModal';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
 import { useAndroidSafeArea } from './hooks/useAndroidSafeArea';
-import { Clock } from 'lucide-react';
+import { Clock, CheckSquare, Square } from 'lucide-react';
 
 function App() {
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
   const { isLoaded: dataLoaded } = useOvertimeData();
-  const { isLoaded: salaryLoaded } = useSalarySettings();
+  const { isLoaded: salaryLoaded, settings, updateSettings } = useSalarySettings();
   const { isAndroid } = useAndroidSafeArea();
   
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -43,18 +43,28 @@ function App() {
   }
 
   const handleDateClick = (date: Date) => {
+    console.log('📅 Date clicked:', date);
     setSelectedDate(date);
     setIsModalOpen(true);
   };
   
   const handleFabClick = () => {
+    console.log('➕ FAB clicked');
     setSelectedDate(new Date());
     setIsModalOpen(true);
   };
   
   const handleCloseModal = () => {
+    console.log('❌ Modal closing');
     setIsModalOpen(false);
     setSelectedDate(null);
+  };
+  
+  const handleBreakTimeToggle = () => {
+    updateSettings({
+      ...settings,
+      deductBreakTime: !settings.deductBreakTime
+    });
   };
 
   return (
@@ -81,9 +91,30 @@ function App() {
               Mesai Takip
             </h1>
           </div>
-          <p className="text-sm text-gray-600 px-4">
-            Mesai saatlerinizi takip edin ve aylık raporlarınızı alın
-          </p>
+          
+          {/* Mola kesintisi ayarı */}
+          <div className="mt-4 px-4">
+            <button
+              onClick={handleBreakTimeToggle}
+              className="flex items-center gap-3 w-full max-w-md mx-auto p-3 bg-white rounded-xl shadow-sm border border-gray-200 active:bg-gray-50 transition-colors touch-manipulation"
+            >
+              <div className="flex-shrink-0">
+                {settings.deductBreakTime ? (
+                  <CheckSquare className="w-5 h-5 text-blue-500" />
+                ) : (
+                  <Square className="w-5 h-5 text-gray-400" />
+                )}
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium text-gray-800">
+                  8+ saat mesailerde 1 saatlik mola kesintisi
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Mesai ücretinden otomatik olarak 1 saat düşülür
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
         
         {/* Calendar */}

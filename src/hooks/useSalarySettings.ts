@@ -12,7 +12,8 @@ const defaultSettings: SalarySettings = {
   weekdayMultiplier: 1.5,
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.5,
-  holidayMultiplier: 2.0
+  holidayMultiplier: 2.0,
+  deductBreakTime: false
 };
 
 // Global salary event emitter

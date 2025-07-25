@@ -14,8 +14,10 @@ interface OvertimeModalProps {
 }
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, selectedDate }) => {
+  console.log('🔍 OvertimeModal render:', { isOpen, selectedDate: selectedDate?.toISOString() });
+  
   const { addOvertimeEntry, removeOvertimeEntry, getOvertimeForDate } = useOvertimeData();
-  const { getOvertimeRate } = useSalarySettings();
+  const { getOvertimeRate, settings } = useSalarySettings();
   const { getHoliday } = useHolidays();
   const { getModalStyle, getButtonContainerStyle, isAndroid } = useAndroidSafeArea();
   const [hours, setHours] = useState(0);
@@ -69,12 +71,18 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   };
   
   const handleClose = () => {
+    console.log('🚪 Modal handleClose called');
     setHours(0);
     setMinutes(0);
     onClose();
   };
   
-  if (!isOpen || !selectedDate) return null;
+  if (!isOpen || !selectedDate) {
+    console.log('❌ Modal not rendering:', { isOpen, hasSelectedDate: !!selectedDate });
+    return null;
+  }
+  
+  console.log('✅ Modal rendering with:', { selectedDate: selectedDate.toISOString(), hours, minutes });
   
   const totalHours = hours + minutes / 60;
   const formattedDate = formatTurkishDate(selectedDate);
@@ -85,7 +93,14 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const isHolidayDate = holiday !== undefined;
   const isWeekend = isSaturday || isSunday;
   const overtimeRate = getOvertimeRate(selectedDate, isHolidayDate);
-  const totalPayment = totalHours * overtimeRate;
+  
+  // Mola kesintisi hesaplama
+  let effectiveHours = totalHours;
+  if (settings.deductBreakTime && totalHours >= 8) {
+    effectiveHours = Math.max(0, totalHours - 1); // 1 saat mola kesintisi
+  }
+  
+  const totalPayment = effectiveHours * overtimeRate;
   
   console.log('🔍 Modal hesaplama:', {
     selectedDate: selectedDate.toISOString().split('T')[0],
@@ -96,7 +111,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   });
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50" style={{ display: 'flex' }}>
       <div 
         className={`
           bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto
@@ -155,13 +170,22 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                   </p>
                 </div>
                 
+                {settings.deductBreakTime && totalHours >= 8 && (
+                  <div className="bg-orange-50 rounded-lg p-3">
+                    <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">
+                      Mola kesintisi: 1 saat (Ücrete dahil: {formatHours(effectiveHours)})
+                    </p>
+                  </div>
+                )}
+                
                 <div className="bg-green-50 rounded-lg p-3">
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 text-green-600 flex items-center justify-center text-xs font-bold">₺</div>
                     <p className="text-green-700 font-semibold text-sm sm:text-base">
                       ₺{totalPayment.toFixed(2)} (net)
                       <span className="text-sm font-normal">
-                        ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''})
+                        ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''}
+                        {settings.deductBreakTime && totalHours >= 8 ? ' - mola kesintili' : ''})
                       </span>
                     </p>
                   </div>

@@ -75,7 +75,7 @@ export const formatHours = (totalHours: number): string => {
   }
 };
 
-export const generateExportText = (monthlyData: any, year: number, month: number, firstName: string = '', lastName: string = '', getHoliday?: (date: Date) => any): string => {
+export const generateExportText = (monthlyData: any, year: number, month: number, firstName: string = '', lastName: string = '', getHoliday?: (date: Date) => any, deductBreakTime: boolean = false): string => {
   const monthKey = getMonthKey(new Date(year, month));
   const entries = monthlyData[monthKey] || [];
   
@@ -101,6 +101,9 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
   
   text += `${TURKISH_MONTHS[month]} ${year} - Mesai Saatleri\n`;
+  if (deductBreakTime) {
+    text += '(8+ saat mesailerde 1 saat mola kesintisi uygulanmıştır)\n';
+  }
   text += '\n';
   
   let totalHours = 0;
@@ -113,7 +116,16 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   entries.forEach((entry: any) => {
     const date = new Date(entry.date);
     const formattedDate = formatTurkishDateWithDay(date);
-    const hoursText = formatHours(entry.totalHours);
+    
+    // Mola kesintisi hesaplama
+    let effectiveHours = entry.totalHours;
+    if (deductBreakTime && entry.totalHours >= 8) {
+      effectiveHours = Math.max(0, entry.totalHours - 1);
+    }
+    
+    const hoursText = deductBreakTime && entry.totalHours >= 8 
+      ? `${formatHours(effectiveHours)} (${formatHours(entry.totalHours)} - 1s mola)`
+      : formatHours(entry.totalHours);
     
     // Gün tipini belirle
     const dayOfWeek = date.getDay();
@@ -121,22 +133,22 @@ export const generateExportText = (monthlyData: any, year: number, month: number
     
     if (holiday) {
       if (holiday.type === 'religious') {
-        religiousHolidayHours += entry.totalHours;
-        holidayHours += entry.totalHours;
+        religiousHolidayHours += effectiveHours;
+        holidayHours += effectiveHours;
       } else {
-        officialHolidayHours += entry.totalHours;
-        holidayHours += entry.totalHours;
+        officialHolidayHours += effectiveHours;
+        holidayHours += effectiveHours;
       }
     } else if (dayOfWeek === 0) { // Pazar
-      sundayHours += entry.totalHours;
+      sundayHours += effectiveHours;
     } else if (dayOfWeek === 6) { // Cumartesi
-      normalHours += entry.totalHours;
+      normalHours += effectiveHours;
     } else {
-      normalHours += entry.totalHours;
+      normalHours += effectiveHours;
     }
     
     text += `${formattedDate} - ${hoursText} mesai\n`;
-    totalHours += entry.totalHours;
+    totalHours += effectiveHours;
   });
   
   text += '\n';

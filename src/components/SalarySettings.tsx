@@ -324,6 +324,37 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
                 </div>
               </div>
             </div>
+            
+            {/* Mola Kesintisi Ayarı */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 sm:mb-4">Mola Ayarları</h3>
+              
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, deductBreakTime: !prev.deductBreakTime }))}
+                  className="flex-shrink-0 mt-1"
+                >
+                  {formData.deductBreakTime ? (
+                    <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
+                  )}
+                </button>
+                
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    8+ saat mesailerde 1 saatlik mola kesintisi
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Bu seçenek aktif olduğunda, 8 saat ve üzeri mesai girişlerinde otomatik olarak 1 saat mola kesintisi yapılır ve ücret hesaplamasında bu düşülmüş saat dikkate alınır.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div 

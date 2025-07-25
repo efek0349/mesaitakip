@@ -22,6 +22,7 @@ export interface SalarySettings {
   saturdayMultiplier: number;
   sundayMultiplier: number;
   holidayMultiplier: number;
+  deductBreakTime: boolean;
 }
 
 export interface Holiday {

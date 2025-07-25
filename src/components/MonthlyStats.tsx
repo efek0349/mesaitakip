@@ -41,20 +41,27 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     const dayOfWeek = entryDate.getDay();
     const isSunday = dayOfWeek === 0;
     const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
-    const payment = (entry.totalHours || 0) * (overtimeRate || 0);
+    
+    // Mola kesintisi hesaplama
+    let effectiveHours = entry.totalHours || 0;
+    if (settings.deductBreakTime && effectiveHours >= 8) {
+      effectiveHours = Math.max(0, effectiveHours - 1); // 1 saat mola kesintisi
+    }
+    
+    const payment = effectiveHours * (overtimeRate || 0);
     
     if (isHolidayDate) {
-      stats.holiday.hours += entry.totalHours || 0;
+      stats.holiday.hours += effectiveHours;
       stats.holiday.payment += payment;
     } else if (isSunday) {
-      stats.sunday.hours += entry.totalHours || 0;
+      stats.sunday.hours += effectiveHours;
       stats.sunday.payment += payment;
     } else {
-      stats.normal.hours += entry.totalHours || 0;
+      stats.normal.hours += effectiveHours;
       stats.normal.payment += payment;
     }
     
-    stats.total.hours += entry.totalHours || 0;
+    stats.total.hours += effectiveHours;
     stats.total.payment += payment;
     
     return stats;
@@ -66,13 +73,13 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
   });
   
   const handleExport = () => {
-    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday);
+    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
     const fileName = `mesai-${TURKISH_MONTHS[month].toLowerCase()}-${year}.txt`;
     downloadTextFile(exportText, fileName);
   };
   
   const handleShare = async () => {
-    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday);
+    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Raporu`;
     await shareText(exportText, title);
   };
