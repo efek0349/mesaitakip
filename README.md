@@ -15,16 +15,18 @@ Modern ve kullanıcı dostu bir mesai takip uygulaması. React, TypeScript ve Ta
 
 ## 🚀 Android için Kurulum ve Paketleme
 
-Uygulamayı yerel ortamınızda çalıştırmak için aşağıdaki adımları takip edin:
+Uygulamayı yerel ortamınızda çalıştırmak yada paketlemek için aşağıdaki adımları takip edin:
 
 ```bash
 $ npm install
 $ npm run build
+//$ npm run dev # Yerel ortaminizda çalıştırmak için kullanın
 $ rm -rf android
 $ npx cap add android
 $ cd .\android\
 $ .\gradlew.bat assembleDebug
 ```
+**Apk** dosyasını **android\app\build\outputs\apk\debug** dizini altında bulabilirsiniz!
 
 ## 💰 Mesai Ücret Hesaplama
 
