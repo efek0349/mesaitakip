@@ -147,7 +147,14 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       normalHours += effectiveHours;
     }
     
-    text += `${formattedDate} - ${hoursText} mesai\n`;
+    let lineText = `${formattedDate} - ${hoursText} mesai`;
+    
+    // Not varsa ekle
+    if (entry.note && entry.note.trim()) {
+      lineText += ` (${entry.note.trim()})`;
+    }
+    
+    text += lineText + '\n';
     totalHours += effectiveHours;
   });
   

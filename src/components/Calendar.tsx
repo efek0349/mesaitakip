@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours } from '../utils/dateUtils';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useHolidays } from '../hooks/useHolidays';
@@ -101,6 +101,7 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
           const isSunday = dayOfWeek === 0;
           const holiday = getHoliday(date);
           const isHolidayDate = holiday !== undefined;
+          const hasNote = overtimeEntry?.note && overtimeEntry.note.trim().length > 0;
           
           // Use date timestamp as unique key
           const uniqueKey = `${date.getTime()}-${overtimeEntry?.id || 'no-entry'}`;
@@ -144,6 +145,23 @@ export const Calendar: React.FC<CalendarProps> = ({ currentDate, onDateChange, o
                     : 'bg-white text-red-700'
                 }`}>
                   {holiday.shortName}
+                </div>
+              )}
+              
+              {/* Not işareti */}
+              {hasNote && isInCurrentMonth && (
+                <div className={`absolute top-0 right-0 ${
+                  isTodayDate 
+                    ? 'text-white/90' 
+                    : isHolidayDate
+                    ? 'text-gray-600'
+                    : isSaturday
+                    ? 'text-orange-600'
+                    : isSunday
+                    ? 'text-purple-600'
+                    : 'text-blue-600'
+                }`}>
+                  <FileText className="w-3 h-3" />
                 </div>
               )}
               

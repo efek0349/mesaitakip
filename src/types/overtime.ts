@@ -4,6 +4,7 @@ export interface OvertimeEntry {
   hours: number;
   minutes: number;
   totalHours: number;
+  note?: string; // Opsiyonel not alanı
 }
 
 export interface MonthlyData {

@@ -133,7 +133,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
 
             {/* Version */}
             <div className="text-center">
-              <p className="text-xs text-gray-400 mt-2">Sürüm 1.3.0</p>
+              <p className="text-xs text-gray-400 mt-2">Sürüm 1.4.0</p>
             </div>
           </div>
 

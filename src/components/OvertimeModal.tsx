@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Clock, DollarSign, Calendar } from 'lucide-react';
+import { X, Plus, Minus, Clock, DollarSign, Calendar, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -22,6 +22,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const { getModalStyle, getButtonContainerStyle, isAndroid } = useAndroidSafeArea();
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
+  const [note, setNote] = useState('');
+  const [showNoteSection, setShowNoteSection] = useState(false);
   
   const existingEntry = selectedDate ? getOvertimeForDate(selectedDate) : null;
   
@@ -29,16 +31,20 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     if (existingEntry) {
       setHours(existingEntry.hours);
       setMinutes(existingEntry.minutes);
+      setNote(existingEntry.note || '');
+      setShowNoteSection(!!(existingEntry.note && existingEntry.note.trim()));
     } else {
       setHours(0);
       setMinutes(0);
+      setNote('');
+      setShowNoteSection(false);
     }
   }, [existingEntry, selectedDate]);
   
   const handleSave = () => {
     if (selectedDate && (hours > 0 || minutes > 0)) {
       console.log('Saving overtime entry:', { selectedDate, hours, minutes });
-      addOvertimeEntry(selectedDate, hours, minutes);
+      addOvertimeEntry(selectedDate, hours, minutes, note.trim());
       // Wait for data to be saved and state to update
       setTimeout(() => {
         console.log('✅ Modal closing after save');
@@ -74,6 +80,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     console.log('🚪 Modal handleClose called');
     setHours(0);
     setMinutes(0);
+    setNote('');
+    setShowNoteSection(false);
     onClose();
   };
   
@@ -135,7 +143,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
         </div>
           
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-6 pt-2 sm:pt-3">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-2 sm:pt-3 pb-24 sm:pb-28">
           <div className="mb-4 sm:mb-6">
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <Clock className="w-5 h-5 text-blue-500" />
@@ -238,43 +246,92 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                 </button>
               </div>
             </div>
-          </div>
-          
-          <div 
-            className={`
-              flex flex-col sm:flex-row gap-3
-              ${isAndroid ? 'android-safe-button' : 'pb-safe'}
-            `}
-            style={isAndroid ? getButtonContainerStyle() : undefined}
-          >
-            {existingEntry && (
-              <button
-                onClick={handleDelete}
-                className={`
-                  flex-1 px-4 bg-red-500 text-white rounded-lg font-medium 
-                  active:bg-red-600 transition-colors touch-manipulation
-                  ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
-                `}
-              >
-                Sil
-              </button>
-            )}
             
+            {/* Note Section Toggle */}
+            <div className="border-t border-gray-200 pt-4 mb-4">
+              <button
+                onClick={() => setShowNoteSection(!showNoteSection)}
+                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg active:bg-gray-100 transition-colors touch-manipulation"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm sm:text-base font-medium text-gray-700">
+                    Not Ekle {note.trim() && `(${note.length} karakter)`}
+                  </span>
+                </div>
+                {showNoteSection ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+              
+              {showNoteSection && (
+                <div className="mt-3 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Bu mesai için bir not ekleyin... (örn: Proje teslimi, acil durum, vs.)"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
+                    rows={4}
+                    maxLength={200}
+                    autoFocus
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      {note.length}/200 karakter
+                    </span>
+                    {note.trim() && (
+                      <button
+                        onClick={() => setNote('')}
+                        className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        Temizle
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Sabit Footer Butonları */}
+        <div 
+          className={`
+            sticky bottom-0 bg-white border-t border-gray-100 p-4 sm:p-6 flex-shrink-0
+            flex flex-col sm:flex-row gap-3
+            ${isAndroid ? 'android-safe-button' : 'pb-safe'}
+          `}
+          style={isAndroid ? getButtonContainerStyle() : undefined}
+        >
+          {existingEntry && (
             <button
-              onClick={handleSave}
-              disabled={hours === 0 && minutes === 0}
+              onClick={handleDelete}
               className={`
-                flex-1 px-4 rounded-lg font-medium transition-colors touch-manipulation
+                flex-1 px-4 bg-red-500 text-white rounded-lg font-medium 
+                active:bg-red-600 transition-colors touch-manipulation
                 ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
-                ${hours === 0 && minutes === 0
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-500 text-white active:bg-blue-600'
-                }
               `}
             >
-              {existingEntry ? 'Güncelle' : 'Kaydet'}
+              Sil
             </button>
-          </div>
+          )}
+          
+          <button
+            onClick={handleSave}
+            disabled={hours === 0 && minutes === 0}
+            className={`
+              flex-1 px-4 rounded-lg font-medium transition-colors touch-manipulation
+              ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
+              ${hours === 0 && minutes === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-500 text-white active:bg-blue-600'
+              }
+            `}
+          >
+            {existingEntry ? 'Güncelle' : 'Kaydet'}
+          </button>
         </div>
       </div>
     </div>

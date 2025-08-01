@@ -248,7 +248,7 @@ export const useOvertimeData = () => {
     };
   }, [forceUpdate]);
 
-  const addOvertimeEntry = useCallback((date: Date, hours: number, minutes: number) => {
+  const addOvertimeEntry = useCallback((date: Date, hours: number, minutes: number, note?: string) => {
     if (!isDataLoaded) {
       console.warn('⚠️ Data not loaded yet, cannot add entry');
       return;
@@ -263,7 +263,8 @@ export const useOvertimeData = () => {
       date: dateKey,
       hours,
       minutes,
-      totalHours
+      totalHours,
+      note: note || undefined
     };
 
     console.log('➕ Adding overtime entry:', { monthKey, dateKey, newEntry });
