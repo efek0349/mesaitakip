@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Clock, DollarSign, Calendar, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Plus, Minus, Clock, DollarSign, Calendar, FileText, ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -24,6 +24,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const [minutes, setMinutes] = useState(0);
   const [note, setNote] = useState('');
   const [showNoteSection, setShowNoteSection] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   const existingEntry = selectedDate ? getOvertimeForDate(selectedDate) : null;
   
@@ -40,6 +42,60 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
       setShowNoteSection(false);
     }
   }, [existingEntry, selectedDate]);
+
+  // Gelişmiş klavye açılma/kapanma tespiti
+  useEffect(() => {
+    let initialHeight = window.innerHeight;
+    
+    const handleResize = () => {
+      const currentHeight = window.innerHeight;
+      const heightDiff = initialHeight - currentHeight;
+      
+      // Klavye açıldığında yükseklik farkı 150px'den fazla olur
+      const keyboardThreshold = 150;
+      const keyboardOpen = heightDiff > keyboardThreshold;
+      
+      setIsKeyboardOpen(keyboardOpen);
+      setKeyboardHeight(keyboardOpen ? heightDiff : 0);
+      
+      console.log('📱 Keyboard state:', { 
+        initialHeight, 
+        currentHeight, 
+        heightDiff, 
+        keyboardOpen,
+        keyboardHeight: keyboardOpen ? heightDiff : 0
+      });
+    };
+
+    // İlk yükleme
+    initialHeight = window.innerHeight;
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        initialHeight = window.innerHeight;
+        handleResize();
+      }, 500);
+    });
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Not alanı toggle fonksiyonu
+  const handleNoteToggle = () => {
+    const newShowState = !showNoteSection;
+    setShowNoteSection(newShowState);
+    
+    if (newShowState) {
+      // Not alanı açılıyorsa focus yap
+      setTimeout(() => {
+        const textarea = document.getElementById('note-textarea');
+        if (textarea) {
+          textarea.focus();
+        }
+      }, 200);
+    }
+  };
   
   const handleSave = () => {
     if (selectedDate && (hours > 0 || minutes > 0)) {
@@ -118,14 +174,31 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     totalPayment
   });
 
+  // Klavye açıkken modal yüksekliğini ayarla
+  const getKeyboardAwareStyle = () => {
+    if (isKeyboardOpen && keyboardHeight > 0) {
+      const availableHeight = window.innerHeight;
+      return {
+        maxHeight: `${availableHeight}px`,
+        height: `${availableHeight}px`,
+        marginBottom: '0px'
+      };
+    }
+    return isAndroid ? getModalStyle() : undefined;
+  };
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50" style={{ display: 'flex' }}>
       <div 
         className={`
           bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto
-          ${isAndroid ? 'modal-android android-safe-modal' : 'max-h-[85vh] mb-safe'}
+          ${isKeyboardOpen 
+            ? 'h-full' 
+            : isAndroid 
+            ? 'modal-android android-safe-modal' 
+            : 'max-h-[85vh] mb-safe'
+          }
         `}
-        style={isAndroid ? getModalStyle() : undefined}
+        style={getKeyboardAwareStyle()}
       >
         {/* Sabit Header */}
         <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4 sm:p-6 pb-3 sm:pb-4">
@@ -142,168 +215,257 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
           </div>
         </div>
           
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-2 sm:pt-3 pb-24 sm:pb-28">
-          <div className="mb-4 sm:mb-6">
-            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <Clock className="w-5 h-5 text-blue-500" />
-              <span className="text-sm sm:text-base text-gray-700 font-medium">{formattedDate}</span>
+        {/* Ana İçerik - Klavye durumuna göre düzenlendi */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Üst kısım - Tarih ve hesaplamalar */}
+          <div className={`
+            flex-shrink-0 p-4 sm:p-6 pt-2 sm:pt-3 overflow-y-auto
+            ${isKeyboardOpen ? 'pb-2' : 'pb-4'}
+          `}>
+            <div className="mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <Clock className="w-5 h-5 text-blue-500" />
+                <span className="text-sm sm:text-base text-gray-700 font-medium">{formattedDate}</span>
               
-              {/* Tatil etiketi */}
-              {holiday && (
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs flex-shrink-0 ${getHolidayColorClass(holiday)}`}>
-                  <Calendar className="w-3 h-3" />
-                  <span>{holiday.shortName}</span>
-                </div>
-              )}
+                {/* Tatil etiketi */}
+                {holiday && (
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs flex-shrink-0 ${getHolidayColorClass(holiday)}`}>
+                    <Calendar className="w-3 h-3" />
+                    <span>{holiday.shortName}</span>
+                  </div>
+                )}
               
-              {/* Hafta sonu etiketi (tatil değilse) */}
-              {isWeekend && !holiday && (
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs flex-shrink-0 ${
-                  isSaturday 
-                    ? 'bg-orange-100 text-orange-700' 
-                    : 'bg-purple-100 text-purple-700'
-                }`}>
-                  <Calendar className="w-3 h-3" />
-                  <span>{isSaturday ? 'Cumartesi' : 'Pazar'}</span>
+                {/* Hafta sonu etiketi (tatil değilse) */}
+                {isWeekend && !holiday && (
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs flex-shrink-0 ${
+                    isSaturday 
+                      ? 'bg-orange-100 text-orange-700' 
+                      : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    <Calendar className="w-3 h-3" />
+                    <span>{isSaturday ? 'Cumartesi' : 'Pazar'}</span>
+                  </div>
+                )}
+              </div>
+            
+              {totalHours > 0 && (
+                <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <p className="text-blue-700 font-semibold text-center text-sm sm:text-base">
+                      Toplam: {formatHours(totalHours)}
+                    </p>
+                  </div>
+                
+                  {settings.deductBreakTime && totalHours >= 8 && (
+                    <div className="bg-orange-50 rounded-lg p-3">
+                      <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">
+                        Mola kesintisi: 1 saat (Ücrete dahil: {formatHours(effectiveHours)})
+                      </p>
+                    </div>
+                  )}
+                
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 text-green-600 flex items-center justify-center text-xs font-bold">₺</div>
+                      <p className="text-green-700 font-semibold text-sm sm:text-base">
+                        ₺{totalPayment.toFixed(2)} (net)
+                        <span className="text-sm font-normal">
+                          ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''}
+                          {settings.deductBreakTime && totalHours >= 8 ? ' - mola kesintili' : ''})
+                        </span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
+          
+            <div className={`space-y-4 sm:space-y-6 ${isKeyboardOpen ? 'mb-2' : 'mb-4 sm:mb-6'}`}>
+              {/* Hours */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm sm:text-base text-gray-700 font-medium">Saat</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => adjustHours(-1)}
+                    className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
+                  >
+                    <Minus className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span className="text-xl sm:text-2xl font-bold text-gray-800 w-12 text-center">
+                    {hours}
+                  </span>
+                  <button
+                    onClick={() => adjustHours(1)}
+                    className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
+                  >
+                    <Plus className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
             
-            {totalHours > 0 && (
-              <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <p className="text-blue-700 font-semibold text-center text-sm sm:text-base">
-                    Toplam: {formatHours(totalHours)}
-                  </p>
+              {/* Minutes */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm sm:text-base text-gray-700 font-medium">Dakika</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => adjustMinutes(-15)}
+                    className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
+                  >
+                    <Minus className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span className="text-xl sm:text-2xl font-bold text-gray-800 w-12 text-center">
+                    {minutes}
+                  </span>
+                  <button
+                    onClick={() => adjustMinutes(15)}
+                    className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
+                  >
+                    <Plus className="w-4 h-4 text-gray-600" />
+                  </button>
                 </div>
-                
-                {settings.deductBreakTime && totalHours >= 8 && (
-                  <div className="bg-orange-50 rounded-lg p-3">
-                    <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">
-                      Mola kesintisi: 1 saat (Ücrete dahil: {formatHours(effectiveHours)})
-                    </p>
-                  </div>
-                )}
-                
-                <div className="bg-green-50 rounded-lg p-3">
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 text-green-600 flex items-center justify-center text-xs font-bold">₺</div>
-                    <p className="text-green-700 font-semibold text-sm sm:text-base">
-                      ₺{totalPayment.toFixed(2)} (net)
-                      <span className="text-sm font-normal">
-                        ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''}
-                        {settings.deductBreakTime && totalHours >= 8 ? ' - mola kesintili' : ''})
+              </div>
+            </div>
+            
+            {/* Not Toggle Butonu - Klavye kapalıyken */}
+            {!isKeyboardOpen && (
+              <div className="border-t border-gray-200 pt-4">
+                <button
+                  onClick={handleNoteToggle}
+                  className={`
+                    w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 touch-manipulation
+                    ${showNoteSection 
+                      ? 'bg-blue-50 border-2 border-blue-200' 
+                      : note.trim() 
+                      ? 'bg-green-50 border-2 border-green-200' 
+                      : 'bg-gray-50 border border-gray-200 active:bg-gray-100'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`
+                      p-1.5 rounded-full
+                      ${showNoteSection 
+                        ? 'bg-blue-500' 
+                        : note.trim() 
+                        ? 'bg-green-500' 
+                        : 'bg-gray-400'
+                      }
+                    `}>
+                      <Edit3 className="w-3 h-3 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <span className={`
+                        text-sm font-medium
+                        ${showNoteSection 
+                          ? 'text-blue-700' 
+                          : note.trim() 
+                          ? 'text-green-700' 
+                          : 'text-gray-700'
+                        }
+                      `}>
+                        {note.trim() ? 'Not Düzenle' : 'Not Ekle'}
                       </span>
-                    </p>
+                      {note.trim() && (
+                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-48">
+                          {note.length > 30 ? `${note.substring(0, 30)}...` : note}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {note.trim() && (
+                      <span className="text-xs bg-white px-2 py-1 rounded-full text-gray-600">
+                        {note.length}/200
+                      </span>
+                    )}
+                    {showNoteSection ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
+                  </div>
+                </button>
               </div>
             )}
           </div>
           
-          <div className="space-y-4 sm:space-y-6 mb-6 sm:mb-8">
-            {/* Hours */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm sm:text-base text-gray-700 font-medium">Saat</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => adjustHours(-1)}
-                  className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
-                >
-                  <Minus className="w-4 h-4 text-gray-600" />
-                </button>
-                <span className="text-xl sm:text-2xl font-bold text-gray-800 w-12 text-center">
-                  {hours}
-                </span>
-                <button
-                  onClick={() => adjustHours(1)}
-                  className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
-                >
-                  <Plus className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-            </div>
-            
-            {/* Minutes */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm sm:text-base text-gray-700 font-medium">Dakika</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => adjustMinutes(-15)}
-                  className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
-                >
-                  <Minus className="w-4 h-4 text-gray-600" />
-                </button>
-                <span className="text-xl sm:text-2xl font-bold text-gray-800 w-12 text-center">
-                  {minutes}
-                </span>
-                <button
-                  onClick={() => adjustMinutes(15)}
-                  className="p-3 rounded-lg bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
-                >
-                  <Plus className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-            </div>
-            
-            {/* Note Section Toggle */}
-            <div className="border-t border-gray-200 pt-4 mb-4">
-              <button
-                onClick={() => setShowNoteSection(!showNoteSection)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg active:bg-gray-100 transition-colors touch-manipulation"
-              >
+          {/* Not Ekleme Alanı - Klavye açıkken veya not bölümü aktifken */}
+          {(showNoteSection || isKeyboardOpen) && (
+            <div 
+              className={`
+                flex-shrink-0 bg-white border-t-2 border-blue-200 p-4
+                ${isKeyboardOpen ? 'flex-1 flex flex-col' : ''}
+              `}
+            >
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm sm:text-base font-medium text-gray-700">
-                    Not Ekle {note.trim() && `(${note.length} karakter)`}
+                  <div className="p-1.5 bg-blue-500 rounded-full">
+                    <Edit3 className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-blue-700">
+                    Mesai Notu
                   </span>
                 </div>
-                {showNoteSection ? (
-                  <ChevronUp className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                )}
-              </button>
+                
+                <button
+                  onClick={() => setShowNoteSection(false)}
+                  className="p-2 rounded-lg active:bg-gray-100 transition-colors touch-manipulation"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
               
-              {showNoteSection && (
-                <div className="mt-3 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Bu mesai için bir not ekleyin... (örn: Proje teslimi, acil durum, vs.)"
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
-                    rows={4}
-                    maxLength={200}
-                    autoFocus
-                  />
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-gray-500">
-                      {note.length}/200 karakter
-                    </span>
-                    {note.trim() && (
-                      <button
-                        onClick={() => setNote('')}
-                        className="text-xs text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        Temizle
-                      </button>
-                    )}
-                  </div>
+              <div className={isKeyboardOpen ? 'flex-1 flex flex-col' : ''}>
+                <textarea
+                  id="note-textarea"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Bu mesai için açıklama ekleyin (proje, acil durum, vs.)"
+                  className={`
+                    w-full px-3 py-3 border border-gray-300 rounded-lg 
+                    focus:ring-2 focus:ring-blue-500 focus:border-transparent 
+                    text-sm sm:text-base resize-none transition-all
+                    ${isKeyboardOpen ? 'flex-1 min-h-[100px]' : 'h-20'}
+                  `}
+                  maxLength={200}
+                />
+                
+                <div className="flex justify-between items-center mt-2">
+                  <span className={`
+                    text-xs
+                    ${note.length > 180 ? 'text-red-500' : 'text-gray-500'}
+                  `}>
+                    {note.length}/200 karakter
+                  </span>
+                  
+                  {note.trim() && (
+                    <button
+                      onClick={() => setNote('')}
+                      className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded"
+                    >
+                      Temizle
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         
-        {/* Sabit Footer Butonları */}
+        {/* Sabit Footer Butonları - Klavye durumuna göre ayarlandı */}
         <div 
           className={`
-            sticky bottom-0 bg-white border-t border-gray-100 p-4 sm:p-6 flex-shrink-0
+            flex-shrink-0 bg-white border-t border-gray-100
             flex flex-col sm:flex-row gap-3
-            ${isAndroid ? 'android-safe-button' : 'pb-safe'}
+            ${isKeyboardOpen
+              ? 'p-3'
+              : isAndroid
+              ? 'p-4 sm:p-6 android-safe-button'
+              : 'p-4 sm:p-6 pb-safe'
+            }
           `}
-          style={isAndroid ? getButtonContainerStyle() : undefined}
+          style={isAndroid && !isKeyboardOpen ? getButtonContainerStyle() : undefined}
         >
           {existingEntry && (
             <button
@@ -311,7 +473,12 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
               className={`
                 flex-1 px-4 bg-red-500 text-white rounded-lg font-medium 
                 active:bg-red-600 transition-colors touch-manipulation
-                ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
+                ${isKeyboardOpen
+                  ? 'py-3 min-h-[44px]'
+                  : isAndroid
+                  ? 'android-button'
+                  : 'py-4 min-h-[48px]'
+                }
               `}
             >
               Sil
@@ -323,7 +490,12 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             disabled={hours === 0 && minutes === 0}
             className={`
               flex-1 px-4 rounded-lg font-medium transition-colors touch-manipulation
-              ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
+              ${isKeyboardOpen
+                ? 'py-3 min-h-[44px]'
+                : isAndroid
+                ? 'android-button'
+                : 'py-4 min-h-[48px]'
+              }
               ${hours === 0 && minutes === 0
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-blue-500 text-white active:bg-blue-600'
