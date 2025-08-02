@@ -250,19 +250,19 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             
               {totalHours > 0 && (
                 <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                  {settings.deductBreakTime && totalHours >= 7.5 && (
+                  {/*settings.deductBreakTime && totalHours >= 7.5 && (
                     <div className="bg-orange-50 rounded-lg p-3">
                       <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">
                         Mola kesintisi: 1 saat (Ücrete dahil: {formatHours(effectiveHours)})
                       </p>
                     </div>
-                  )}
+                  )*/}
                 
                   <div className="bg-green-50 rounded-lg p-3">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 text-green-600 flex items-center justify-center text-xs font-bold">₺</div>
                       <p className="text-green-700 font-semibold text-sm sm:text-base">
-                        ₺{totalPayment.toFixed(2)} (net)
+                        {totalPayment.toFixed(2)} (net)
                         <span className="text-sm font-normal">
                           ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''}
                           {settings.deductBreakTime && totalHours >= 7.5 ? ' - mola kesintili' : ''})
