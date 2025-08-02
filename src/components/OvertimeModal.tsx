@@ -85,16 +85,6 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const handleNoteToggle = () => {
     const newShowState = !showNoteSection;
     setShowNoteSection(newShowState);
-    
-    if (newShowState) {
-      // Not alanı açılıyorsa focus yap
-      setTimeout(() => {
-        const textarea = document.getElementById('note-textarea');
-        if (textarea) {
-          textarea.focus();
-        }
-      }, 200);
-    }
   };
   
   const handleSave = () => {
@@ -260,9 +250,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                 
                   <div className="bg-green-50 rounded-lg p-3">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 text-green-600 flex items-center justify-center text-xs font-bold">₺</div>
                       <p className="text-green-700 font-semibold text-sm sm:text-base">
-                        {totalPayment.toFixed(2)} (net)
+                        ₺{totalPayment.toFixed(2)} (net)
                         <span className="text-sm font-normal">
                           ({overtimeRate.toFixed(2)}₺/saat net{isHolidayDate ? ' - tatil' : isWeekend ? (isSaturday ? ' - cumartesi' : ' - pazar') : ''}
                           {settings.deductBreakTime && totalHours >= 7.5 ? ' - mola kesintili' : ''})
@@ -323,143 +312,110 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             {/* Not Toggle Butonu - Klavye kapalıyken */}
             {!isKeyboardOpen && (
               <div className="border-t border-gray-200 pt-4">
-                <button
-                  onClick={handleNoteToggle}
-                  className={`
-                    w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 touch-manipulation
-                    ${showNoteSection 
-                      ? 'bg-blue-50 border-2 border-blue-200' 
-                      : note.trim() 
-                      ? 'bg-green-50 border-2 border-green-200' 
-                      : 'bg-gray-50 border border-gray-200 active:bg-gray-100'
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`
-                      p-1.5 rounded-full
-                      ${showNoteSection 
-                        ? 'bg-blue-500' 
-                        : note.trim() 
-                        ? 'bg-green-500' 
-                        : 'bg-gray-400'
-                      }
-                    `}>
-                      <Edit3 className="w-3 h-3 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <span className={`
-                        text-sm font-medium
+                <div className={`
+                  rounded-lg border transition-all duration-300 overflow-hidden
+                  ${showNoteSection 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : note.trim() 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-gray-50 border-gray-200'
+                  }
+                `}>
+                  {/* Not Ekle Butonu */}
+                  <button
+                    onClick={handleNoteToggle}
+                    className="w-full flex items-center justify-between p-3 active:bg-black/5 transition-colors touch-manipulation"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`
+                        p-1.5 rounded-full transition-colors duration-200
                         ${showNoteSection 
-                          ? 'text-blue-700' 
+                          ? 'bg-blue-500' 
                           : note.trim() 
-                          ? 'text-green-700' 
-                          : 'text-gray-700'
+                          ? 'bg-green-500' 
+                          : 'bg-gray-400'
                         }
                       `}>
-                        {note.trim() ? 'Not Düzenle' : 'Not Ekle'}
-                      </span>
-                      {note.trim() && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-48">
-                          {note.length > 30 ? `${note.substring(0, 30)}...` : note}
-                        </p>
+                        <Edit3 className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="text-left">
+                        <span className={`
+                          text-sm font-medium transition-colors duration-200
+                          ${showNoteSection 
+                            ? 'text-blue-700' 
+                            : note.trim() 
+                            ? 'text-green-700' 
+                            : 'text-gray-700'
+                          }
+                        `}>
+                          Not Ekle
+                        </span>
+                        {note.trim() && !showNoteSection && (
+                          <p className="text-xs text-gray-500 mt-0.5 truncate max-w-48">
+                            {note.length > 30 ? `${note.substring(0, 30)}...` : note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {note.trim() && !showNoteSection && (
+                        <span className="text-xs bg-white px-2 py-1 rounded-full text-gray-600">
+                          {note.length}/200
+                        </span>
                       )}
+                      <div className={`transition-transform duration-300 ${showNoteSection ? 'rotate-180' : ''}`}>
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Açılır Not Alanı */}
+                  <div className={`
+                    transition-all duration-300 ease-in-out overflow-hidden
+                    ${showNoteSection ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'}
+                  `}>
+                    <div className="px-3 pb-3">
+                      <textarea
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Bu mesai için açıklama ekleyin (proje, acil durum, vs.)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none h-20 transition-all"
+                        maxLength={200}
+                      />
+                      
+                      <div className="flex justify-between items-center mt-2">
+                        <span className={`
+                          text-xs transition-colors
+                          ${note.length > 180 ? 'text-red-500' : 'text-gray-500'}
+                        `}>
+                          {note.length}/200 karakter
+                        </span>
+                        
+                        {note.trim() && (
+                          <button
+                            onClick={() => setNote('')}
+                            className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded"
+                          >
+                            Temizle
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {note.trim() && (
-                      <span className="text-xs bg-white px-2 py-1 rounded-full text-gray-600">
-                        {note.length}/200
-                      </span>
-                    )}
-                    {showNoteSection ? (
-                      <ChevronUp className="w-4 h-4 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
-                    )}
-                  </div>
-                </button>
+                </div>
               </div>
             )}
           </div>
-          
-          {/* Not Ekleme Alanı - Klavye açıkken veya not bölümü aktifken */}
-          {(showNoteSection || isKeyboardOpen) && (
-            <div 
-              className={`
-                flex-shrink-0 bg-white border-t-2 border-blue-200 p-4
-                ${isKeyboardOpen ? 'flex-1 flex flex-col' : ''}
-              `}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-500 rounded-full">
-                    <Edit3 className="w-3 h-3 text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-blue-700">
-                    Mesai Notu
-                  </span>
-                </div>
-                
-                <button
-                  onClick={() => setShowNoteSection(false)}
-                  className="p-2 rounded-lg active:bg-gray-100 transition-colors touch-manipulation"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-              
-              <div className={isKeyboardOpen ? 'flex-1 flex flex-col' : ''}>
-                <textarea
-                  id="note-textarea"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Bu mesai için açıklama ekleyin (proje, acil durum, vs.)"
-                  className={`
-                    w-full px-3 py-3 border border-gray-300 rounded-lg 
-                    focus:ring-2 focus:ring-blue-500 focus:border-transparent 
-                    text-sm sm:text-base resize-none transition-all
-                    ${isKeyboardOpen ? 'flex-1 min-h-[100px]' : 'h-20'}
-                  `}
-                  maxLength={200}
-                />
-                
-                <div className="flex justify-between items-center mt-2">
-                  <span className={`
-                    text-xs
-                    ${note.length > 180 ? 'text-red-500' : 'text-gray-500'}
-                  `}>
-                    {note.length}/200 karakter
-                  </span>
-                  
-                  {note.trim() && (
-                    <button
-                      onClick={() => setNote('')}
-                      className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded"
-                    >
-                      Temizle
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
         
         {/* Sabit Footer Butonları - Klavye durumuna göre ayarlandı */}
         <div 
           className={`
-            flex-shrink-0 bg-white border-t border-gray-100
-            flex flex-col sm:flex-row gap-3
-            ${isKeyboardOpen
-              ? 'p-3'
-              : isAndroid
-              ? 'p-4 sm:p-6 android-safe-button'
-              : 'p-4 sm:p-6 pb-safe'
-            }
+            flex-shrink-0 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3
+            ${isAndroid ? 'p-4 sm:p-6 android-safe-button' : 'p-4 sm:p-6 pb-safe'}
           `}
-          style={isAndroid && !isKeyboardOpen ? getButtonContainerStyle() : undefined}
+          style={isAndroid ? getButtonContainerStyle() : undefined}
         >
           {existingEntry && (
             <button
@@ -467,12 +423,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
               className={`
                 flex-1 px-4 bg-red-500 text-white rounded-lg font-medium 
                 active:bg-red-600 transition-colors touch-manipulation
-                ${isKeyboardOpen
-                  ? 'py-3 min-h-[44px]'
-                  : isAndroid
-                  ? 'android-button'
-                  : 'py-4 min-h-[48px]'
-                }
+                ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
               `}
             >
               Sil
@@ -484,12 +435,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             disabled={hours === 0 && minutes === 0}
             className={`
               flex-1 px-4 rounded-lg font-medium transition-colors touch-manipulation
-              ${isKeyboardOpen
-                ? 'py-3 min-h-[44px]'
-                : isAndroid
-                ? 'android-button'
-                : 'py-4 min-h-[48px]'
-              }
+              ${isAndroid ? 'android-button' : 'py-4 min-h-[48px]'}
               ${hours === 0 && minutes === 0
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-blue-500 text-white active:bg-blue-600'
