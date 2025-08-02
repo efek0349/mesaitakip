@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --vh: 1vh;
+    --modal-safe-height: 85vh;
+    --modal-safe-padding: 16px;
+    --nav-bar-height: 0px;
+  }
+  
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    /* Android için tam ekran desteği */
+    height: 100%;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    /* Android için tam ekran desteği */
+    height: 100%;
+    height: calc(var(--vh, 1vh) * 100);
+    position: relative;
+  }
+  
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Android navigasyon çubuğu için özel stiller */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .android-safe-modal {
+      padding-bottom: env(safe-area-inset-bottom);
+      margin-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .android-safe-button {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+    }
+  }
+}
+
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Gelişmiş Android güvenli alan desteği */
+  .pb-safe {
+    padding-bottom: var(--modal-safe-padding, 16px);
+  }
+  
+  .mb-safe {
+    margin-bottom: var(--modal-safe-padding, 0px);
+  }
+  
+  .h-safe {
+    height: var(--modal-safe-height, 85vh);
+  }
+  
+  .max-h-safe {
+    max-height: var(--modal-safe-height, 85vh);
+  }
+  
+  /* Android için gelişmiş buton stilleri */
+  .min-h-touch {
+    min-height: 48px;
+  }
+  
+  .android-button {
+    min-height: 56px; /* Android Material Design standardı */
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  
+  /* Mobil not ekleme için özel stiller */
+  /* Mobil klavye açıkken modal düzeltmeleri */
+  @media (max-width: 768px) {
+    .overtime-modal-content {
+      transition: all 0.3s ease;
+    }
+    
+    .overtime-modal-content.keyboard-open {
+      position: fixed !important;
+      top: 10px !important;
+      left: 10px !important;
+      right: 10px !important;
+      bottom: 10px !important;
+      max-height: calc(100vh - 20px) !important;
+      height: auto !important;
+      margin: 0 !important;
+      overflow-y: auto !important;
+    }
+  }
+  
+  /* Android input field optimizasyonları */
+  textarea {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  
+  /* Mobil cihazlarda textarea optimizasyonu */
+  @media (pointer: coarse) {
+    textarea {
+      font-size: 16px !important; /* iOS zoom'u önlemek için */
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    textarea:focus {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+  }
+  
+  input[type="number"] {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Android klavye için özel davranış */
+  @media (pointer: coarse) {
+    input[type="number"]:not(textarea) {
+      font-size: 16px; /* iOS zoom'u önlemek için */
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    
+    input[type="number"]:focus {
+      -webkit-user-select: all;
+      user-select: all;
+    }
+  }
+  
+  /* Textarea için özel focus stilleri */
+  textarea:focus {
+    outline: none !important;
+    border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+  }
+  
+  /* Mobil cihazlarda textarea'nın daha iyi görünmesi için */
+  @media (max-width: 768px) {
+    textarea {
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+  }
+  
+  /* Modal için özel Android stilleri */
+  .modal-android {
+    max-height: var(--modal-safe-height, 85vh);
+    margin-bottom: var(--modal-safe-padding, 0px);
+  }
+  
+  /* Sticky header için özel stiller */
+  .sticky {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+  
+  /* Navigasyon çubuğu yüksekliği kadar boşluk */
+  .pb-nav {
+    padding-bottom: var(--nav-bar-height, 0px);
+  }
+  
+  /* Dinamik viewport yüksekliği */
+  .h-screen-dynamic {
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  .min-h-screen-dynamic {
+    min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+}
