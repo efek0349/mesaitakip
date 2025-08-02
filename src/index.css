@@ -79,19 +79,6 @@
   }
   
   /* Mobil not ekleme için özel stiller */
-  .mobile-note-input {
-    font-size: 16px !important; /* iOS zoom'u önlemek için */
-    -webkit-appearance: none;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-  }
-  
-  .mobile-note-input:focus {
-    outline: none;
-    border-color: #3B82F6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-  }
-  
   /* Mobil klavye açıkken modal düzeltmeleri */
   @media (max-width: 768px) {
     .overtime-modal-content {
@@ -112,6 +99,27 @@
   }
   
   /* Android input field optimizasyonları */
+  textarea {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  
+  /* Mobil cihazlarda textarea optimizasyonu */
+  @media (pointer: coarse) {
+    textarea {
+      font-size: 16px !important; /* iOS zoom'u önlemek için */
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    textarea:focus {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+  }
+  
   input[type="number"] {
     -webkit-appearance: none;
     -moz-appearance: textfield;
@@ -125,7 +133,7 @@
   
   /* Android klavye için özel davranış */
   @media (pointer: coarse) {
-    input[type="number"] {
+    input[type="number"]:not(textarea) {
       font-size: 16px; /* iOS zoom'u önlemek için */
       -webkit-user-select: text;
       user-select: text;
@@ -134,6 +142,21 @@
     input[type="number"]:focus {
       -webkit-user-select: all;
       user-select: all;
+    }
+  }
+  
+  /* Textarea için özel focus stilleri */
+  textarea:focus {
+    outline: none !important;
+    border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+  }
+  
+  /* Mobil cihazlarda textarea'nın daha iyi görünmesi için */
+  @media (max-width: 768px) {
+    textarea {
+      border-radius: 8px;
+      transition: all 0.3s ease;
     }
   }
   

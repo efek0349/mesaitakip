@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Plus, Minus, Clock, DollarSign, Calendar, FileText, ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
@@ -28,6 +28,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [modalContentHeight, setModalContentHeight] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [noteInputRef, setNoteInputRef] = useState<HTMLTextAreaElement | null>(null);
+  const [focusTimeout, setFocusTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const existingEntry = selectedDate ? getOvertimeForDate(selectedDate) : null;
   
@@ -94,7 +96,10 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
       }, 500);
     });
     
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
 
   // Not alanı toggle fonksiyonu
@@ -103,14 +108,29 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     console.log('📝 Note toggle:', { current: showNoteSection, new: newShowState });
     setShowNoteSection(newShowState);
     
-    // Mobil cihazlarda focus problemi için gecikme
-    if (newShowState && !isMobile) {
-      setTimeout(() => {
-        const textarea = document.querySelector('.overtime-modal-content textarea');
-        if (textarea) {
-          (textarea as HTMLTextAreaElement).focus();
+    // Focus yönetimi - mobil ve desktop için optimize edildi
+    if (newShowState) {
+      // Önceki timeout'u temizle
+      if (focusTimeout) {
+        clearTimeout(focusTimeout);
+      }
+      
+      // Mobil cihazlar için daha uzun gecikme
+      const delay = isMobile ? 500 : 200;
+      const timeout = setTimeout(() => {
+        if (noteInputRef) {
+          console.log('🎯 Focusing note input');
+          noteInputRef.focus();
+          
+          // Mobil cihazlarda cursor'u sona getir
+          if (isMobile) {
+            const length = noteInputRef.value.length;
+            noteInputRef.setSelectionRange(length, length);
+          }
         }
-      }, 200);
+      }, delay);
+      
+      setFocusTimeout(timeout);
     }
     
     // Mobil cihazlarda scroll problemi için
@@ -123,6 +143,15 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
       }, 100);
     }
   };
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (focusTimeout) {
+        clearTimeout(focusTimeout);
+      }
+    };
+  }, [focusTimeout]);
   
   const handleSave = () => {
     if (selectedDate && (hours > 0 || minutes > 0)) {
@@ -161,12 +190,25 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   
   const handleClose = () => {
     console.log('🚪 Modal handleClose called');
+    // Timeout'u temizle
+    if (focusTimeout) {
+      clearTimeout(focusTimeout);
+    }
     setHours(0);
     setMinutes(0);
     setNote('');
     setShowNoteSection(false);
     onClose();
   };
+  
+  // Not input ref callback
+  const handleNoteInputRef = useCallback((element: HTMLTextAreaElement | null) => {
+    setNoteInputRef(element);
+    if (element && showNoteSection && isMobile) {
+      // Ref set edildiğinde focus yap
+      setTimeout(() => element.focus(), 100);
+    }
+  }, [showNoteSection, isMobile]);
   
   if (!isOpen || !selectedDate) {
     console.log('❌ Modal not rendering:', { isOpen, hasSelectedDate: !!selectedDate });
@@ -298,14 +340,6 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             
               {totalHours > 0 && (
                 <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                  {/*settings.deductBreakTime && totalHours >= 7.5 && (
-                    <div className="bg-orange-50 rounded-lg p-3">
-                      <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">
-                        Mola kesintisi: 1 saat (Ücrete dahil: {formatHours(effectiveHours)})
-                      </p>
-                    </div>
-                  )*/}
-                
                   <div className="bg-green-50 rounded-lg p-3">
                     <div className="flex items-center justify-center gap-2">
                       <p className="text-green-700 font-semibold text-sm sm:text-base">
@@ -435,13 +469,37 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                   `}>
                     <div className="px-3 pt-1">
                       <textarea
+                        ref={handleNoteInputRef}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         placeholder="Bu mesai için açıklama ekleyin (proje, acil durum, vs.)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none h-20 transition-all"
+                        className={`
+                          w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 
+                          focus:border-transparent text-sm resize-none h-20 transition-all
+                          ${isMobile ? 'text-base' : 'text-sm'}
+                        `}
                         maxLength={200}
                         rows={3}
                         style={{ minHeight: '80px' }}
+                        onFocus={() => {
+                          console.log('📝 Note input focused');
+                          if (isMobile) {
+                            // Mobil cihazlarda scroll'u engelle
+                            setTimeout(() => {
+                              const modal = document.querySelector('.overtime-modal-content');
+                              if (modal) {
+                                modal.scrollTop = modal.scrollHeight;
+                              }
+                            }, 300);
+                          }
+                        }}
+                        onBlur={() => {
+                          console.log('📝 Note input blurred');
+                        }}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck="false"
+                        inputMode="text"
                       />
                       
                       <div className="flex justify-between items-center mt-2">
@@ -481,14 +539,18 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                     className={`
                       w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 
                       focus:border-transparent text-sm resize-none h-20 transition-all
-                      ${isMobile ? 'mobile-note-input text-base' : ''}
+                      ${isMobile ? 'text-base' : 'text-sm'}
                     `}
                     maxLength={200}
                     rows={3}
-                    autoFocus={false}
+                    autoFocus={true}
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck="false"
+                    inputMode="text"
+                    onFocus={() => {
+                      console.log('📝 Mobile note input focused');
+                    }}
                   />
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-xs text-gray-500">

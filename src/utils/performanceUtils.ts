@@ -180,6 +180,58 @@ export function processInChunks<T>(
 // Global performans monitörü
 export const performanceMonitor = PerformanceMonitor.getInstance();
 
+// Mobil input optimizasyonu için debounced focus handler
+export const createOptimizedFocusHandler = (
+  callback: () => void,
+  delay: number = 300
+) => {
+  let timeoutId: NodeJS.Timeout | null = null;
+  
+  return () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    timeoutId = setTimeout(() => {
+      callback();
+      timeoutId = null;
+    }, delay);
+  };
+};
+
+// Mobil klavye açılma/kapanma tespiti için optimize edilmiş handler
+export const createKeyboardHandler = (
+  onOpen: (height: number) => void,
+  onClose: () => void
+) => {
+  let initialHeight = window.innerHeight;
+  let isKeyboardOpen = false;
+  
+  const handler = throttle(() => {
+    const currentHeight = window.innerHeight;
+    const heightDiff = initialHeight - currentHeight;
+    const threshold = 150; // Klavye açılma eşiği
+    
+    if (heightDiff > threshold && !isKeyboardOpen) {
+      isKeyboardOpen = true;
+      onOpen(heightDiff);
+    } else if (heightDiff <= threshold && isKeyboardOpen) {
+      isKeyboardOpen = false;
+      onClose();
+    }
+  }, 100); // 100ms throttle
+  
+  // İlk yükleme
+  initialHeight = window.innerHeight;
+  
+  return {
+    handler,
+    cleanup: () => {
+      // Cleanup işlemleri
+    }
+  };
+};
+
 // Periyodik performans kontrolü
 if (typeof window !== 'undefined') {
   setInterval(() => {
