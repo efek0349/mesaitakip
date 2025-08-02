@@ -122,6 +122,10 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  Mesailere Not ekleme
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                   Mobil uyumlu tasarım
                 </li>
                 <li className="flex items-center gap-2">
