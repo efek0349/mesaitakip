@@ -107,7 +107,7 @@ function App() {
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium text-gray-800">
-                  8+ saat mesailerde 1 saatlik mola kesintisi
+                  7.5+ saat mesailerde 1 saatlik mola kesintisi
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Mesai ücretinden otomatik olarak 1 saat düşülür

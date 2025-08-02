@@ -347,10 +347,10 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
                 
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    8+ saat mesailerde 1 saatlik mola kesintisi
+                    7.5+ saat mesailerde 1 saatlik mola kesintisi
                   </label>
                   <p className="text-xs text-gray-500">
-                    Bu seçenek aktif olduğunda, 8 saat ve üzeri mesai girişlerinde otomatik olarak 1 saat mola kesintisi yapılır ve ücret hesaplamasında bu düşülmüş saat dikkate alınır.
+                    Bu seçenek aktif olduğunda, 7.5 saat ve üzeri mesai girişlerinde otomatik olarak 1 saat mola kesintisi yapılır ve ücret hesaplamasında bu düşülmüş saat dikkate alınır.
                   </p>
                 </div>
               </div>

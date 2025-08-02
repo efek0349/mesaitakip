@@ -102,7 +102,7 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   
   text += `${TURKISH_MONTHS[month]} ${year} - Mesai Saatleri\n`;
   if (deductBreakTime) {
-    text += '(8+ saat mesailerde 1 saat mola kesintisi uygulanmıştır)\n';
+    text += '(7.5+ saat mesailerde 1 saat mola kesintisi uygulanmıştır)\n';
   }
   text += '\n';
   
@@ -119,11 +119,11 @@ export const generateExportText = (monthlyData: any, year: number, month: number
     
     // Mola kesintisi hesaplama
     let effectiveHours = entry.totalHours;
-    if (deductBreakTime && entry.totalHours >= 8) {
+    if (deductBreakTime && entry.totalHours >= 7.5) {
       effectiveHours = Math.max(0, entry.totalHours - 1);
     }
     
-    const hoursText = deductBreakTime && entry.totalHours >= 8 
+    const hoursText = deductBreakTime && entry.totalHours >= 7.5 
       ? `${formatHours(effectiveHours)} (${formatHours(entry.totalHours)} - 1s mola)`
       : formatHours(entry.totalHours);
     

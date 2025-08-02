@@ -44,7 +44,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     
     // Mola kesintisi hesaplama
     let effectiveHours = entry.totalHours || 0;
-    if (settings.deductBreakTime && effectiveHours >= 8) {
+    if (settings.deductBreakTime && effectiveHours >= 7.5) {
       effectiveHours = Math.max(0, effectiveHours - 1); // 1 saat mola kesintisi
     }
     
