@@ -250,12 +250,6 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             
               {totalHours > 0 && (
                 <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                  <div className="bg-blue-50 rounded-lg p-3">
-                    <p className="text-blue-700 font-semibold text-center text-sm sm:text-base">
-                      Toplam: {formatHours(totalHours)}
-                    </p>
-                  </div>
-                
                   {settings.deductBreakTime && totalHours >= 8 && (
                     <div className="bg-orange-50 rounded-lg p-3">
                       <p className="text-orange-700 font-medium text-center text-xs sm:text-sm">

@@ -113,7 +113,7 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
             </div>
             {/* Maaş Bilgileri */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 sm:mb-4">Maaş Bilgileri (2025)</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 sm:mb-4">Maaş Bilgileri</h3>
               
               <div className="space-y-4">
                 <div>
