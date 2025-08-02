@@ -8,6 +8,7 @@ Modern ve kullanıcı dostu bir mesai takip uygulaması. React, TypeScript ve Ta
 - **Akıllı Ücret Hesaplama**: Haftaiçi, cumartesi, pazar ve resmi tatil günleri için farklı katsayılarla otomatik ücret hesaplama
 - **Resmi & Dini Tatil Desteği**: 2025-2035 yılları arası tüm resmi ve dini tatiller önceden tanımlı
 - **Detaylı Raporlama**: Aylık özet raporları ve mesai türlerine göre ayrıntılı analiz
+- **Mesai Notlari**: Mesai eklemelerine özel not ekleme özelliği ile detaylı kayıt imkânı
 - **Veri Yedekleme**: Verilerinizi yedekleyin, paylaşın ve geri yükleyin
 - **Maaş Ayarları**: Kişiselleştirilebilir maaş ve vergi oranları
 - **Mobil Uyumlu**: Android APK desteği ile mobil cihazlarda sorunsuz çalışma
