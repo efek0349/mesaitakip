@@ -78,6 +78,39 @@
     padding-bottom: 16px;
   }
   
+  /* Mobil not ekleme için özel stiller */
+  .mobile-note-input {
+    font-size: 16px !important; /* iOS zoom'u önlemek için */
+    -webkit-appearance: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .mobile-note-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Mobil klavye açıkken modal düzeltmeleri */
+  @media (max-width: 768px) {
+    .overtime-modal-content {
+      transition: all 0.3s ease;
+    }
+    
+    .overtime-modal-content.keyboard-open {
+      position: fixed !important;
+      top: 10px !important;
+      left: 10px !important;
+      right: 10px !important;
+      bottom: 10px !important;
+      max-height: calc(100vh - 20px) !important;
+      height: auto !important;
+      margin: 0 !important;
+      overflow-y: auto !important;
+    }
+  }
+  
   /* Android input field optimizasyonları */
   input[type="number"] {
     -webkit-appearance: none;

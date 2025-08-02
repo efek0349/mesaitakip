@@ -27,6 +27,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [modalContentHeight, setModalContentHeight] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   
   const existingEntry = selectedDate ? getOvertimeForDate(selectedDate) : null;
   
@@ -43,6 +44,20 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
       setShowNoteSection(false);
     }
   }, [existingEntry, selectedDate]);
+
+  // Mobil cihaz tespiti
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                           window.innerWidth <= 768 ||
+                           ('ontouchstart' in window);
+      setIsMobile(isMobileDevice);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Gelişmiş klavye açılma/kapanma tespiti
   useEffect(() => {
@@ -85,16 +100,28 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
   // Not alanı toggle fonksiyonu
   const handleNoteToggle = () => {
     const newShowState = !showNoteSection;
+    console.log('📝 Note toggle:', { current: showNoteSection, new: newShowState });
     setShowNoteSection(newShowState);
     
-    // Not alanı açıldığında/kapandığında modal yüksekliğini yeniden hesapla
-    setTimeout(() => {
-      const modalElement = document.querySelector('.overtime-modal-content');
-      if (modalElement) {
-        const rect = modalElement.getBoundingClientRect();
-        setModalContentHeight(rect.height);
-      }
-    }, 100);
+    // Mobil cihazlarda focus problemi için gecikme
+    if (newShowState && !isMobile) {
+      setTimeout(() => {
+        const textarea = document.querySelector('.overtime-modal-content textarea');
+        if (textarea) {
+          (textarea as HTMLTextAreaElement).focus();
+        }
+      }, 200);
+    }
+    
+    // Mobil cihazlarda scroll problemi için
+    if (isMobile && newShowState) {
+      setTimeout(() => {
+        const modal = document.querySelector('.overtime-modal-content');
+        if (modal) {
+          modal.scrollTop = modal.scrollHeight;
+        }
+      }, 100);
+    }
   };
   
   const handleSave = () => {
@@ -176,20 +203,26 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
 
   // Klavye açıkken modal yüksekliğini ayarla
   const getKeyboardAwareStyle = () => {
-    const availableHeight = window.innerHeight;
-    
-    if (isKeyboardOpen && keyboardHeight > 0) {
+    if (isMobile && isKeyboardOpen) {
+      // Mobil cihazlarda klavye açıkken çok basit stil
       return {
-        maxHeight: `${availableHeight - 20}px`,
+        position: 'fixed' as const,
+        top: '10px',
+        left: '10px',
+        right: '10px',
+        bottom: '10px',
+        maxHeight: 'calc(100vh - 20px)',
         height: 'auto',
-        marginBottom: '0px'
+        margin: '0'
       };
-    } else if (showNoteSection) {
-      // Not alanı açıkken daha fazla alan ver
+    }
+    
+    if (isMobile && showNoteSection && !isKeyboardOpen) {
+      // Mobil cihazlarda not alanı açıkken
       return {
-        maxHeight: `${Math.min(availableHeight * 0.9, 700)}px`,
+        maxHeight: '90vh',
         height: 'auto',
-        marginBottom: isAndroid ? `${modalSafePadding}px` : '0px'
+        marginBottom: '10px'
       };
     }
     
@@ -200,10 +233,14 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50" style={{ display: 'flex' }}>
       <div 
         className={`
-          bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col
+          bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col
           overtime-modal-content
-          ${isKeyboardOpen 
-            ? 'h-auto' 
+          ${isMobile && isKeyboardOpen
+            ? 'overflow-visible'
+            : 'overflow-hidden'
+          }
+          ${isKeyboardOpen && isMobile
+            ? 'h-auto max-h-none' 
             : isAndroid 
             ? 'modal-android android-safe-modal' 
             : 'max-h-[85vh] mb-safe'
@@ -331,7 +368,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
             </div>
             
             {/* Not Toggle Butonu - Klavye kapalıyken */}
-            {(
+            {(!isKeyboardOpen || !isMobile) && (
               <div className="border-t border-gray-200 pt-4">
                 <div className={`
                   rounded-lg border transition-all duration-300 overflow-hidden
@@ -394,16 +431,17 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                   {/* Açılır Not Alanı */}
                   <div className={`
                     transition-all duration-300 ease-in-out overflow-hidden
-                    ${showNoteSection ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}
+                    ${showNoteSection ? 'max-h-48 opacity-100 pb-3' : 'max-h-0 opacity-0 pb-0'}
                   `}>
-                    <div className="px-3 pb-3 pt-1">
+                    <div className="px-3 pt-1">
                       <textarea
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         placeholder="Bu mesai için açıklama ekleyin (proje, acil durum, vs.)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none h-24 transition-all"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none h-20 transition-all"
                         maxLength={200}
                         rows={3}
+                        style={{ minHeight: '80px' }}
                       />
                       
                       <div className="flex justify-between items-center mt-2">
@@ -428,13 +466,51 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
                 </div>
               </div>
             )}
+            
+            {/* Klavye açıkken basit not alanı */}
+            {isKeyboardOpen && showNoteSection && isMobile && (
+              <div className="border-t border-gray-200 pt-2 mt-2">
+                <div className="bg-blue-50 rounded-lg p-2">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Not
+                  </label>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Açıklama ekleyin..."
+                    className={`
+                      w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 
+                      focus:border-transparent text-sm resize-none h-20 transition-all
+                      ${isMobile ? 'mobile-note-input text-base' : ''}
+                    `}
+                    maxLength={200}
+                    rows={3}
+                    autoFocus={false}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      {note.length}/200
+                    </span>
+                    <button
+                      onClick={() => setShowNoteSection(false)}
+                      className="text-xs text-blue-600 px-2 py-1 rounded active:bg-blue-100"
+                    >
+                      Kapat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         
         {/* Sabit Footer Butonları - Klavye durumuna göre ayarlandı */}
         <div 
           className={`
-            flex-shrink-0 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3 sticky bottom-0
+            flex-shrink-0 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3
             ${isKeyboardOpen 
               ? 'p-3 pb-4' 
               : isAndroid 
@@ -442,7 +518,11 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = ({ isOpen, onClose, s
               : 'p-4 sm:p-6 pb-safe'
             }
           `}
-          style={isKeyboardOpen ? undefined : (isAndroid ? getButtonContainerStyle() : undefined)}
+          style={{
+            ...(isKeyboardOpen ? undefined : (isAndroid ? getButtonContainerStyle() : undefined)),
+            position: isMobile && isKeyboardOpen ? 'sticky' : undefined,
+            bottom: isMobile && isKeyboardOpen ? '0' : undefined
+          }}
         >
           {existingEntry && (
             <button
