@@ -21,15 +21,19 @@
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overscroll-behavior: none;
+    overscroll-behavior: contain;
     /* Android için tam ekran desteği */
     height: 100%;
     height: calc(var(--vh, 1vh) * 100);
     position: relative;
+    /* Performance optimization */
+    -webkit-overflow-scrolling: touch;
   }
   
   * {
     -webkit-tap-highlight-color: transparent;
+    /* Performance optimization */
+    will-change: transform;
   }
   
   /* Android navigasyon çubuğu için özel stiller */
@@ -78,23 +82,40 @@
     padding-bottom: 16px;
   }
   
-  /* Mobil not ekleme için özel stiller */
-  /* Mobil klavye açıkken modal düzeltmeleri */
+  /* Not alanı için geliştirilmiş stiller */
+  .note-textarea {
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    /* Performance optimization */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+  
+  .note-textarea:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Mobil cihazlar için optimize edilmiş stiller */
   @media (max-width: 768px) {
-    .overtime-modal-content {
-      transition: all 0.3s ease;
+    .note-textarea {
+      font-size: 16px; /* iOS zoom önleme */
+      padding: 14px;
     }
     
-    .overtime-modal-content.keyboard-open {
-      position: fixed !important;
-      top: 10px !important;
-      left: 10px !important;
-      right: 10px !important;
-      bottom: 10px !important;
-      max-height: calc(100vh - 20px) !important;
-      height: auto !important;
-      margin: 0 !important;
-      overflow-y: auto !important;
+    .overtime-modal-content {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Scroll performance optimization */
+    .scroll-container {
+      -webkit-overflow-scrolling: touch;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
   }
   
@@ -103,21 +124,9 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-  }
-  
-  /* Mobil cihazlarda textarea optimizasyonu */
-  @media (pointer: coarse) {
-    textarea {
-      font-size: 16px !important; /* iOS zoom'u önlemek için */
-      -webkit-user-select: text;
-      user-select: text;
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    textarea:focus {
-      -webkit-user-select: text;
-      user-select: text;
-    }
+    /* Performance optimization */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
   
   input[type="number"] {
@@ -131,39 +140,38 @@
     margin: 0;
   }
   
-  /* Android klavye için özel davranış */
-  @media (pointer: coarse) {
-    input[type="number"]:not(textarea) {
-      font-size: 16px; /* iOS zoom'u önlemek için */
-      -webkit-user-select: text;
-      user-select: text;
-    }
-    
-    input[type="number"]:focus {
-      -webkit-user-select: all;
-      user-select: all;
-    }
-  }
-  
-  /* Textarea için özel focus stilleri */
-  textarea:focus {
-    outline: none !important;
-    border-color: #3B82F6 !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
-  }
-  
-  /* Mobil cihazlarda textarea'nın daha iyi görünmesi için */
-  @media (max-width: 768px) {
-    textarea {
-      border-radius: 8px;
-      transition: all 0.3s ease;
-    }
-  }
-  
   /* Modal için özel Android stilleri */
   .modal-android {
     max-height: var(--modal-safe-height, 85vh);
-    margin-bottom: var(--modal-safe-padding, 0px);
+    margin: 1rem; /* Add margin for spacing */
+    border-radius: 1rem; /* Ensure rounded corners */
+    /* Center the modal */
+    align-self: center;
+    justify-self: center;
+    /* Performance optimization */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+  
+  /* Genel modal stilleri */
+  .overtime-modal-content {
+    /* Ensure proper centering */
+    margin: auto;
+    border-radius: 1rem;
+  }
+  
+  /* Responsive modal adjustments */
+  @media (max-width: 480px) {
+    .modal-android {
+      margin: 0.5rem;
+      border-radius: 0.75rem;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .modal-android {
+      margin: 2rem;
+    }
   }
   
   /* Sticky header için özel stiller */
@@ -186,5 +194,30 @@
   .min-h-screen-dynamic {
     min-height: 100vh;
     min-height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  /* Akışkan animasyonlar için */
+  .smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .smooth-transform {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Performance optimizations */
+  .will-change-transform {
+    will-change: transform;
+  }
+  
+  .will-change-scroll {
+    will-change: scroll-position;
+  }
+  
+  .hardware-accelerated {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 }

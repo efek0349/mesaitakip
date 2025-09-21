@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Calendar } from './components/Calendar';
 import { MonthlyStats } from './components/MonthlyStats';
 import { OvertimeModal } from './components/OvertimeModal';
@@ -8,14 +8,18 @@ import { AboutModal } from './components/AboutModal';
 import { DataBackupModal } from './components/DataBackupModal';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
-import { useAndroidSafeArea } from './hooks/useAndroidSafeArea';
-import { Clock, CheckSquare, Square } from 'lucide-react';
+import { useHolidays } from './hooks/useHolidays';
+import { TURKISH_MONTHS } from './utils/dateUtils';
+import { Clock, CheckSquare, Square, Settings, Download, Share2, Trash2, Info } from 'lucide-react';
+import { ActionIcons } from './components/ActionIcons';
+import { generateExportText } from './utils/dateUtils';
+import { downloadTextFile, shareText } from './utils/fileUtils';
 
-function App() {
+const App: React.FC = () => {
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
-  const { isLoaded: dataLoaded } = useOvertimeData();
-  const { isLoaded: salaryLoaded, settings, updateSettings } = useSalarySettings();
-  const { isAndroid } = useAndroidSafeArea();
+  const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData } = useOvertimeData();
+  const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate } = useSalarySettings();
+  const { getHoliday } = useHolidays();
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -24,13 +28,61 @@ function App() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isDataBackupOpen, setIsDataBackupOpen] = useState(false);
   
+  // Memoized callbacks for better performance
+  const handleDateClick = useCallback((date: Date) => {
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  }, []);
+  
+  const handleFabClick = useCallback(() => {
+    setSelectedDate(new Date());
+    setIsModalOpen(true);
+  }, []);
+  
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedDate(null);
+  }, []);
+  
+  const handleOpenSalarySettings = useCallback(() => {
+    setIsSalarySettingsOpen(true);
+  }, []);
+  
+  const handleOpenDataBackup = useCallback(() => {
+    setIsDataBackupOpen(true);
+  }, []);
+
+  const handleShareMonthlyStats = useCallback(async () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
+    const title = `${TURKISH_MONTHS[month]} ${year} Mesai Raporu`;
+    await shareText(exportText, title);
+  }, [currentDate, monthlyData, settings, getHoliday]);
+
+  const handleClearMonthlyStats = useCallback(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    if (window.confirm(`${TURKISH_MONTHS[month]} ${year} ayındaki tüm mesai kayıtlarını silmek istediğinizden emin misiniz?`)) {
+      clearMonthData(year, month);
+    }
+  }, [currentDate, clearMonthData]);
+  
+  // Memoized current date to prevent unnecessary re-renders
+  const memoizedCurrentDate = useMemo(() => new Date(currentDate.getTime()), [currentDate.getTime()]);
+  
+  // Memoized handlers that depend on currentDate
+  const handleDateChange = useCallback((date: Date) => {
+    setCurrentDate(date);
+  }, []);
+  
   // Show loading screen while data is being loaded
   if (!dataLoaded || !salaryLoaded) {
     return (
-      <div className={`
+      <div className="
         bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center
-        ${isAndroid ? 'min-h-screen-dynamic' : 'min-h-screen'}
-      `}>
+        min-h-screen-dynamic
+      ">
         <div className="text-center">
           <div className="p-4 bg-blue-500 rounded-full mb-4 mx-auto w-16 h-16 flex items-center justify-center">
             <Clock className="w-8 h-8 text-white animate-pulse" />
@@ -42,123 +94,61 @@ function App() {
     );
   }
 
-  const handleDateClick = (date: Date) => {
-    console.log('📅 Date clicked:', date);
-    setSelectedDate(date);
-    setIsModalOpen(true);
-  };
-  
-  const handleFabClick = () => {
-    console.log('➕ FAB clicked');
-    setSelectedDate(new Date());
-    setIsModalOpen(true);
-  };
-  
-  const handleCloseModal = () => {
-    console.log('❌ Modal closing');
-    setIsModalOpen(false);
-    setSelectedDate(null);
-  };
-  
-  const handleBreakTimeToggle = () => {
-    updateSettings({
-      ...settings,
-      deductBreakTime: !settings.deductBreakTime
-    });
-  };
+  const monthlyTotal = getMonthlyTotal(currentDate.getFullYear(), currentDate.getMonth());
 
   return (
-    <div className={`
-      bg-gradient-to-br from-blue-50 to-indigo-100 pb-20
-      ${isAndroid ? 'min-h-screen-dynamic' : 'min-h-screen'}
-    `}>
-      <div className="container mx-auto px-3 py-4 max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-2 mb-3">
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 h-screen-dynamic flex flex-col pb-nav">
+      {/* Header */}
+      <div className="flex-shrink-0">
+        <div className="container mx-auto px-2 pt-4 max-w-4xl">
+          <div className="flex items-center justify-between">
             <button
               onClick={() => setIsAboutModalOpen(true)}
-              className="absolute left-3 top-4 p-2 rounded-lg active:bg-white/20 transition-colors touch-manipulation"
+              className="flex items-center justify-start gap-2 flex-grow p-2 rounded-lg active:bg-gray-100 transition-colors touch-manipulation cursor-pointer"
+              aria-label="Hakkında"
             >
-              <div className="w-6 h-6 border-2 border-gray-600 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-gray-600">i</span>
+              <div className="p-2 bg-blue-500 rounded-full">
+                <Info className="w-6 h-6 text-white" />
               </div>
+              <h1 className="text-2xl font-bold text-gray-800">Mesai Takip</h1>
             </button>
-            <div className="p-2 bg-blue-500 rounded-full">
-              <Clock className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              Mesai Takip
-            </h1>
-          </div>
-          
-          {/* Mola kesintisi ayarı */}
-          <div className="mt-4 px-4">
-            <button
-              onClick={handleBreakTimeToggle}
-              className="flex items-center gap-3 w-full max-w-md mx-auto p-3 bg-white rounded-xl shadow-sm border border-gray-200 active:bg-gray-50 transition-colors touch-manipulation"
-            >
-              <div className="flex-shrink-0">
-                {settings.deductBreakTime ? (
-                  <CheckSquare className="w-5 h-5 text-blue-500" />
-                ) : (
-                  <Square className="w-5 h-5 text-gray-400" />
-                )}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-gray-800">
-                  7.5+ saat mesailerde 1 saatlik mola kesintisi
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Mesai ücretinden otomatik olarak 1 saat düşülür
-                </p>
-              </div>
-            </button>
+
+            {/* Action Icons (sağ) */}
+            <ActionIcons
+              onOpenDataBackup={handleOpenDataBackup}
+              onOpenSalarySettings={handleOpenSalarySettings}
+              onShareMonthlyStats={handleShareMonthlyStats}
+              onClearMonthlyStats={handleClearMonthlyStats}
+              canShare={monthlyTotal > 0}
+              canClear={monthlyTotal > 0}
+              className="flex-shrink-0"
+            />
           </div>
         </div>
-        
-        {/* Calendar */}
-        <Calendar
-          currentDate={currentDate}
-          onDateChange={setCurrentDate}
-          onDateClick={handleDateClick}
-        />
-        
-        {/* Monthly Stats */}
-        <MonthlyStats 
-          currentDate={currentDate} 
-          onOpenSalarySettings={() => setIsSalarySettingsOpen(true)}
-          onOpenDataBackup={() => setIsDataBackupOpen(true)}
-        />
-        
-        {/* Floating Action Button */}
-        <FloatingActionButton onClick={handleFabClick} />
-        
-        {/* Overtime Modal */}
-        <OvertimeModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          selectedDate={selectedDate}
-        />
-        
-        {/* Salary Settings Modal */}
-        <SalarySettings
-          isOpen={isSalarySettingsOpen}
-          onClose={() => setIsSalarySettingsOpen(false)}
-        />
-        
-        {/* About Modal */}
-        <AboutModal
-          isOpen={isAboutModalOpen}
-          onClose={() => setIsAboutModalOpen(false)}
-        />
-        
-        {/* Data Backup Modal */}
-        <DataBackupModal
-          isOpen={isDataBackupOpen}
-          onClose={() => setIsDataBackupOpen(false)}
-        />
       </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="container mx-auto px-2 max-w-4xl">
+          <Calendar
+            currentDate={memoizedCurrentDate}
+            onDateChange={handleDateChange}
+            onDateClick={handleDateClick}
+          />
+          <MonthlyStats 
+            currentDate={currentDate} 
+            onOpenSalarySettings={handleOpenSalarySettings}
+            onOpenDataBackup={handleOpenDataBackup}
+          />
+        </div>
+      </div>
+      
+      {/* Floating Action Button and Modals are outside the main layout flow */}
+      <FloatingActionButton onClick={handleFabClick} />
+      <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
+      <SalarySettings isOpen={isSalarySettingsOpen} onClose={() => setIsSalarySettingsOpen(false)} />
+      <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
+      <DataBackupModal isOpen={isDataBackupOpen} onClose={() => setIsDataBackupOpen(false)} />
     </div>
   );
 }
