@@ -1,5 +1,5 @@
-import React from 'react';
-import { Clock, FileText, Trash2, Settings, Share2, Shield } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Clock, Trash2, Settings, Share2, Shield } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -12,216 +12,181 @@ interface MonthlyStatsProps {
   onOpenDataBackup: () => void;
 }
 
-export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenSalarySettings, onOpenDataBackup }) => {
+export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSalarySettings, onOpenDataBackup }) => {
+  // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, settings, isLoaded: salaryLoaded } = useSalarySettings();
   const { getHoliday } = useHolidays();
-  
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthlyTotal = getMonthlyTotal(year, month);
   const monthlyEntries = getMonthlyEntries(year, month);
-  
-  // Show loading state if data is not loaded yet
-  if (!dataLoaded || !salaryLoaded) {
+
+  // Loading flag
+  const isLoading = !dataLoaded || !salaryLoaded;
+
+  // Memoize overtime stats calculation
+  const overtimeStats = useMemo(() => {
+    return monthlyEntries.reduce((stats, entry) => {
+      const entryDate = new Date(entry.date);
+      const holiday = getHoliday(entryDate);
+      const isHolidayDate = holiday !== undefined;
+      const dayOfWeek = entryDate.getDay();
+      const isSunday = dayOfWeek === 0;
+      const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
+
+      let effectiveHours = entry.totalHours || 0;
+      if (settings.deductBreakTime && effectiveHours >= 7.5) {
+        effectiveHours = Math.max(0, effectiveHours - 1);
+      }
+
+      const payment = effectiveHours * (overtimeRate || 0);
+
+      if (isHolidayDate) {
+        stats.holiday.hours += effectiveHours;
+        stats.holiday.payment += payment;
+      } else if (isSunday) {
+        stats.sunday.hours += effectiveHours;
+        stats.sunday.payment += payment;
+      } else {
+        stats.normal.hours += effectiveHours;
+        stats.normal.payment += payment;
+      }
+
+      stats.total.hours += effectiveHours;
+      stats.total.payment += payment;
+
+      return stats;
+    }, {
+      normal: { hours: 0, payment: 0 },
+      sunday: { hours: 0, payment: 0 },
+      holiday: { hours: 0, payment: 0 },
+      total: { hours: 0, payment: 0 }
+    });
+  }, [monthlyEntries, getHoliday, getOvertimeRate, settings.deductBreakTime]);
+
+  if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
-        <div className="flex items-center justify-center py-8">
-          <div className="text-gray-500">Veriler yükleniyor...</div>
+      <div className="bg-white rounded-2xl shadow-lg p-2 mb-4 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="w-3/4 h-6 bg-gray-200 rounded mb-4"></div>
+
+        {/* Top Summary Skeletons */}
+        <div className="flex gap-4 mb-4">
+          <div className="flex-1 h-20 bg-gray-200 rounded-xl"></div>
+          <div className="flex-1 h-20 bg-gray-200 rounded-xl"></div>
+        </div>
+
+        {/* Detail Skeletons */}
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 rounded-lg"></div>
+          ))}
         </div>
       </div>
     );
   }
 
-  // Mesai türlerine göre hesaplama
-  const overtimeStats = monthlyEntries.reduce((stats, entry) => {
-    const entryDate = new Date(entry.date);
-    const holiday = getHoliday(entryDate);
-    const isHolidayDate = holiday !== undefined;
-    const dayOfWeek = entryDate.getDay();
-    const isSunday = dayOfWeek === 0;
-    const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
-    
-    // Mola kesintisi hesaplama
-    let effectiveHours = entry.totalHours || 0;
-    if (settings.deductBreakTime && effectiveHours >= 7.5) {
-      effectiveHours = Math.max(0, effectiveHours - 1); // 1 saat mola kesintisi
-    }
-    
-    const payment = effectiveHours * (overtimeRate || 0);
-    
-    if (isHolidayDate) {
-      stats.holiday.hours += effectiveHours;
-      stats.holiday.payment += payment;
-    } else if (isSunday) {
-      stats.sunday.hours += effectiveHours;
-      stats.sunday.payment += payment;
-    } else {
-      stats.normal.hours += effectiveHours;
-      stats.normal.payment += payment;
-    }
-    
-    stats.total.hours += effectiveHours;
-    stats.total.payment += payment;
-    
-    return stats;
-  }, {
-    normal: { hours: 0, payment: 0 },
-    sunday: { hours: 0, payment: 0 },
-    holiday: { hours: 0, payment: 0 },
-    total: { hours: 0, payment: 0 }
-  });
-  
   const handleExport = () => {
     const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
     const fileName = `mesai-${TURKISH_MONTHS[month].toLowerCase()}-${year}.txt`;
     downloadTextFile(exportText, fileName);
   };
-  
+
   const handleShare = async () => {
     const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Raporu`;
     await shareText(exportText, title);
   };
-  
+
   const handleClearMonth = () => {
     if (window.confirm(`${TURKISH_MONTHS[month]} ${year} ayındaki tüm mesai kayıtlarını silmek istediğinizden emin misiniz?`)) {
       clearMonthData(year, month);
     }
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
-      <h3 className="text-lg font-bold text-gray-800 mb-4">
-        {TURKISH_MONTHS[month]} {year} Özeti
-      </h3>
-      
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-blue-100 text-xs font-medium">Toplam Mesai</p>
-            <p className="text-2xl font-bold">
-              {formatHours(monthlyTotal)}
-            </p>
-          </div>
-          <Clock className="w-8 h-8 text-blue-200" />
-        </div>
-      </div>
-      
-      <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-green-100 text-xs font-medium">Toplam Net Mesai Ücreti</p>
-            <p className="text-2xl font-bold">
-              ₺{overtimeStats.total.payment.toFixed(2)}
-            </p>
-          </div>
-          <div className="w-8 h-8 text-green-200 flex items-center justify-center text-xl font-bold">₺</div>
-        </div>
-      </div>
-      
-      {/* Mesai türlerine göre detaylar */}
-      <div className="space-y-3 mb-4">
-        {/* Normal Mesailer */}
-        {overtimeStats.normal.hours > 0 && (
-          <div className="bg-blue-50 rounded-lg p-3">
+    return (
+      <div className="bg-white dark:bg-dark-bg rounded-2xl shadow-lg p-2 mb-4">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
+          {TURKISH_MONTHS[month]} {year} Özeti
+        </h3>
+  
+        <div className="flex gap-4 mb-4">
+          {/* Toplam Mesai */}
+          <div className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-800 font-semibold text-sm">Haftaiçi Mesailer</p>
-                <p className="text-blue-600 text-xs">Haftaiçi mesaileri</p>
+                <p className="text-blue-100 dark:text-blue-200 text-xs font-medium">Toplam Mesai</p>
+                <p className="text-xl font-bold">
+                  {formatHours(monthlyTotal)}
+                </p>
               </div>
-              <div className="text-right">
-                <p className="text-blue-800 font-bold">{formatHours(overtimeStats.normal.hours)}</p>
-                <p className="text-blue-600 text-xs">₺{(overtimeStats.normal.payment || 0).toFixed(2)}</p>
-              </div>
+              <Clock className="w-6 h-6 text-blue-200" />
             </div>
           </div>
-        )}
-        
-        {/* Pazar Mesaileri */}
-        {overtimeStats.sunday.hours > 0 && (
-          <div className="bg-purple-50 rounded-lg p-3">
+  
+          {/* Toplam Net Mesai Ücreti */}
+          <div className="flex-1 bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-800 font-semibold text-sm">Pazar Mesaileri</p>
-                <p className="text-purple-600 text-xs">Pazar günü mesaileri</p>
+                <p className="text-green-100 dark:text-green-200 text-xs font-medium">Toplam Net Mesai Ücreti</p>
+                <p className="text-xl font-bold">
+                  ₺{overtimeStats.total.payment.toFixed(2)}
+                </p>
               </div>
-              <div className="text-right">
-                <p className="text-purple-800 font-bold">{formatHours(overtimeStats.sunday.hours)}</p>
-                <p className="text-purple-600 text-xs">₺{(overtimeStats.sunday.payment || 0).toFixed(2)}</p>
-              </div>
+              <div className="w-6 h-6 text-green-200 flex items-center justify-center text-lg font-bold">₺</div>
             </div>
           </div>
-        )}
-        
-        {/* Tatil Mesaileri */}
-        {overtimeStats.holiday.hours > 0 && (
-          <div className="bg-red-50 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-800 font-semibold text-sm">Dini & Resmi Tatil</p>
-                <p className="text-red-600 text-xs">Bayram ve resmi tatil mesaileri</p>
-              </div>
-              <div className="text-right">
-                <p className="text-red-800 font-bold">{formatHours(overtimeStats.holiday.hours)}</p>
-                <p className="text-red-600 text-xs">₺{(overtimeStats.holiday.payment || 0).toFixed(2)}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-        <button
-          onClick={onOpenDataBackup}
-          className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 text-sm bg-green-500 text-white active:bg-green-600 active:scale-[0.98] touch-manipulation"
-        >
-          <Shield className="w-4 h-4" />
-          Yedekle
-        </button>
-        
-        <button
-          onClick={onOpenSalarySettings}
-          className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 text-sm bg-purple-500 text-white active:bg-purple-600 active:scale-[0.98] touch-manipulation"
-        >
-          <Settings className="w-4 h-4" />
-          Maaş Ayarları
-        </button>
-        
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <button
-            onClick={handleShare}
-            disabled={overtimeStats.total.hours === 0}
-            className={`
-              flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium
-              transition-all duration-200 text-sm touch-manipulation
-              ${overtimeStats.total.hours === 0
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-500 text-white active:bg-blue-600 active:scale-[0.98]'
-              }
-            `}
-          >
-            <Share2 className="w-4 h-4" />
-            Paylaş
-          </button>
         </div>
-        
-        <button
-          onClick={handleClearMonth}
-          disabled={overtimeStats.total.hours === 0}
-          className={`
-            flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium
-            transition-all duration-200 text-sm touch-manipulation
-            ${overtimeStats.total.hours === 0
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-red-500 text-white active:bg-red-600 active:scale-[0.98]'
-            }
-          `}
-        >
-          <Trash2 className="w-4 h-4" />
-          Sil
-        </button>
+  
+        {/* Mesai türlerine göre detaylar */}
+        <div className="space-y-3 mb-4">
+          {overtimeStats.normal.hours > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-900/50 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-800 dark:text-blue-200 font-semibold text-sm">Haftaiçi Mesailer</p>
+                  <p className="text-blue-600 dark:text-blue-300 text-xs">Haftaiçi mesaileri</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-blue-800 dark:text-blue-200 font-bold">{formatHours(overtimeStats.normal.hours)}</p>
+                  <p className="text-blue-600 dark:text-blue-300 text-xs">₺{overtimeStats.normal.payment.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {overtimeStats.sunday.hours > 0 && (
+            <div className="bg-purple-50 dark:bg-purple-900/50 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-800 dark:text-purple-200 font-semibold text-sm">Pazar Mesaileri</p>
+                  <p className="text-purple-600 dark:text-purple-300 text-xs">Pazar günü mesaileri</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-purple-800 dark:text-purple-200 font-bold">{formatHours(overtimeStats.sunday.hours)}</p>
+                  <p className="text-purple-600 dark:text-purple-300 text-xs">₺{overtimeStats.sunday.payment.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {overtimeStats.holiday.hours > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/50 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-red-800 dark:text-red-200 font-semibold text-sm">Dini & Resmi Tatil</p>
+                  <p className="text-red-600 dark:text-red-300 text-xs">Bayram ve resmi tatil mesaileri</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-red-800 dark:text-red-200 font-bold">{formatHours(overtimeStats.holiday.hours)}</p>
+                  <p className="text-red-600 dark:text-red-300 text-xs">₺{overtimeStats.holiday.payment.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );});
+

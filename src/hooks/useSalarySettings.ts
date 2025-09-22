@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SalarySettings } from '../types/overtime';
 
 const defaultSettings: SalarySettings = {
@@ -13,7 +13,8 @@ const defaultSettings: SalarySettings = {
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.5,
   holidayMultiplier: 2.0,
-  deductBreakTime: false
+  deductBreakTime: false,
+  showNextMonthDays: true
 };
 
 // Global salary event emitter
@@ -46,20 +47,16 @@ const loadGlobalSettings = () => {
     // İlk çalıştırma kontrolü
     const isFirstRun = !localStorage.getItem('mesai-app-initialized');
     if (isFirstRun) {
-      console.log('🚀 İlk çalıştırma - maaş ayarları sıfırlanıyor...');
       globalSettings = { ...defaultSettings };
     } else {
       const savedSettings = localStorage.getItem('mesai-salary-settings');
       if (savedSettings) {
         globalSettings = JSON.parse(savedSettings);
-        console.log('📥 Maaş ayarları yüklendi:', globalSettings);
       } else {
         globalSettings = { ...defaultSettings };
-        console.log('📝 Maaş ayarları bulunamadı, varsayılanlar kullanılıyor');
       }
     }
   } catch (error) {
-    console.error('❌ Maaş ayarları yükleme hatası:', error);
     globalSettings = { ...defaultSettings };
   }
   
@@ -70,10 +67,9 @@ const loadGlobalSettings = () => {
 const saveGlobalSettings = () => {
   try {
     localStorage.setItem('mesai-salary-settings', JSON.stringify(globalSettings));
-    console.log('💾 Maaş ayarları kaydedildi:', globalSettings);
     salaryEmitter.emit(); // Notify all components
   } catch (error) {
-    console.error('❌ Maaş ayarları kaydetme hatası:', error);
+    console.error('Maaş ayarları kaydetme hatası:', error);
   }
 };
 
@@ -83,10 +79,9 @@ const clearSalarySettings = () => {
     localStorage.removeItem('mesai-salary-settings');
     globalSettings = { ...defaultSettings };
     isSalaryLoaded = false;
-    console.log('🧹 Maaş ayarları sıfırlandı');
     salaryEmitter.emit();
   } catch (error) {
-    console.error('❌ Maaş ayarları temizleme hatası:', error);
+    console.error('Maaş ayarları temizleme hatası:', error);
   }
 };
 
@@ -111,7 +106,6 @@ export const useSalarySettings = () => {
   }, [forceUpdate]);
 
   const updateSettings = useCallback((newSettings: SalarySettings) => {
-    console.log('🔄 Maaş ayarları güncelleniyor:', newSettings);
     globalSettings = { ...newSettings };
     saveGlobalSettings();
   }, []);
@@ -155,13 +149,15 @@ export const useSalarySettings = () => {
     return Math.max(0, netOvertimeRate);
   }, [isLoaded, getHourlyRate]);
 
+  // Memoized settings for performance
+  const settingsMemo = useMemo(() => globalSettings, [globalSettings]);
+
   return {
-    settings: globalSettings,
+    settings: settingsMemo,
     isLoaded,
     updateSettings,
     getHourlyRate,
     getOvertimeRate,
-    clearSalarySettings,
-    updateTrigger: Date.now() // Always return current timestamp
+    clearSalarySettings
   };
 };

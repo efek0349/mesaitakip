@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { OvertimeEntry, MonthlyData } from '../types/overtime';
 import { getMonthKey, getDateKey } from '../utils/dateUtils';
 
@@ -25,14 +25,12 @@ let globalData: MonthlyData = {};
 let isDataLoaded = false;
 
 // Performans için cache sistemi
-const dataCache = new Map<string, any>();
+const dataCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 
 // Tüm eski verileri temizle (uygulama ilk açılışında)
 const clearAllLegacyData = () => {
   try {
-    console.log('🧹 Tüm eski veriler temizleniyor...');
-    
     // Tüm localStorage anahtarlarını kontrol et
     const allKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -49,7 +47,6 @@ const clearAllLegacyData = () => {
           key.startsWith('mesai-') ||
           key.includes('data-backup')) {
         localStorage.removeItem(key);
-        console.log(`🗑️ Silinen anahtar: ${key}`);
       }
     });
     
@@ -70,10 +67,8 @@ const clearAllLegacyData = () => {
       localStorage.removeItem(key);
     });
     
-    console.log('✅ Tüm eski veriler temizlendi');
-    
   } catch (error) {
-    console.error('❌ Eski veri temizleme hatası:', error);
+    console.error('Eski veri temizleme hatası:', error);
   }
 };
 
@@ -85,7 +80,6 @@ const loadGlobalData = () => {
     // İlk açılışta tüm eski verileri temizle
     const isFirstRun = !localStorage.getItem('mesai-app-initialized');
     if (isFirstRun) {
-      console.log('🚀 İlk çalıştırma tespit edildi, tüm veriler temizleniyor...');
       clearAllLegacyData();
       localStorage.setItem('mesai-app-initialized', 'true');
       globalData = {};
@@ -96,19 +90,15 @@ const loadGlobalData = () => {
         try {
           const loadedData = JSON.parse(savedData);
           globalData = validateAndCleanData(loadedData);
-          console.log('📥 Ana veri yüklendi:', Object.keys(globalData).length, 'ay');
         } catch (parseError) {
-          console.warn('⚠️ Ana veri bozuk, temiz başlangıç yapılıyor...');
           globalData = {};
         }
       } else {
-        console.log('📝 Veri bulunamadı, temiz başlangıç');
         globalData = {};
       }
     }
     
   } catch (error) {
-    console.error('❌ Veri yükleme hatası:', error);
     globalData = {};
   }
   
@@ -154,21 +144,17 @@ const saveGlobalData = () => {
     // Cache'i temizle
     dataCache.clear();
     
-    console.log('💾 Veri kaydedildi');
     dataEmitter.emit();
     
   } catch (error) {
-    console.error('❌ Veri kaydetme hatası:', error);
-    
     // Storage dolu ise eski verileri temizle
     if (error.name === 'QuotaExceededError') {
       cleanOldData();
       // Tekrar dene
       try {
         localStorage.setItem('mesai-data', JSON.stringify(globalData));
-        console.log('💾 Temizlik sonrası veri kaydedildi');
       } catch (retryError) {
-        console.error('❌ Temizlik sonrası da kaydetme başarısız:', retryError);
+        console.error('Veri kaydetme başarısız:', retryError);
       }
     }
   }
@@ -180,16 +166,12 @@ const cleanOldData = () => {
   twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
   
   const cutoffKey = getMonthKey(twoYearsAgo);
-  let cleanedCount = 0;
   
   Object.keys(globalData).forEach(monthKey => {
     if (monthKey < cutoffKey) {
       delete globalData[monthKey];
-      cleanedCount++;
     }
   });
-  
-  console.log(`🧹 ${cleanedCount} eski ay verisi temizlendi`);
 };
 
 // Cache'li veri getirme
@@ -207,7 +189,7 @@ const getCachedData = <T>(key: string, fetcher: () => T): T => {
 // Tüm verileri temizle
 const clearAllData = () => {
   try {
-    // localStorage'ı tamamen temizle
+    // localStorage'ı temizle
     clearAllLegacyData();
     
     // Global state'i sıfırla
@@ -218,10 +200,9 @@ const clearAllData = () => {
     // Uygulama başlatma flag'ini sıfırla
     localStorage.removeItem('mesai-app-initialized');
     
-    console.log('🧹 Tüm veriler temizlendi, uygulama sıfırlandı');
     dataEmitter.emit();
   } catch (error) {
-    console.error('❌ Veri temizleme hatası:', error);
+    console.error('Veri temizleme hatası:', error);
   }
 };
 
@@ -250,7 +231,6 @@ export const useOvertimeData = () => {
 
   const addOvertimeEntry = useCallback((date: Date, hours: number, minutes: number, note?: string) => {
     if (!isDataLoaded) {
-      console.warn('⚠️ Data not loaded yet, cannot add entry');
       return;
     }
 
@@ -267,8 +247,6 @@ export const useOvertimeData = () => {
       note: note || undefined
     };
 
-    console.log('➕ Adding overtime entry:', { monthKey, dateKey, newEntry });
-
     // Update global data
     if (!globalData[monthKey]) {
       globalData[monthKey] = [];
@@ -277,10 +255,8 @@ export const useOvertimeData = () => {
     // Check if entry already exists for this date
     const existingIndex = globalData[monthKey].findIndex(entry => entry.date === dateKey);
     if (existingIndex >= 0) {
-      console.log('🔄 Updating existing entry');
       globalData[monthKey][existingIndex] = newEntry;
     } else {
-      console.log('✅ Adding new entry');
       globalData[monthKey].push(newEntry);
     }
     
@@ -296,14 +272,11 @@ export const useOvertimeData = () => {
 
   const removeOvertimeEntry = useCallback((date: Date) => {
     if (!isDataLoaded) {
-      console.warn('⚠️ Data not loaded yet, cannot remove entry');
       return;
     }
 
     const monthKey = getMonthKey(date);
     const dateKey = getDateKey(date);
-    
-    console.log('🗑️ Removing overtime entry:', { monthKey, dateKey });
 
     if (globalData[monthKey]) {
       globalData[monthKey] = globalData[monthKey].filter(entry => entry.date !== dateKey);
@@ -322,7 +295,6 @@ export const useOvertimeData = () => {
     if (!isDataLoaded) return;
 
     const monthKey = getMonthKey(new Date(year, month));
-    console.log('🧹 Clearing month data:', monthKey);
     
     delete globalData[monthKey];
     dataCache.clear();
@@ -370,6 +342,17 @@ export const useOvertimeData = () => {
     return JSON.stringify(globalData, null, 2);
   }, []);
 
+  // Belirli bir ayın verisini export fonksiyonu
+  const exportMonthData = useCallback((year: number, month: number) => {
+    const monthKey = getMonthKey(new Date(year, month));
+    const monthData = globalData[monthKey] || [];
+    // Sadece o ayın verisini içeren bir nesne oluştur
+    const exportObject = {
+      [monthKey]: monthData
+    };
+    return JSON.stringify(exportObject, null, 2);
+  }, []);
+
   // Veri import fonksiyonu (geri yükleme için)
   const importData = useCallback((dataString: string) => {
     try {
@@ -404,16 +387,18 @@ export const useOvertimeData = () => {
       dataCache.clear();
       saveGlobalData();
       
-      console.log('✅ Veri başarıyla import edildi');
       return true;
     } catch (error) {
-      console.error('❌ Veri import hatası:', error);
+      console.error('Veri import hatası:', error);
       return false;
     }
   }, []);
 
+  // Memoized monthly data for performance
+  const monthlyDataMemo = useMemo(() => globalData, [globalData]);
+
   return {
-    monthlyData: globalData,
+    monthlyData: monthlyDataMemo,
     isLoaded,
     addOvertimeEntry,
     removeOvertimeEntry,
@@ -422,8 +407,8 @@ export const useOvertimeData = () => {
     getMonthlyTotal,
     getMonthlyEntries,
     exportAllData,
+    exportMonthData,
     importData,
-    clearAllData,
-    forceUpdate: Date.now()
+    clearAllData
   };
 };

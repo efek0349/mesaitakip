@@ -1,5 +1,7 @@
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { FilePicker, PickFilesResult } from '@capawesome/capacitor-file-picker';
 
 /**
  * Metin dosyasını indir
@@ -154,4 +156,62 @@ export const formatFileSize = (bytes: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+/**
+ * Yedekleme dosyasını (JSON) cihazın Dokümanlar klasörüne kaydeder.
+ * @param content Kaydedilecek veri (string formatında)
+ * @param fileName Dosya adı
+ * @returns Kaydedilen dosyanın yolu (path)
+ */
+export const saveBackupFile = async (content: string, fileName: string): Promise<string> => {
+  if (!Capacitor.isNativePlatform()) {
+    // Web platformu için standart indirme yöntemini kullan
+    downloadTextFile(content, fileName);
+    return `web_download:${fileName}`;
+  }
+
+  const result = await Filesystem.writeFile({
+    path: fileName,
+    data: content,
+    directory: Directory.Documents,
+    encoding: Encoding.UTF8,
+  });
+
+  return result.uri;
+};
+
+/**
+ * Kullanıcının bir yedekleme dosyası (JSON) seçmesini sağlar ve içeriğini okur.
+ * @returns Seçilen dosyanın içeriği (string) veya null
+ */
+export const pickAndReadBackupFile = async (): Promise<string | null> => {
+  try {
+    const result: PickFilesResult = await FilePicker.pickFiles({
+      types: ['application/json'],
+      readData: true, // Dosya içeriğini base64 olarak oku
+    });
+
+    if (result.files.length === 0) {
+      return null; // Kullanıcı dosya seçmedi
+    }
+
+    const file = result.files[0];
+    if (!file.data) {
+      throw new Error('Dosya verisi okunamadı.');
+    }
+
+    // Base64 veriyi decode et
+    const content = atob(file.data);
+    return content;
+
+  } catch (error) {
+    // Kullanıcı seçimi iptal ederse hata fırlatılır, bunu yakala
+    if (error.message.includes('cancelled')) {
+      console.log('Dosya seçimi iptal edildi.');
+      return null;
+    }
+    console.error('Dosya seçme veya okuma hatası:', error);
+    throw error; // Diğer hataları tekrar fırlat
+  }
 };
