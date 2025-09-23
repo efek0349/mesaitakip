@@ -8,11 +8,11 @@ import { downloadTextFile, shareText } from '../utils/fileUtils';
 
 interface MonthlyStatsProps {
   currentDate: Date;
-  onOpenSalarySettings: () => void;
+  onOpenSettings: () => void;
   onOpenDataBackup: () => void;
 }
 
-export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSalarySettings, onOpenDataBackup }) => {
+export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSettings, onOpenDataBackup }) => {
   // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, settings, isLoaded: salaryLoaded } = useSalarySettings();

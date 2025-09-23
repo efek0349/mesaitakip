@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { SalarySettings } from '../types/overtime';
+import { Settings } from '../types/overtime';
 
-const defaultSettings: SalarySettings = {
+const defaultAppSettings: Settings = {
   firstName: '',
   lastName: '',
   monthlyGrossSalary: 26005.50, // 2025 asgari ücret
@@ -14,13 +14,11 @@ const defaultSettings: SalarySettings = {
   sundayMultiplier: 2.5,
   holidayMultiplier: 2.0,
   deductBreakTime: false,
-  showNextMonthDays: false,
-  defaultStartTime: '08:05',
-  defaultEndTime: '18:05',
+  showNextMonthDays: true
 };
 
 // Global salary event emitter
-class SalaryEventEmitter {
+class SettingsEventEmitter {
   private listeners: (() => void)[] = [];
   
   subscribe(listener: () => void) {
@@ -35,59 +33,57 @@ class SalaryEventEmitter {
   }
 }
 
-const salaryEmitter = new SalaryEventEmitter();
+const settingsEmitter = new SettingsEventEmitter();
 
 // Global salary settings
-let globalSettings: SalarySettings = { ...defaultSettings };
-let isSalaryLoaded = false;
+let globalAppSettings: Settings = { ...defaultAppSettings };
+let isSettingsLoaded = false;
 
 // Load settings from localStorage
-const loadGlobalSettings = () => {
-  if (isSalaryLoaded) return;
+const loadGlobalAppSettings = () => {
+  if (isSettingsLoaded) return;
   
   try {
     // İlk çalıştırma kontrolü
     const isFirstRun = !localStorage.getItem('mesai-app-initialized');
     if (isFirstRun) {
-      globalSettings = { ...defaultSettings };
+      globalAppSettings = { ...defaultAppSettings };
     } else {
-      const savedSettings = localStorage.getItem('mesai-salary-settings');
+      const savedSettings = localStorage.getItem('mesai-app-settings');
       if (savedSettings) {
-        globalSettings = JSON.parse(savedSettings);
+        globalAppSettings = JSON.parse(savedSettings);
       } else {
-        globalSettings = { ...defaultSettings };
+        globalAppSettings = { ...defaultAppSettings };
       }
     }
-  } catch (error) {
-    globalSettings = { ...defaultSettings };
+  } finally {
+    isSettingsLoaded = true;
   }
-  
-  isSalaryLoaded = true;
 };
 
 // Save settings to localStorage
-const saveGlobalSettings = () => {
+const saveGlobalAppSettings = () => {
   try {
-    localStorage.setItem('mesai-salary-settings', JSON.stringify(globalSettings));
-    salaryEmitter.emit(); // Notify all components
+    localStorage.setItem('mesai-app-settings', JSON.stringify(globalAppSettings));
+    settingsEmitter.emit(); // Notify all components
   } catch (error) {
     console.error('Maaş ayarları kaydetme hatası:', error);
   }
 };
 
 // Tüm maaş ayarlarını sıfırla
-const clearSalarySettings = () => {
+const clearAppSettings = () => {
   try {
-    localStorage.removeItem('mesai-salary-settings');
-    globalSettings = { ...defaultSettings };
-    isSalaryLoaded = false;
-    salaryEmitter.emit();
+    localStorage.removeItem('mesai-app-settings');
+    globalAppSettings = { ...defaultAppSettings };
+    isSettingsLoaded = false;
+    settingsEmitter.emit();
   } catch (error) {
     console.error('Maaş ayarları temizleme hatası:', error);
   }
 };
 
-export const useSalarySettings = () => {
+export const useSettings = () => {
   const [, setUpdateCounter] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -98,27 +94,27 @@ export const useSalarySettings = () => {
 
   useEffect(() => {
     // Load settings on mount
-    loadGlobalSettings();
+    loadGlobalAppSettings();
     setIsLoaded(true);
     
     // Subscribe to settings changes
-    const unsubscribe = salaryEmitter.subscribe(forceUpdate);
+    const unsubscribe = settingsEmitter.subscribe(forceUpdate);
     
     return unsubscribe;
   }, [forceUpdate]);
 
-  const updateSettings = useCallback((newSettings: SalarySettings) => {
-    globalSettings = { ...newSettings };
-    saveGlobalSettings();
+  const updateSettings = useCallback((newSettings: Settings) => {
+    globalAppSettings = { ...newSettings };
+    saveGlobalAppSettings();
   }, []);
 
   const getHourlyRate = useCallback(() => {
-    if (!isSalaryLoaded) return 0;
-    return globalSettings.monthlyGrossSalary / globalSettings.monthlyWorkingHours;
+    if (!isSettingsLoaded) return 0;
+    return globalAppSettings.monthlyGrossSalary / globalAppSettings.monthlyWorkingHours;
   }, [isLoaded]);
 
   const getOvertimeRate = useCallback((date: Date, isHoliday: boolean = false) => {
-    if (!isSalaryLoaded) return 0;
+    if (!isSettingsLoaded) return 0;
 
     const dayOfWeek = date.getDay();
     const grossHourlyRate = getHourlyRate();
@@ -128,23 +124,23 @@ export const useSalarySettings = () => {
     let grossOvertimeRate = 0;
     
     if (isHoliday) {
-      grossOvertimeRate = grossHourlyRate * globalSettings.holidayMultiplier;
+      grossOvertimeRate = grossHourlyRate * globalAppSettings.holidayMultiplier;
     } else if (dayOfWeek === 0) { // Sunday
-      grossOvertimeRate = grossHourlyRate * globalSettings.sundayMultiplier;
+      grossOvertimeRate = grossHourlyRate * globalAppSettings.sundayMultiplier;
     } else if (dayOfWeek === 6) { // Saturday
-      grossOvertimeRate = grossHourlyRate * globalSettings.saturdayMultiplier;
+      grossOvertimeRate = grossHourlyRate * globalAppSettings.saturdayMultiplier;
     } else { // Weekdays
-      grossOvertimeRate = grossHourlyRate * globalSettings.weekdayMultiplier;
+      grossOvertimeRate = grossHourlyRate * globalAppSettings.weekdayMultiplier;
     }
     
     // Sıfır kontrolü
     if (grossOvertimeRate === 0) return 0;
     
     // Net hesaplama (kesintiler)
-    const sgkAndUnemployment = grossOvertimeRate * (globalSettings.sgkRate / 100);
+    const sgkAndUnemployment = grossOvertimeRate * (globalAppSettings.sgkRate / 100);
     const afterSgk = grossOvertimeRate - sgkAndUnemployment;
-    const incomeTax = afterSgk * (globalSettings.incomeTaxRate / 100);
-    const stampTax = grossOvertimeRate * (globalSettings.stampTaxRate / 100);
+    const incomeTax = afterSgk * (globalAppSettings.incomeTaxRate / 100);
+    const stampTax = grossOvertimeRate * (globalAppSettings.stampTaxRate / 100);
     
     const netOvertimeRate = grossOvertimeRate - sgkAndUnemployment - incomeTax - stampTax;
     
@@ -152,7 +148,7 @@ export const useSalarySettings = () => {
   }, [isLoaded, getHourlyRate]);
 
   // Memoized settings for performance
-  const settingsMemo = useMemo(() => globalSettings, [globalSettings]);
+  const settingsMemo = useMemo(() => globalAppSettings, [globalAppSettings]);
 
   return {
     settings: settingsMemo,
@@ -160,6 +156,6 @@ export const useSalarySettings = () => {
     updateSettings,
     getHourlyRate,
     getOvertimeRate,
-    clearSalarySettings
+    clearAppSettings
   };
 };
