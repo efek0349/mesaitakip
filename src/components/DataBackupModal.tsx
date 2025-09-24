@@ -3,7 +3,8 @@ import { X, Download, Upload, Shield, AlertTriangle, CheckCircle, Copy, Share2, 
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
-import { saveBackupFile, pickAndReadBackupFile } from '../utils/fileUtils';
+import { useHolidays } from '../hooks/useHolidays';
+import { saveBackupFile, pickAndReadBackupFile, generateCsvContent } from '../utils/fileUtils';
 
 interface DataBackupModalProps {
   isOpen: boolean;
@@ -11,19 +12,24 @@ interface DataBackupModalProps {
 }
 
 export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClose }) => {
-  const { exportAllData, exportMonthData, importData, clearAllData } = useOvertimeData();
-  const { clearSalarySettings } = useSalarySettings();
+  const { exportAllData, exportMonthData, importData, clearAllData, monthlyData } = useOvertimeData();
+  const { clearSalarySettings, settings } = useSalarySettings();
+  const { getHoliday } = useHolidays();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
 
   if (!isOpen) return null;
 
-  const handleExport = async (type: 'currentMonth' | 'all') => {
-    const ayAdlari = ['Ocak', 'Subat', 'Mart', 'Nisan', 'Mayis', 'Haziran', 'Temmuz', 'Agustos', 'Eylul', 'Ekim', 'Kasim', 'Aralik'];
+  const ayAdlari = ['Ocak', 'Subat', 'Mart', 'Nisan', 'Mayis', 'Haziran', 'Temmuz', 'Agustos', 'Eylul', 'Ekim', 'Kasim', 'Aralik'];
+  const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i); // Current year +/- 2 years
 
+  const handleExport = async (type: 'currentMonth' | 'all') => {
     try {
       let data: string;
       let fileName: string;
-      const today = new Date();
 
       if (type === 'currentMonth') {
         const year = today.getFullYear();
@@ -41,10 +47,25 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
       
       await saveBackupFile(data, fileName);
       
-      setMessage({ type: 'success', text: `Yedekleme başarılı! Dosyanız (cihazınıza göre) Dokümanlar klasörüne kaydedildi.` });
+      setMessage({ type: 'success', text: 'Yedekleme başarılı! Dosyanızı kaydetmek veya paylaşmak için bir seçenek belirleyin.' });
     } catch (e) {
       console.error(e);
       setMessage({ type: 'error', text: 'Yedekleme sırasında bir hata oluştu.' });
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      const monthName = ayAdlari[selectedMonth];
+
+      const csvContent = generateCsvContent(selectedYear, selectedMonth, monthlyData, settings, getHoliday);
+      const fileName = `${monthName}-${selectedYear}-mesai-raporu.csv`;
+      
+      await saveBackupFile(csvContent, fileName);
+      setMessage({ type: 'success', text: 'CSV raporu başarıyla oluşturuldu! Dosyanızı kaydetmek veya paylaşmak için bir seçenek belirleyin.' });
+    } catch (e) {
+      console.error(e);
+      setMessage({ type: 'error', text: 'CSV raporu oluşturulurken bir hata oluştu.' });
     }
   };
 
@@ -111,6 +132,29 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                 <button onClick={() => handleExport('all')} className="flex-1 w-full py-2 px-4 bg-blue-500 text-white rounded-lg font-medium active:bg-blue-600">
                   Tümünü Yedekle
                 </button>
+            </div>
+            <button onClick={handleExportCsv} className="w-full py-2 px-4 bg-purple-500 text-white rounded-lg font-medium active:bg-purple-600 mt-2">
+              Seçili Ayı CSV Olarak Dışa Aktar
+            </button>
+            <div className="flex gap-2 mt-2">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="flex-1 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {ayAdlari.map((monthName, index) => (
+                  <option key={monthName} value={index}>{monthName}</option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="flex-1 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -2,19 +2,18 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Calendar } from './components/Calendar';
 import { MonthlyStats } from './components/MonthlyStats';
 import { OvertimeModal } from './components/OvertimeModal';
-import { SalarySettings } from './components/SalarySettings';
+import { Settings } from './components/Settings';
 import { FloatingActionButton } from './components/FloatingActionButton';
 import { AboutModal } from './components/AboutModal';
 import { DataBackupModal } from './components/DataBackupModal';
+import { ActionIcons } from './components/ActionIcons';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
 import { useHolidays } from './hooks/useHolidays';
 import { useTheme } from './hooks/useTheme';
 import { TURKISH_MONTHS } from './utils/dateUtils';
-import { Clock, CheckSquare, Square, Settings, Download, Share2, Trash2, Info } from 'lucide-react';
-import { ActionIcons } from './components/ActionIcons';
-import { generateExportText } from './utils/dateUtils';
-import { downloadTextFile, shareText } from './utils/fileUtils';
+import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
+import { Clock, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
@@ -26,7 +25,7 @@ const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSalarySettingsOpen, setIsSalarySettingsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isDataBackupOpen, setIsDataBackupOpen] = useState(false);
   
@@ -46,8 +45,8 @@ const App: React.FC = () => {
     setSelectedDate(null);
   }, []);
   
-  const handleOpenSalarySettings = useCallback(() => {
-    setIsSalarySettingsOpen(true);
+  const handleOpenSettings = useCallback(() => {
+    setIsSettingsOpen(true);
   }, []);
   
   const handleOpenDataBackup = useCallback(() => {
@@ -57,8 +56,8 @@ const App: React.FC = () => {
   const handleShareMonthlyStats = useCallback(async () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
-    const title = `${TURKISH_MONTHS[month]} ${year} Mesai Raporu`;
+    const exportText = generateShareableSummaryText(year, month, monthlyData, settings, getHoliday);
+    const title = `${TURKISH_MONTHS[month]} ${year} Mesai Özeti`;
     await shareText(exportText, title);
   }, [currentDate, monthlyData, settings, getHoliday]);
 
@@ -96,7 +95,7 @@ const App: React.FC = () => {
     );
   }
 
-  const monthlyTotal = getMonthlyTotal(currentDate.getFullYear(), currentDate.getMonth());
+  const monthlyTotal = getMonthlyTotal(currentDate.getFullYear(), currentDate.getMonth(), settings.deductBreakTime);
 
   return (
     <div className="bg-gray-100 dark:bg-black h-screen-dynamic flex flex-col pb-nav">
@@ -118,7 +117,7 @@ const App: React.FC = () => {
             {/* Action Icons (sağ) */}
             <ActionIcons
               onOpenDataBackup={handleOpenDataBackup}
-              onOpenSalarySettings={handleOpenSalarySettings}
+              onOpenSettings={handleOpenSettings}
               onShareMonthlyStats={handleShareMonthlyStats}
               onClearMonthlyStats={handleClearMonthlyStats}
               canShare={monthlyTotal > 0}
@@ -139,7 +138,7 @@ const App: React.FC = () => {
           />
           <MonthlyStats 
             currentDate={currentDate} 
-            onOpenSalarySettings={handleOpenSalarySettings}
+            onOpenSettings={handleOpenSettings}
             onOpenDataBackup={handleOpenDataBackup}
           />
         </div>
@@ -148,7 +147,7 @@ const App: React.FC = () => {
       {/* Floating Action Button and Modals are outside the main layout flow */}
       <FloatingActionButton onClick={handleFabClick} />
       <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
-      <SalarySettings isOpen={isSalarySettingsOpen} onClose={() => setIsSalarySettingsOpen(false)} />
+      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
       <DataBackupModal isOpen={isDataBackupOpen} onClose={() => setIsDataBackupOpen(false)} />
     </div>

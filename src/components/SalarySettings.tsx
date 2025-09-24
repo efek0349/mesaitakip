@@ -126,7 +126,15 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
             <button onClick={() => handleInputChange('deductBreakTime', !formData.deductBreakTime)} className="w-full flex items-center gap-3 text-left">
               {formData.deductBreakTime ? <CheckSquare className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
-              <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">7.5+ saatlik mesailerde 1 saat mola kesintisi uygula</span>
+              <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">4857 sayılı İş Kanunu'na göre ara dinlenmesi fazla mesailere dahil degildir!</span>
+            </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              4 saate kadar işlerde: 15 dakika
+              <br />
+              4 saatten fazla ve 7.5 saate kadar işlerde: 30 dakika
+              <br />
+              7.5 saatten fazla işlerde: 1 saat
+            </p>
             </button>
           </div>
 

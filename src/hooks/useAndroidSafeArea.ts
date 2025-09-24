@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   getAndroidInfo, 
   getModalSafeHeight, 
@@ -9,11 +9,11 @@ import {
 } from '../utils/androidUtils';
 
 export const useAndroidSafeArea = () => {
-  const [androidInfo, setAndroidInfo] = useState<AndroidInfo>(() => getAndroidInfo());
-  const [modalSafeHeight, setModalSafeHeight] = useState(() => getModalSafeHeight());
-  const [modalSafePadding, setModalSafePadding] = useState(() => getModalSafePadding());
+  const [androidInfo, setAndroidInfo] = React.useState<AndroidInfo>(() => getAndroidInfo());
+  const [modalSafeHeight, setModalSafeHeight] = React.useState(() => getModalSafeHeight());
+  const [modalSafePadding, setModalSafePadding] = React.useState(() => getModalSafePadding());
 
-  useEffect(() => {
+  React.useEffect(() => {
     // İlk yükleme
     const updateInfo = () => {
       const info = getAndroidInfo();

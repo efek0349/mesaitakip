@@ -1,18 +1,18 @@
 import React, { useMemo } from 'react';
-import { Clock, Trash2, Settings, Share2, Shield } from 'lucide-react';
+import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatHours, TURKISH_MONTHS, generateExportText } from '../utils/dateUtils';
-import { downloadTextFile, shareText } from '../utils/fileUtils';
+import { formatHours, TURKISH_MONTHS, calculateEffectiveHours } from '../utils/dateUtils';
+import { downloadTextFile, shareText, generateCsvContent } from '../utils/fileUtils';
 
 interface MonthlyStatsProps {
   currentDate: Date;
-  onOpenSalarySettings: () => void;
+  onOpenSettings: () => void;
   onOpenDataBackup: () => void;
 }
 
-export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSalarySettings, onOpenDataBackup }) => {
+export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSettings, onOpenDataBackup }) => {
   // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, settings, isLoaded: salaryLoaded } = useSalarySettings();
@@ -20,7 +20,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const monthlyTotal = getMonthlyTotal(year, month);
+  const monthlyTotal = getMonthlyTotal(year, month, settings.deductBreakTime);
   const monthlyEntries = getMonthlyEntries(year, month);
 
   // Loading flag
@@ -33,13 +33,11 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
       const holiday = getHoliday(entryDate);
       const isHolidayDate = holiday !== undefined;
       const dayOfWeek = entryDate.getDay();
+      const isSaturday = dayOfWeek === 6;
       const isSunday = dayOfWeek === 0;
       const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
 
-      let effectiveHours = entry.totalHours || 0;
-      if (settings.deductBreakTime && effectiveHours >= 7.5) {
-        effectiveHours = Math.max(0, effectiveHours - 1);
-      }
+      const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, settings.isSaturdayWork);
 
       const payment = effectiveHours * (overtimeRate || 0);
 
@@ -64,7 +62,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
       holiday: { hours: 0, payment: 0 },
       total: { hours: 0, payment: 0 }
     });
-  }, [monthlyEntries, getHoliday, getOvertimeRate, settings.deductBreakTime]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, settings.deductBreakTime, settings.isSaturdayWork]);
 
   if (isLoading) {
     return (
@@ -89,13 +87,13 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
   }
 
   const handleExport = () => {
-    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
-    const fileName = `mesai-${TURKISH_MONTHS[month].toLowerCase()}-${year}.txt`;
+    const exportText = generateCsvContent(year, month, monthlyData, settings, getHoliday);
+    const fileName = `mesai-${TURKISH_MONTHS[month].toLowerCase()}-${year}.csv`;
     downloadTextFile(exportText, fileName);
   };
 
   const handleShare = async () => {
-    const exportText = generateExportText(monthlyData, year, month, settings.firstName, settings.lastName, getHoliday, settings.deductBreakTime);
+    const exportText = generateCsvContent(year, month, monthlyData, settings, getHoliday);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Raporu`;
     await shareText(exportText, title);
   };
@@ -117,7 +115,13 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
           <div className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 dark:text-blue-200 text-xs font-medium">Toplam Mesai</p>
+                <p className="text-blue-100 dark:text-blue-200 text-xs font-medium flex items-center gap-1">
+                  Toplam Mesai
+                  {settings.deductBreakTime 
+                    ? <CheckCircle className="w-3 h-3 text-blue-200" /> 
+                    : <XCircle className="w-3 h-3 text-blue-200" />
+                  }
+                </p>
                 <p className="text-xl font-bold">
                   {formatHours(monthlyTotal)}
                 </p>
@@ -130,7 +134,13 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
           <div className="flex-1 bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 dark:text-green-200 text-xs font-medium">Toplam Net Mesai Ücreti</p>
+                <p className="text-green-100 dark:text-green-200 text-xs font-medium flex items-center gap-1">
+                  Toplam Net Mesai Ücreti
+                  {settings.deductBreakTime 
+                    ? <CheckCircle className="w-3 h-3 text-green-200" /> 
+                    : <XCircle className="w-3 h-3 text-green-200" />
+                  }
+                </p>
                 <p className="text-xl font-bold">
                   ₺{overtimeStats.total.payment.toFixed(2)}
                 </p>

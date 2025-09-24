@@ -1,6 +1,6 @@
-import React, { memo, useMemo } from 'react';
+import React from 'react';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours } from '../utils/dateUtils';
+import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours, calculateEffectiveHours } from '../utils/dateUtils';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useHolidays } from '../hooks/useHolidays';
 import { useSalarySettings } from '../hooks/useSalarySettings';
@@ -13,19 +13,8 @@ interface CalendarProps {
   onDateClick: (date: Date) => void;
 }
 
-// Define types for our data
-// interface CalendarDayData {
-//   date: Date;
-//   overtimeEntry: any; // We'll keep this as any for now since it's from the hook
-//   isInCurrentMonth: boolean;
-//   isTodayDate: boolean;
-//   isSaturday: boolean;
-//   isSunday: boolean;
-//   holiday: Holiday | undefined;
-// }
-
 // Memoized CalendarDay component for better performance
-const CalendarDay = memo(({ 
+const CalendarDay = React.memo(({ 
   date, 
   overtimeEntry, 
   isInCurrentMonth, 
@@ -34,8 +23,10 @@ const CalendarDay = memo(({
   isHolidayDate, 
   isSaturday, 
   isSunday,
-  onClick 
-}: {
+  onClick,
+  deductBreakTime,
+  isSaturdayWork
+}: { 
   date: Date;
   overtimeEntry: any;
   isInCurrentMonth: boolean;
@@ -45,8 +36,13 @@ const CalendarDay = memo(({
   isSaturday: boolean;
   isSunday: boolean;
   onClick: (date: Date) => void;
+  deductBreakTime: boolean;
+  isSaturdayWork: boolean;
 }) => {
   const hasNote = overtimeEntry?.note && overtimeEntry.note.trim().length > 0;
+  const displayedHours = overtimeEntry 
+    ? calculateEffectiveHours(overtimeEntry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork)
+    : 0;
   
   return (
     <div
@@ -122,7 +118,7 @@ const CalendarDay = memo(({
             ? 'bg-purple-200 text-purple-800 dark:bg-purple-400/30 dark:text-purple-200'
             : 'bg-blue-100 text-blue-700 dark:bg-blue-400/30 dark:text-blue-200'
         }`}>
-          {formatHours(overtimeEntry.totalHours)}
+          {formatHours(displayedHours)}
         </div>
       )}
     </div>
@@ -131,19 +127,19 @@ const CalendarDay = memo(({
 
 CalendarDay.displayName = 'CalendarDay';
 
-export const Calendar: React.FC<CalendarProps> = memo(({ currentDate, onDateChange, onDateClick }) => {
+export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDateChange, onDateClick }) => {
   const { getOvertimeForDate, isLoaded } = useOvertimeData();
   const { getHoliday } = useHolidays();
   const { settings } = useSalarySettings(); // Get settings
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const today = useMemo(() => new Date(), []); // Memoize today to prevent re-creation on every render
-  
+  const today = React.useMemo(() => new Date(), []); // Memoize today to prevent re-creation on every render
+
   // Memoize calendar days calculation with proper dependency tracking
-  const calendarDays = useMemo(() => getCalendarDays(year, month), [year, month]);
+  const calendarDays = React.useMemo(() => getCalendarDays(year, month), [year, month]);
   
   // Memoize holiday and overtime data for better performance
-  const memoizedData = useMemo(() => {
+  const memoizedData = React.useMemo(() => {
     return calendarDays.map(date => ({
       date,
       overtimeEntry: getOvertimeForDate(date),
@@ -156,7 +152,7 @@ export const Calendar: React.FC<CalendarProps> = memo(({ currentDate, onDateChan
   }, [calendarDays, month, today, getOvertimeForDate, getHoliday]);
   
   // Conditionally filter calendar days based on showNextMonthDays setting
-  const filteredCalendarDays = useMemo(() => {
+  const filteredCalendarDays = React.useMemo(() => {
     if (settings.showNextMonthDays) {
       return memoizedData;
     } else {
@@ -287,6 +283,8 @@ export const Calendar: React.FC<CalendarProps> = memo(({ currentDate, onDateChan
               isSaturday={isSaturday}
               isSunday={isSunday}
               onClick={handleDateClick}
+              deductBreakTime={settings.deductBreakTime}
+              isSaturdayWork={settings.isSaturdayWork}
             />
           );
         })}

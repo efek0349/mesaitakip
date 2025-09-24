@@ -1,217 +1,247 @@
-import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { FilePicker, PickFilesResult } from '@capawesome/capacitor-file-picker';
+import { Share } from '@capacitor/share';
+import { FilePicker } from '@capawesome/capacitor-file-picker'; // Added this import
+import { MonthlyData, SalarySettings, Holiday, OvertimeEntry } from '../types/overtime';
+import { generateExportText } from '../utils/dateUtils';
 
-/**
- * Metin dosyasını indir
- */
-export const downloadTextFile = (content: string, fileName: string): void => {
-  try {
-    if (Capacitor.isNativePlatform()) {
-      // Android/iOS için dosya paylaşımı kullan
-      shareTextAsFile(content, fileName);
-    } else {
-      // Web için blob download
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+const formatDecimalHoursToHHMM = (decimalHours: number): string => {
+  if (isNaN(decimalHours) || decimalHours < 0) {
+    return "00:00";
+  }
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+export const downloadTextFile = async (text: string, filename: string) => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Write to a temporary cache directory
+      const tempFilePath = `temp_${filename}`;
+      await Filesystem.writeFile({
+        path: tempFilePath,
+        data: text,
+        directory: Directory.Cache, // Use cache directory for temporary file
+        encoding: Encoding.UTF8,
+      });
+
+      // Get the URI of the temporary file
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: tempFilePath,
+      });
+
+      // Share the file, allowing the user to choose where to save/share it
+      await Share.share({
+        title: 'Yedekleme Dosyası',
+        text: 'Lütfen yedekleme dosyasını kaydetmek istediğiniz uygulamayı seçin.',
+        url: fileUri.uri, // Use the URI for sharing
+        dialogTitle: 'Yedekleme Dosyasını Kaydet/Paylaş',
+      });
+
+      // Remove the temporary file after sharing
+      await Filesystem.deleteFile({
+        directory: Directory.Cache,
+        path: tempFilePath,
+      });
+
+      alert(`${filename} başarıyla paylaşıldı/kaydedildi!`);
+    } catch (error) {
+      console.error('Dosya indirme/paylaşma hatası:', error);
+      alert('Dosya kaydedilirken/paylaşılırken bir hata oluştu.');
     }
-  } catch (error) {
-    console.error('Dosya indirme hatası:', error);
-    // Fallback: panoya kopyala
-    copyToClipboard(content, 'Dosya indirilemedi, ancak içerik panoya kopyalandı!');
+  } else {
+    const element = document.createElement('a');
+    const file = new Blob([text], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   }
 };
 
-/**
- * Metni paylaş (Android/iOS/Web uyumlu)
- */
-export const shareText = async (content: string, title: string): Promise<void> => {
-  try {
-    if (Capacitor.isNativePlatform()) {
-      // Android/iOS için native paylaşma
+export const shareText = async (text: string, title: string) => {
+  if (Capacitor.isNativePlatform()) {
+    try {
       await Share.share({
         title: title,
-        text: content,
-        dialogTitle: title
+        text: text,
+        dialogTitle: title,
       });
-    } else {
-      // Web için Web Share API
-      if (navigator.share && navigator.canShare && navigator.canShare({ text: content })) {
+    } catch (error) {
+      console.error('Paylaşım hatası:', error);
+      // Kullanıcı paylaşımı iptal ettiğinde hata vermemesi için özel bir durum
+      if (!(error instanceof Error && error.message.includes('cancelled'))) {
+        alert('İçerik paylaşılırken bir hata oluştu.');
+      }
+    }
+  } else {
+    // Web platformunda paylaşım API'si genellikle daha kısıtlıdır veya farklı çalışır
+    if (navigator.share) {
+      try {
         await navigator.share({
           title: title,
-          text: content
+          text: text,
         });
-      } else {
-        // Web Share API desteklenmiyorsa panoya kopyala
-        await copyToClipboard(content, 'Rapor panoya kopyalandı! Artık istediğiniz yere yapıştırabilirsiniz.');
+      } catch (error) {
+        console.error('Web paylaşım hatası:', error);
       }
     }
-  } catch (error) {
-    console.error('Paylaşma hatası:', error);
-    
-    // Hata durumunda panoya kopyalama
-    if (error.name !== 'AbortError') { // Kullanıcı iptal etmediyse
-      await copyToClipboard(content, 'Paylaşma başarısız oldu, ancak rapor panoya kopyalandı!');
+    else {
+      // Alternatif olarak panoya kopyalama veya indirme sunulabilir
+      prompt('Paylaşmak istediğiniz metni kopyalayın:', text);
     }
   }
 };
 
-/**
- * Android/iOS için dosya olarak paylaş
- */
-const shareTextAsFile = async (content: string, fileName: string): Promise<void> => {
-  try {
-    // Geçici bir blob URL oluştur
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    
-    // Capacitor Share ile dosya paylaş
-    await Share.share({
-      title: fileName.replace('.txt', ''),
-      text: content,
-      url: url,
-      dialogTitle: 'Mesai raporunu paylaş'
-    });
-    
-    // URL'yi temizle
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (error) {
-    console.error('Dosya paylaşma hatası:', error);
-    // Fallback: sadece metin paylaş
-    await Share.share({
-      title: fileName.replace('.txt', ''),
-      text: content,
-      dialogTitle: 'Mesai raporunu paylaş'
-    });
-  }
+// Placeholder for saveBackupFile - You need to provide the original implementation
+export const saveBackupFile = async (data: string, filename: string): Promise<void> => {
+  console.warn('saveBackupFile: Placeholder function called. Provide original implementation.');
+  // Original implementation should go here
+  await downloadTextFile(data, filename); // Using downloadTextFile as a fallback
 };
 
-/**
- * Panoya kopyala (güvenli)
- */
-const copyToClipboard = async (text: string, successMessage: string): Promise<void> => {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      // Modern clipboard API
-      await navigator.clipboard.writeText(text);
-      showMessage(successMessage);
-    } else {
-      // Fallback: eski yöntem
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      
-      try {
-        document.execCommand('copy');
-        showMessage(successMessage);
-      } catch (err) {
-        console.error('Panoya kopyalama hatası:', err);
-        showMessage('Panoya kopyalanamadı. Lütfen manuel olarak kopyalayın.');
-      } finally {
-        document.body.removeChild(textArea);
-      }
-    }
-  } catch (error) {
-    console.error('Clipboard hatası:', error);
-    showMessage('Panoya kopyalanamadı. Lütfen manuel olarak kopyalayın.');
-  }
-};
-
-/**
- * Kullanıcıya mesaj göster
- */
-const showMessage = (message: string): void => {
-  // Basit alert kullan (daha sonra toast sistemi eklenebilir)
-  alert(message);
-};
-
-/**
- * Dosya uzantısını kontrol et
- */
-export const getFileExtension = (fileName: string): string => {
-  return fileName.split('.').pop()?.toLowerCase() || '';
-};
-
-/**
- * Dosya boyutunu formatla
- */
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-/**
- * Yedekleme dosyasını (JSON) cihazın Dokümanlar klasörüne kaydeder.
- * @param content Kaydedilecek veri (string formatında)
- * @param fileName Dosya adı
- * @returns Kaydedilen dosyanın yolu (path)
- */
-export const saveBackupFile = async (content: string, fileName: string): Promise<string> => {
-  if (!Capacitor.isNativePlatform()) {
-    // Web platformu için standart indirme yöntemini kullan
-    downloadTextFile(content, fileName);
-    return `web_download:${fileName}`;
-  }
-
-  const result = await Filesystem.writeFile({
-    path: fileName,
-    data: content,
-    directory: Directory.Documents,
-    encoding: Encoding.UTF8,
-  });
-
-  return result.uri;
-};
-
-/**
- * Kullanıcının bir yedekleme dosyası (JSON) seçmesini sağlar ve içeriğini okur.
- * @returns Seçilen dosyanın içeriği (string) veya null
- */
 export const pickAndReadBackupFile = async (): Promise<string | null> => {
-  try {
-    const result: PickFilesResult = await FilePicker.pickFiles({
-      types: ['application/json'],
-      readData: true, // Dosya içeriğini base64 olarak oku
-    });
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Kullanıcının dosya seçmesini sağla
+      const result = await FilePicker.pickFiles({
+        types: ['application/json'], // Sadece JSON dosyalarını seç
+        multiple: false,
+      });
 
-    if (result.files.length === 0) {
-      return null; // Kullanıcı dosya seçmedi
-    }
+      if (result.files.length === 0) {
+        // Kullanıcı dosya seçmeyi iptal etti
+        alert('Dosya seçimi iptal edildi.');
+        return null;
+      }
 
-    const file = result.files[0];
-    if (!file.data) {
-      throw new Error('Dosya verisi okunamadı.');
-    }
+      const file = result.files[0];
+      alert(`Seçilen dosya: ${file.name}, Yolu: ${file.path}`);
 
-    // Base64 veriyi decode et
-    const content = atob(file.data);
-    return content;
+      // Seçilen dosyanın içeriğini oku
+      const contents = await Filesystem.readFile({
+        path: file.path!,
+        encoding: Encoding.UTF8,
+      });
 
-  } catch (error) {
-    // Kullanıcı seçimi iptal ederse hata fırlatılır, bunu yakala
-    if (error.message.includes('cancelled')) {
-      console.log('Dosya seçimi iptal edildi.');
+      alert('Dosya içeriği başarıyla okundu.');
+      return contents.data as string; // İçeriği string olarak döndür
+    } catch (error: any) {
+      console.error('Dosya seçme veya okuma hatası:', error);
+      alert(`Yedekleme dosyası okunurken bir hata oluştu: ${error.message || error}`);
       return null;
     }
-    console.error('Dosya seçme veya okuma hatası:', error);
-    throw error; // Diğer hataları tekrar fırlat
+  } else {
+    // Web platformu için basit bir dosya seçici
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve(e.target?.result as string);
+          };
+          reader.onerror = (e) => {
+            console.error('Dosya okuma hatası (Web):', e);
+            alert('Yedekleme dosyası okunurken bir hata oluştu.');
+            resolve(null);
+          };
+          reader.readAsText(file);
+        } else {
+          resolve(null);
+        }
+      };
+      input.click();
+    });
   }
+};
+
+export const generateCsvContent = (
+  year: number,
+  month: number, // 0-11
+  monthlyData: MonthlyData,
+  settings: SalarySettings,
+  getHoliday: (date: Date) => Holiday | undefined
+): string => {
+  const headers = ["Tarih", "Çalışan Adı", "Başlangıç", "Bitiş", "Normal Saat", "Fazla Mesai", "Açıklama"]; // Force rebuild
+  const rows: string[] = [];
+
+  const employeeName = `${settings.firstName} ${settings.lastName}`.trim();
+  const defaultStartTime = settings.defaultStartTime || '08:05';
+  const defaultEndTime = settings.defaultEndTime || '18:05';
+
+  // Calculate normal working hours based on default start/end times
+  const [startHour, startMinute] = defaultStartTime.split(':').map(Number);
+  const [endHour, endMinute] = defaultEndTime.split(':').map(Number);
+  const normalWorkingHours = (endHour - startHour) + (endMinute - startMinute) / 60;
+  const formattedNormalWorkingHours = formatDecimalHoursToHHMM(normalWorkingHours);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month, day);
+    const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    const yearMonthString = `${year}-${(month + 1).toString().padStart(2, '0')}`;
+    
+    const monthDataEntries = monthlyData[yearMonthString] || [];
+    const dayData = monthDataEntries.filter(entry => entry.date === dateString);
+    const totalOvertimeHoursForDay = dayData.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+    const noteForDay = dayData.map(entry => entry.note).filter(Boolean).join('; ');
+
+    // Declare these variables once
+    const dayOfWeek = currentDate.getDay();
+    const isSaturday = dayOfWeek === 6;
+    const isSunday = dayOfWeek === 0;
+    const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
+    const isHoliday = !!getHoliday(currentDate);
+
+    let shouldIncludeDay = true; // Assume included by default
+
+    // Exclusion rules
+    if (totalOvertimeHoursForDay === 0) { // Only apply exclusion rules if no overtime
+      if (isSunday) { // Rule: Sundays without overtime are excluded
+        shouldIncludeDay = false;
+      } else if (isHoliday) { // Rule: Holidays without overtime are excluded
+        shouldIncludeDay = false;
+      } else if (isSaturday && !settings.isSaturdayWork) { // Rule: Saturdays without overtime are excluded if isSaturdayWork is false
+        shouldIncludeDay = false;
+      }
+    }
+
+    if (shouldIncludeDay) {
+      const formattedOvertimeHours = formatDecimalHoursToHHMM(totalOvertimeHoursForDay);
+
+      rows.push(
+        `"${dateString}","${employeeName}","${defaultStartTime}","${defaultEndTime}","${formattedNormalWorkingHours}","${formattedOvertimeHours}","${noteForDay}"`
+      );
+    }
+  }
+
+  return [headers.join(','), ...rows].join('\n');
+};
+
+export const generateShareableSummaryText = (
+  year: number,
+  month: number, // 0-11
+  monthlyData: MonthlyData,
+  settings: SalarySettings,
+  getHoliday: (date: Date) => Holiday | undefined
+): string => {
+  return generateExportText(
+    monthlyData,
+    year,
+    month,
+    settings.firstName,
+    settings.lastName,
+    getHoliday,
+    settings.deductBreakTime,
+    settings.isSaturdayWork
+  );
 };

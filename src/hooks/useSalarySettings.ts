@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
 import { SalarySettings } from '../types/overtime';
 
 const defaultSettings: SalarySettings = {
@@ -13,8 +13,11 @@ const defaultSettings: SalarySettings = {
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.5,
   holidayMultiplier: 2.0,
-  deductBreakTime: false,
-  showNextMonthDays: true
+  deductBreakTime: true,
+  showNextMonthDays: false,
+  isSaturdayWork: false,
+  defaultStartTime: '08:05',
+  defaultEndTime: '18:05',
 };
 
 // Global salary event emitter
@@ -86,15 +89,15 @@ const clearSalarySettings = () => {
 };
 
 export const useSalarySettings = () => {
-  const [, setUpdateCounter] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [, setUpdateCounter] = React.useState(0);
+  const [isLoaded, setIsLoaded] = React.useState(false);
 
   // Force re-render
-  const forceUpdate = useCallback(() => {
+  const forceUpdate = React.useCallback(() => {
     setUpdateCounter(prev => prev + 1);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Load settings on mount
     loadGlobalSettings();
     setIsLoaded(true);
@@ -105,17 +108,17 @@ export const useSalarySettings = () => {
     return unsubscribe;
   }, [forceUpdate]);
 
-  const updateSettings = useCallback((newSettings: SalarySettings) => {
+  const updateSettings = React.useCallback((newSettings: SalarySettings) => {
     globalSettings = { ...newSettings };
     saveGlobalSettings();
   }, []);
 
-  const getHourlyRate = useCallback(() => {
+  const getHourlyRate = React.useCallback(() => {
     if (!isSalaryLoaded) return 0;
     return globalSettings.monthlyGrossSalary / globalSettings.monthlyWorkingHours;
   }, [isLoaded]);
 
-  const getOvertimeRate = useCallback((date: Date, isHoliday: boolean = false) => {
+  const getOvertimeRate = React.useCallback((date: Date, isHoliday: boolean = false) => {
     if (!isSalaryLoaded) return 0;
 
     const dayOfWeek = date.getDay();
@@ -150,7 +153,7 @@ export const useSalarySettings = () => {
   }, [isLoaded, getHourlyRate]);
 
   // Memoized settings for performance
-  const settingsMemo = useMemo(() => globalSettings, [globalSettings]);
+  const settingsMemo = React.useMemo(() => globalSettings, [globalSettings]);
 
   return {
     settings: settingsMemo,

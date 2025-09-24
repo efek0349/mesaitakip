@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
 import { OvertimeEntry, MonthlyData } from '../types/overtime';
-import { getMonthKey, getDateKey } from '../utils/dateUtils';
+import { getMonthKey, getDateKey, calculateEffectiveHours } from '../utils/dateUtils';
+import { useSalarySettings } from './useSalarySettings';
+import { useHolidays } from './useHolidays';
 
 // Global state için event emitter
 class DataEventEmitter {
@@ -207,15 +209,16 @@ const clearAllData = () => {
 };
 
 export const useOvertimeData = () => {
-  const [, setUpdateCounter] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [, setUpdateCounter] = React.useState(0);
+  const [isLoaded, setIsLoaded] = React.useState(false);
+  const { settings } = useSalarySettings();
 
   // Force re-render
-  const forceUpdate = useCallback(() => {
+  const forceUpdate = React.useCallback(() => {
     setUpdateCounter(prev => prev + 1);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Load data on mount
     loadGlobalData();
     setIsLoaded(true);
@@ -229,12 +232,13 @@ export const useOvertimeData = () => {
     };
   }, [forceUpdate]);
 
-  const addOvertimeEntry = useCallback((date: Date, hours: number, minutes: number, note?: string) => {
+  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, note?: string) => {
     if (!isDataLoaded) {
       return;
     }
 
-    const totalHours = hours + minutes / 60;
+    const totalHours = hours + minutes / 60; // Store raw totalHours
+    // const effectiveTotalHours = calculateEffectiveHours(rawTotalHours, salarySettings.deductBreakTime); // No longer apply deduction here
     const monthKey = getMonthKey(date);
     const dateKey = getDateKey(date);
     
@@ -243,7 +247,7 @@ export const useOvertimeData = () => {
       date: dateKey,
       hours,
       minutes,
-      totalHours,
+      totalHours: totalHours, // Store raw totalHours
       note: note || undefined
     };
 
@@ -270,7 +274,7 @@ export const useOvertimeData = () => {
     saveGlobalData();
   }, []);
 
-  const removeOvertimeEntry = useCallback((date: Date) => {
+  const removeOvertimeEntry = React.useCallback((date: Date) => {
     if (!isDataLoaded) {
       return;
     }
@@ -291,7 +295,7 @@ export const useOvertimeData = () => {
     saveGlobalData();
   }, []);
 
-  const clearMonthData = useCallback((year: number, month: number) => {
+  const clearMonthData = React.useCallback((year: number, month: number) => {
     if (!isDataLoaded) return;
 
     const monthKey = getMonthKey(new Date(year, month));
@@ -301,7 +305,7 @@ export const useOvertimeData = () => {
     saveGlobalData();
   }, []);
 
-  const getOvertimeForDate = useCallback((date: Date): OvertimeEntry | undefined => {
+  const getOvertimeForDate = React.useCallback((date: Date): OvertimeEntry | undefined => {
     if (!isDataLoaded) return undefined;
 
     const monthKey = getMonthKey(date);
@@ -314,19 +318,27 @@ export const useOvertimeData = () => {
     });
   }, [isLoaded]);
 
-  const getMonthlyTotal = useCallback((year: number, month: number): number => {
+  const { isHoliday } = useHolidays();
+
+  const getMonthlyTotal = React.useCallback((year: number, month: number, deductBreakTime: boolean): number => {
     if (!isDataLoaded) return 0;
 
     const monthKey = getMonthKey(new Date(year, month));
-    const cacheKey = `total-${monthKey}`;
+    const cacheKey = `total-${monthKey}-${deductBreakTime}-${settings.isSaturdayWork}`;
     
     return getCachedData(cacheKey, () => {
       if (!globalData[monthKey]) return 0;
-      return globalData[monthKey].reduce((total, entry) => total + entry.totalHours, 0);
+      return globalData[monthKey].reduce((total, entry) => {
+        const date = new Date(entry.date);
+        const isSaturday = date.getDay() === 6;
+        const isSunday = date.getDay() === 0;
+        const isEntryHoliday = isHoliday(date);
+        return total + calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, settings.isSaturdayWork);
+      }, 0);
     });
-  }, [isLoaded]);
+  }, [isLoaded, isHoliday, settings.isSaturdayWork]);
 
-  const getMonthlyEntries = useCallback((year: number, month: number): OvertimeEntry[] => {
+  const getMonthlyEntries = React.useCallback((year: number, month: number): OvertimeEntry[] => {
     if (!isDataLoaded) return [];
 
     const monthKey = getMonthKey(new Date(year, month));
@@ -338,12 +350,12 @@ export const useOvertimeData = () => {
   }, [isLoaded]);
 
   // Veri export fonksiyonu (yedekleme için)
-  const exportAllData = useCallback(() => {
+  const exportAllData = React.useCallback(() => {
     return JSON.stringify(globalData, null, 2);
   }, []);
 
   // Belirli bir ayın verisini export fonksiyonu
-  const exportMonthData = useCallback((year: number, month: number) => {
+  const exportMonthData = React.useCallback((year: number, month: number) => {
     const monthKey = getMonthKey(new Date(year, month));
     const monthData = globalData[monthKey] || [];
     // Sadece o ayın verisini içeren bir nesne oluştur
@@ -354,7 +366,7 @@ export const useOvertimeData = () => {
   }, []);
 
   // Veri import fonksiyonu (geri yükleme için)
-  const importData = useCallback((dataString: string) => {
+  const importData = React.useCallback((dataString: string) => {
     try {
       const importedData = JSON.parse(dataString);
       const validatedData = validateAndCleanData(importedData);
@@ -395,7 +407,7 @@ export const useOvertimeData = () => {
   }, []);
 
   // Memoized monthly data for performance
-  const monthlyDataMemo = useMemo(() => globalData, [globalData]);
+  const monthlyDataMemo = React.useMemo(() => globalData, [globalData]);
 
   return {
     monthlyData: monthlyDataMemo,

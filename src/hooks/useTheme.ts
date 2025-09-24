@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 
 type Theme = 'light' | 'dark';
 
 export const useTheme = () => {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, setTheme] = React.useState<Theme>(() => {
     // Başlangıç temasını localStorage'dan veya sistem tercihinden al
     const savedTheme = localStorage.getItem('theme') as Theme;
     if (savedTheme) {
@@ -16,7 +16,7 @@ export const useTheme = () => {
     return 'light';
   });
 
-  useEffect(() => {
+  React.useEffect(() => {
     const root = window.document.documentElement;
     
     // Mevcut temaya göre <html> elementine class ekle/kaldır

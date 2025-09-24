@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 
 interface ActionIconsProps {
   onOpenDataBackup: () => void;
-  onOpenSalarySettings: () => void;
+  onOpenSettings: () => void;
   onShareMonthlyStats: () => void;
   onClearMonthlyStats: () => void;
   canShare: boolean;
@@ -14,7 +14,7 @@ interface ActionIconsProps {
 
 export const ActionIcons: React.FC<ActionIconsProps> = React.memo(({
   onOpenDataBackup,
-  onOpenSalarySettings,
+  onOpenSettings,
   onShareMonthlyStats,
   onClearMonthlyStats,
   canShare,
@@ -24,7 +24,7 @@ export const ActionIcons: React.FC<ActionIconsProps> = React.memo(({
   return (
     <div className={`flex items-center justify-end gap-1 mt-4 mb-6 ${className}`}>
       {/* Maaş Ayarları */}
-      <button onClick={onOpenSalarySettings} className="p-1 rounded-full active:bg-gray-100 dark:active:bg-gray-700" aria-label="Maaş Ayarları">
+      <button onClick={onOpenSettings} className="p-1 rounded-full active:bg-gray-100 dark:active:bg-gray-700" aria-label="Ayarlar">
         <Settings className="w-6 h-6 text-gray-600 dark:text-gray-300" />
       </button>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React from 'react';
 import { Holiday } from '../types/overtime';
 import { getAllHolidays } from '../utils/holidayUtils';
 
@@ -7,10 +7,10 @@ let cachedYear: number | null = null;
 let cachedHolidays: Holiday[] = [];
 
 export const useHolidays = () => {
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentYear, setCurrentYear] = React.useState(new Date().getFullYear());
 
   // Tatilleri hesapla ve cache'le
-  const holidays = useMemo(() => {
+  const holidays = React.useMemo(() => {
     if (cachedYear === currentYear && cachedHolidays.length > 0) {
       return cachedHolidays;
     }
@@ -31,7 +31,7 @@ export const useHolidays = () => {
   }, [currentYear]);
 
   // Yıl değiştiğinde cache'i güncelle
-  useEffect(() => {
+  React.useEffect(() => {
     const year = new Date().getFullYear();
     if (year !== currentYear) {
       setCurrentYear(year);
@@ -54,7 +54,7 @@ export const useHolidays = () => {
   };
 
   // Memoized current year holidays
-  const currentYearHolidays = useMemo(() => {
+  const currentYearHolidays = React.useMemo(() => {
     return holidays.filter(holiday => holiday.date.startsWith(currentYear.toString()));
   }, [holidays, currentYear]);
 

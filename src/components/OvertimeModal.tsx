@@ -3,7 +3,7 @@ import { X, Plus, Minus, Clock, Edit3 } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatTurkishDate } from '../utils/dateUtils';
+import { formatTurkishDate, calculateEffectiveHours } from '../utils/dateUtils';
 import { getHolidayColorClass } from '../utils/holidayUtils';
 
 interface OvertimeModalProps {
@@ -93,10 +93,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const holiday = getHoliday(selectedDate);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday);
   
-  let effectiveHours = totalHours;
-  if (settings.deductBreakTime && totalHours >= 7.5) {
-    effectiveHours = Math.max(0, totalHours - 1);
-  }
+  const effectiveHours = calculateEffectiveHours(totalHours, settings.deductBreakTime);
   const totalPayment = effectiveHours * overtimeRate;
 
   return (
