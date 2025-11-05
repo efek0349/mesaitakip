@@ -135,7 +135,6 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
               <br />
               7.5 saatten fazla işlerde: 1 saat
             </p>
-            </button>
           </div>
 
           {/* Calendar Display Settings */}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Info, Github, Code, Check } from 'lucide-react';
+import Game2048 from './Game2048';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -66,7 +67,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <div className="flex justify-center items-center gap-8 mt-2 text-sm">
                 <div className="text-center">
                   <p className="text-gray-500 dark:text-gray-400">Sürüm</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">1.6.2</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-200">1.6.3</p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-500 dark:text-gray-400">Lisans</p>
@@ -97,7 +98,11 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             </ul>
           </div>
 
-
+          {/* Game */}
+          <div>
+            <SectionTitle>Biraz da Eğlence: 2048</SectionTitle>
+            <Game2048 />
+          </div>
         </div>
 
         {/* Footer */}
