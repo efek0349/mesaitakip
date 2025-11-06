@@ -1,5 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
+import { AI } from '../utils/AI';
+import { Grid } from '../utils/Grid';
+import { Tile as TileClass } from '../utils/Tile';
 
 const GRID_SIZE = 4;
 
@@ -47,6 +50,100 @@ const Game2048: React.FC = () => {
   const [grid, setGrid] = useState(generateInitialGrid());
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [hint, setHint] = useState('');
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTap, setLastTap] = useState(0);
+
+  const moveRowLeft = (row: number[]): { newRow: number[], score: number } => {
+    let score = 0;
+    const newRow = row.filter(val => val !== 0);
+    for (let i = 0; i < newRow.length - 1; i++) {
+        if (newRow[i] === newRow[i + 1]) {
+            newRow[i] *= 2;
+            score += newRow[i];
+            newRow.splice(i + 1, 1);
+        }
+    }
+    while (newRow.length < GRID_SIZE) {
+        newRow.push(0);
+    }
+    return { newRow, score };
+  }
+
+  const showHint = () => {
+    const gridInstance = new Grid(GRID_SIZE);
+
+    // Populate the gridInstance from the component's grid state
+    for (let i = 0; i < grid.length; i++) {
+      const value = grid[i];
+      if (value > 0) {
+        const x = i % GRID_SIZE;
+        const y = Math.floor(i / GRID_SIZE);
+        const tile = new TileClass({ x, y }, value);
+        gridInstance.insertTile(tile);
+      }
+    }
+
+    const ai = new AI(gridInstance);
+    const bestMove = ai.getBest();
+
+    if (bestMove && bestMove.move !== -1) {
+      const direction = ai.translate(bestMove.move);
+      if (direction) {
+        setHint(direction);
+        setTimeout(() => setHint(''), 1000);
+      }
+    }
+  };
+
+  const simulateMove = (currentGrid: number[], direction: 'up' | 'down' | 'left' | 'right') => {
+    let tempGrid = [...currentGrid];
+    let score = 0;
+    let moved = false;
+
+    const rotateGrid = (g: number[], count: number) => {
+        let rotated = [...g];
+        for (let i = 0; i < count; i++) {
+            const newRotated = Array(GRID_SIZE * GRID_SIZE).fill(0);
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    newRotated[c * GRID_SIZE + (GRID_SIZE - 1 - r)] = rotated[r * GRID_SIZE + c];
+                }
+            }
+            rotated = newRotated;
+        }
+        return rotated;
+    };
+
+    const getIndex = (row: number, col: number) => row * GRID_SIZE + col;
+
+    let rotationCount = 0;
+    if (direction === 'up') {
+        tempGrid = rotateGrid(tempGrid, 3);
+        rotationCount = 1;
+    } else if (direction === 'right') {
+        tempGrid = rotateGrid(tempGrid, 2);
+        rotationCount = 2;
+    } else if (direction === 'down') {
+        tempGrid = rotateGrid(tempGrid, 1);
+        rotationCount = 3;
+    }
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+        const row = tempGrid.slice(i * GRID_SIZE, i * GRID_SIZE + GRID_SIZE);
+        const { newRow, score: rowScore } = moveRowLeft(row);
+        score += rowScore;
+        for (let j = 0; j < GRID_SIZE; j++) {
+            const newIndex = getIndex(i, j);
+            if (tempGrid[newIndex] !== newRow[j]) moved = true;
+            tempGrid[newIndex] = newRow[j];
+        }
+    }
+    
+    tempGrid = rotateGrid(tempGrid, rotationCount);
+
+    return { grid: tempGrid, score, moved };
+  };
 
   const move = (direction: 'up' | 'down' | 'left' | 'right') => {
     const newGrid = [...grid];
@@ -69,21 +166,6 @@ const Game2048: React.FC = () => {
     
     const getIndex = (row: number, col: number) => row * GRID_SIZE + col;
 
-    const moveRowLeft = (row: number[]) => {
-        const newRow = row.filter(val => val !== 0);
-        for (let i = 0; i < newRow.length - 1; i++) {
-            if (newRow[i] === newRow[i + 1]) {
-                newRow[i] *= 2;
-                currentScore += newRow[i];
-                newRow.splice(i + 1, 1);
-            }
-        }
-        while (newRow.length < GRID_SIZE) {
-            newRow.push(0);
-        }
-        return newRow;
-    }
-
     let tempGrid = [...newGrid];
     let rotationCount = 0;
 
@@ -100,7 +182,8 @@ const Game2048: React.FC = () => {
 
     for (let i = 0; i < GRID_SIZE; i++) {
         const row = tempGrid.slice(i * GRID_SIZE, i * GRID_SIZE + GRID_SIZE);
-        const newRow = moveRowLeft(row);
+        const { newRow, score: rowScore } = moveRowLeft(row);
+        currentScore += rowScore;
         for (let j = 0; j < GRID_SIZE; j++) {
             const newIndex = getIndex(i, j);
             if (tempGrid[newIndex] !== newRow[j]) moved = true;
@@ -145,6 +228,10 @@ const Game2048: React.FC = () => {
         case 'ArrowDown': move('down'); break;
         case 'ArrowLeft': move('left'); break;
         case 'ArrowRight': move('right'); break;
+        case 'h':
+        case 'H':
+          showHint();
+          break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -156,7 +243,21 @@ const Game2048: React.FC = () => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!gameOver) e.preventDefault();
-    setTouchStart(e.touches[0]);
+
+    const now = new Date().getTime();
+    if (now - lastTap > 300) {
+      setTapCount(1);
+    } else {
+      setTapCount(tapCount + 1);
+    }
+    setLastTap(now);
+
+    if (tapCount === 3) {
+      showHint();
+      setTapCount(0);
+    } else {
+      setTouchStart(e.touches[0]);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -193,6 +294,16 @@ const Game2048: React.FC = () => {
           <Tile key={index} value={value} />
         ))}
       </div>
+      {hint && (
+        <div className="absolute inset-0 bg-black bg-opacity-25 flex items-center justify-center">
+          <div className="text-white text-6xl font-bold">
+            {hint === 'up' && '↑'}
+            {hint === 'down' && '↓'}
+            {hint === 'left' && '←'}
+            {hint === 'right' && '→'}
+          </div>
+        </div>
+      )}
       {gameOver && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center">
           <div className="text-white text-4xl font-bold">Oyun Bitti!</div>

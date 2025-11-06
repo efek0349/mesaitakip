@@ -67,7 +67,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <div className="flex justify-center items-center gap-8 mt-2 text-sm">
                 <div className="text-center">
                   <p className="text-gray-500 dark:text-gray-400">Sürüm</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">1.6.3</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-200">1.6.4</p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-500 dark:text-gray-400">Lisans</p>
