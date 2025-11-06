@@ -1,5 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
+import { AI } from '../utils/AI';
+import { Grid } from '../utils/Grid';
+import { Tile as TileClass } from '../utils/Tile';
+import { ArrowUp, ArrowLeft, ArrowDown, ArrowRight } from 'lucide-react';
 
 const GRID_SIZE = 4;
 
@@ -37,7 +41,7 @@ const Tile: React.FC<{ value: number }> = ({ value }) => {
   };
 
   return (
-    <div className={`w-16 h-16 flex items-center justify-center rounded-md text-2xl font-bold ${getColor(value)}`}>
+    <div className={`w-12 h-12 flex items-center justify-center rounded-md text-xl font-bold ${getColor(value)}`}>
       {value > 0 ? value : ''}
     </div>
   );
@@ -47,6 +51,100 @@ const Game2048: React.FC = () => {
   const [grid, setGrid] = useState(generateInitialGrid());
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [hint, setHint] = useState('');
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTap, setLastTap] = useState(0);
+
+  const moveRowLeft = (row: number[]): { newRow: number[], score: number } => {
+    let score = 0;
+    const newRow = row.filter(val => val !== 0);
+    for (let i = 0; i < newRow.length - 1; i++) {
+        if (newRow[i] === newRow[i + 1]) {
+            newRow[i] *= 2;
+            score += newRow[i];
+            newRow.splice(i + 1, 1);
+        }
+    }
+    while (newRow.length < GRID_SIZE) {
+        newRow.push(0);
+    }
+    return { newRow, score };
+  }
+
+  const showHint = () => {
+    const gridInstance = new Grid(GRID_SIZE);
+
+    // Populate the gridInstance from the component's grid state
+    for (let i = 0; i < grid.length; i++) {
+      const value = grid[i];
+      if (value > 0) {
+        const x = i % GRID_SIZE;
+        const y = Math.floor(i / GRID_SIZE);
+        const tile = new TileClass({ x, y }, value);
+        gridInstance.insertTile(tile);
+      }
+    }
+
+    const ai = new AI(gridInstance);
+    const bestMove = ai.getBest();
+
+    if (bestMove && bestMove.move !== -1) {
+      const direction = ai.translate(bestMove.move);
+      if (direction) {
+        setHint(direction);
+        setTimeout(() => setHint(''), 1000);
+      }
+    }
+  };
+
+  const simulateMove = (currentGrid: number[], direction: 'up' | 'down' | 'left' | 'right') => {
+    let tempGrid = [...currentGrid];
+    let score = 0;
+    let moved = false;
+
+    const rotateGrid = (g: number[], count: number) => {
+        let rotated = [...g];
+        for (let i = 0; i < count; i++) {
+            const newRotated = Array(GRID_SIZE * GRID_SIZE).fill(0);
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    newRotated[c * GRID_SIZE + (GRID_SIZE - 1 - r)] = rotated[r * GRID_SIZE + c];
+                }
+            }
+            rotated = newRotated;
+        }
+        return rotated;
+    };
+
+    const getIndex = (row: number, col: number) => row * GRID_SIZE + col;
+
+    let rotationCount = 0;
+    if (direction === 'up') {
+        tempGrid = rotateGrid(tempGrid, 3);
+        rotationCount = 1;
+    } else if (direction === 'right') {
+        tempGrid = rotateGrid(tempGrid, 2);
+        rotationCount = 2;
+    } else if (direction === 'down') {
+        tempGrid = rotateGrid(tempGrid, 1);
+        rotationCount = 3;
+    }
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+        const row = tempGrid.slice(i * GRID_SIZE, i * GRID_SIZE + GRID_SIZE);
+        const { newRow, score: rowScore } = moveRowLeft(row);
+        score += rowScore;
+        for (let j = 0; j < GRID_SIZE; j++) {
+            const newIndex = getIndex(i, j);
+            if (tempGrid[newIndex] !== newRow[j]) moved = true;
+            tempGrid[newIndex] = newRow[j];
+        }
+    }
+    
+    tempGrid = rotateGrid(tempGrid, rotationCount);
+
+    return { grid: tempGrid, score, moved };
+  };
 
   const move = (direction: 'up' | 'down' | 'left' | 'right') => {
     const newGrid = [...grid];
@@ -69,21 +167,6 @@ const Game2048: React.FC = () => {
     
     const getIndex = (row: number, col: number) => row * GRID_SIZE + col;
 
-    const moveRowLeft = (row: number[]) => {
-        const newRow = row.filter(val => val !== 0);
-        for (let i = 0; i < newRow.length - 1; i++) {
-            if (newRow[i] === newRow[i + 1]) {
-                newRow[i] *= 2;
-                currentScore += newRow[i];
-                newRow.splice(i + 1, 1);
-            }
-        }
-        while (newRow.length < GRID_SIZE) {
-            newRow.push(0);
-        }
-        return newRow;
-    }
-
     let tempGrid = [...newGrid];
     let rotationCount = 0;
 
@@ -100,7 +183,8 @@ const Game2048: React.FC = () => {
 
     for (let i = 0; i < GRID_SIZE; i++) {
         const row = tempGrid.slice(i * GRID_SIZE, i * GRID_SIZE + GRID_SIZE);
-        const newRow = moveRowLeft(row);
+        const { newRow, score: rowScore } = moveRowLeft(row);
+        currentScore += rowScore;
         for (let j = 0; j < GRID_SIZE; j++) {
             const newIndex = getIndex(i, j);
             if (tempGrid[newIndex] !== newRow[j]) moved = true;
@@ -145,54 +229,64 @@ const Game2048: React.FC = () => {
         case 'ArrowDown': move('down'); break;
         case 'ArrowLeft': move('left'); break;
         case 'ArrowRight': move('right'); break;
+        case 'h':
+        case 'H':
+          showHint();
+          break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [grid, gameOver]);
 
-  // Touch controls
-  const [touchStart, setTouchStart] = useState<React.Touch | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!gameOver) e.preventDefault();
-    setTouchStart(e.touches[0]);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!gameOver) e.preventDefault();
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!gameOver) e.preventDefault();
-    if (!touchStart) return;
-    const touchEnd = e.changedTouches[0];
-    const dx = touchEnd.clientX - touchStart.clientX;
-    const dy = touchEnd.clientY - touchStart.clientY;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 30) move('right');
-      else if (dx < -30) move('left');
+  const handleTouchStart = () => {
+    const now = new Date().getTime();
+    if (now - lastTap > 300) {
+      setTapCount(1);
     } else {
-      if (dy > 30) move('down');
-      else if (dy < -30) move('up');
+      setTapCount(tapCount + 1);
     }
-    setTouchStart(null);
+    setLastTap(now);
+
+    if (tapCount === 2) {
+      showHint();
+      setTapCount(0);
+    }
   };
 
   return (
-    <div className="flex flex-col items-center p-4 bg-gray-800 rounded-lg touch-action-none" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
+    <div className="flex flex-col items-center p-4 bg-gray-800 rounded-lg">
       <div className="flex justify-between w-full mb-4">
         <div className="text-white">
           <span className="font-bold">SKOR:</span> {score}
         </div>
         <button onClick={restartGame} className="px-3 py-1 bg-orange-500 text-white rounded-md">Yeniden Başlat</button>
       </div>
-      <div className="grid grid-cols-4 gap-2 bg-gray-600 p-2 rounded-md">
+      <div className="grid grid-cols-4 gap-2 bg-gray-600 p-2 rounded-md" onTouchStart={handleTouchStart}>
         {grid.map((value, index) => (
           <Tile key={index} value={value} />
         ))}
       </div>
+
+      <div className="flex flex-col items-center mt-4">
+        <button onClick={() => move('up')} className="p-4 bg-gray-600 text-white rounded-md mb-2"><ArrowUp size={24} /></button>
+        <div className="flex space-x-2">
+          <button onClick={() => move('left')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowLeft size={24} /></button>
+          <button onClick={() => move('down')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowDown size={24} /></button>
+          <button onClick={() => move('right')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowRight size={24} /></button>
+        </div>
+      </div>
+
+      {hint && (
+        <div className="absolute inset-0 bg-black bg-opacity-25 flex items-center justify-center">
+          <div className="text-white text-4xl font-bold">
+            {hint === 'up' && '↑'}
+            {hint === 'down' && '↓'}
+            {hint === 'left' && '←'}
+            {hint === 'right' && '→'}
+          </div>
+        </div>
+      )}
       {gameOver && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center">
           <div className="text-white text-4xl font-bold">Oyun Bitti!</div>
