@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Settings, Share2, Trash2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
@@ -21,6 +21,15 @@ export const ActionIcons: React.FC<ActionIconsProps> = React.memo(({
   canClear,
   className
 }) => {
+  const [isShareAvailable, setIsShareAvailable] = useState(false);
+
+  useEffect(() => {
+    // Paylaşım özelliğinin native veya web'de mevcut olup olmadığını kontrol et
+    if (Capacitor.isNativePlatform() || !!navigator.share) {
+      setIsShareAvailable(true);
+    }
+  }, []);
+
   return (
     <div className={`flex items-center justify-end gap-1 mt-4 mb-6 ${className}`}>
       {/* Maaş Ayarları */}
@@ -33,8 +42,8 @@ export const ActionIcons: React.FC<ActionIconsProps> = React.memo(({
         <Download className="w-6 h-6 text-gray-600 dark:text-gray-300" />
       </button>
 
-      {/* Paylaş (sadece mobilde göster) */}
-      {Capacitor.isNativePlatform() && (
+      {/* Paylaş (native mobil ve web mobil) */}
+      {isShareAvailable && (
         <button 
           onClick={onShareMonthlyStats} 
           disabled={!canShare}
