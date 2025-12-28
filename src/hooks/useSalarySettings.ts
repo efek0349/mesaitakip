@@ -4,7 +4,7 @@ import { SalarySettings } from '../types/overtime';
 const defaultSettings: SalarySettings = {
   firstName: '',
   lastName: '',
-  monthlyGrossSalary: 33030.00, // 2025 asgari ücret
+  monthlyGrossSalary: 33030.00, // 2026 asgari ücret
   monthlyWorkingHours: 225, // 2025 aylık çalışma saati
   sgkRate: 15, // %14 SGK + %1 işsizlik
   incomeTaxRate: 15, // %15 gelir vergisi
