@@ -4,11 +4,8 @@ import { SalarySettings } from '../types/overtime';
 const defaultSettings: SalarySettings = {
   firstName: '',
   lastName: '',
-  monthlyGrossSalary: 33030.00, // 2026 asgari ücret
+  monthlyGrossSalary: 28075.50, // 2026 asgari ücret net
   monthlyWorkingHours: 225, // 2025 aylık çalışma saati
-  sgkRate: 15, // %14 SGK + %1 işsizlik
-  incomeTaxRate: 15, // %15 gelir vergisi
-  stampTaxRate: 0.759, // %0.759 damga vergisi
   weekdayMultiplier: 1.5,
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.5,
@@ -126,28 +123,17 @@ export const useSalarySettings = () => {
     
     if (grossHourlyRate === 0) return 0;
     
-    let grossOvertimeRate = 0;
+    let netOvertimeRate = 0;
     
     if (isHoliday) {
-      grossOvertimeRate = grossHourlyRate * globalSettings.holidayMultiplier;
+      netOvertimeRate = grossHourlyRate * globalSettings.holidayMultiplier;
     } else if (dayOfWeek === 0) { // Sunday
-      grossOvertimeRate = grossHourlyRate * globalSettings.sundayMultiplier;
+      netOvertimeRate = grossHourlyRate * globalSettings.sundayMultiplier;
     } else if (dayOfWeek === 6) { // Saturday
-      grossOvertimeRate = grossHourlyRate * globalSettings.saturdayMultiplier;
+      netOvertimeRate = grossHourlyRate * globalSettings.saturdayMultiplier;
     } else { // Weekdays
-      grossOvertimeRate = grossHourlyRate * globalSettings.weekdayMultiplier;
+      netOvertimeRate = grossHourlyRate * globalSettings.weekdayMultiplier;
     }
-    
-    // Sıfır kontrolü
-    if (grossOvertimeRate === 0) return 0;
-    
-    // Net hesaplama (kesintiler)
-    const sgkAndUnemployment = grossOvertimeRate * (globalSettings.sgkRate / 100);
-    const afterSgk = grossOvertimeRate - sgkAndUnemployment;
-    const incomeTax = afterSgk * (globalSettings.incomeTaxRate / 100);
-    const stampTax = grossOvertimeRate * (globalSettings.stampTaxRate / 100);
-    
-    const netOvertimeRate = grossOvertimeRate - sgkAndUnemployment - incomeTax - stampTax;
     
     return Math.max(0, netOvertimeRate);
   }, [isLoaded, getHourlyRate]);

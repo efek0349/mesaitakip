@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent } from 'lucide-react';
+import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent, RefreshCw, ExternalLink, Info } from 'lucide-react';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { APP_VERSION } from './AboutModal';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -12,6 +13,12 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const { settings, updateSettings } = useSalarySettings();
   const [formData, setFormData] = useState<SalarySettingsType>(settings);
+  const [updateStatus, setUpdateStatus] = useState<{
+    loading: boolean;
+    version?: string;
+    isNew?: boolean;
+    error?: string;
+  }>({ loading: false });
 
   useEffect(() => {
     if (isOpen && settings.defaultStartTime && settings.defaultEndTime) {
@@ -22,6 +29,41 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const handleSave = () => {
     updateSettings(formData);
     onClose();
+  };
+
+  const checkUpdates = async () => {
+    setUpdateStatus({ loading: true });
+    try {
+      const response = await fetch('https://api.github.com/repos/efek0349/mesaitakip/releases/latest');
+      if (!response.ok) throw new Error('Güncelleme kontrolü başarısız.');
+      
+      const data = await response.json();
+      const latestVersion = data.tag_name.replace('v', '');
+      
+      // Semantik Versiyon Karşılaştırması (1.6.6 > 1.6.5 kontrolü)
+      const compareVersions = (v1: string, v2: string) => {
+        const parts1 = v1.split('.').map(Number);
+        const parts2 = v2.split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+          const p1 = parts1[i] || 0;
+          const p2 = parts2[i] || 0;
+          if (p1 > p2) return 1; // v1 daha büyük
+          if (p1 < p2) return -1; // v2 daha büyük
+        }
+        return 0; // Eşit
+      };
+
+      const hasNewVersion = compareVersions(latestVersion, APP_VERSION) === 1;
+      
+      setUpdateStatus({
+        loading: false,
+        version: latestVersion,
+        isNew: hasNewVersion
+      });
+    } catch (error) {
+      setUpdateStatus({ loading: false, error: 'Sunucuya ulaşılamadı. Lütfen internet bağlantınızı kontrol edin.' });
+    }
   };
 
   const handleInputChange = (field: keyof SalarySettingsType, value: number | string | boolean) => {
@@ -52,6 +94,55 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+          {/* Update Section */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <RefreshCw size={18} className={updateStatus.loading ? 'animate-spin' : ''} /> Uygulama Sürümü
+            </h3>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Mevcut Sürüm</span>
+                  <span className="text-xs text-gray-500 font-mono tracking-tighter">v{APP_VERSION}</span>
+                </div>
+                <button 
+                  onClick={checkUpdates}
+                  disabled={updateStatus.loading}
+                  className="px-3 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-lg active:scale-95 transition-transform"
+                >
+                  {updateStatus.loading ? 'Denetleniyor...' : 'Güncellemeleri Denetle'}
+                </button>
+              </div>
+
+              {updateStatus.version && (
+                <div className={`p-3 rounded-lg flex items-start gap-3 ${updateStatus.isNew ? 'bg-orange-50 dark:bg-orange-900/30' : 'bg-green-50 dark:bg-green-900/30'}`}>
+                  {updateStatus.isNew ? <Info className="w-4 h-4 text-orange-600 mt-0.5" /> : <Info className="w-4 h-4 text-green-600 mt-0.5" />}
+                  <div className="flex-1">
+                    <p className={`text-xs font-bold ${updateStatus.isNew ? 'text-orange-800 dark:text-orange-200' : 'text-green-800 dark:text-green-200'}`}>
+                      {updateStatus.isNew ? `Yeni Sürüm (v${updateStatus.version}) Mevcut!` : 'Uygulamanız Güncel.'}
+                    </p>
+                    {updateStatus.isNew && (
+                      <a 
+                        href="https://github.com/efek0349/mesaitakip/releases" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-orange-600 dark:text-orange-400 underline flex items-center gap-1 mt-1"
+                      >
+                        İndirmek için tıklayın <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {updateStatus.error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg text-xs font-medium text-red-600 dark:text-red-400">
+                  {updateStatus.error}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* General Settings */}
           <div className="space-y-4">
@@ -133,7 +224,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             </h3>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Brüt Maaş (₺)</label>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Maaş (Net) ₺</label>
                 <input 
                   type="number" 
                   value={formData.monthlyGrossSalary} 
@@ -185,7 +276,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 </label>
               </div>
               <div className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 rounded-lg p-2 text-center text-sm font-medium">
-                Brüt Saatlik Ücret: ₺{grossHourlyRate.toFixed(2)}
+                Saatlik Ücret: ₺{grossHourlyRate.toFixed(2)}
               </div>
               <div>
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Mesai Katsayıları</h4>
@@ -230,45 +321,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
           </div>
-
-          {/* Tax Info */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Percent size={18} /> Vergi ve Kesintiler (%)
-            </h3>
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">SGK</label>
-                  <input 
-                    type="number" 
-                    value={formData.sgkRate} 
-                    onChange={(e) => handleInputChange('sgkRate', Number(e.target.value))} 
-                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Gelir Vergisi</label>
-                  <input 
-                    type="number" 
-                    value={formData.incomeTaxRate} 
-                    onChange={(e) => handleInputChange('incomeTaxRate', Number(e.target.value))} 
-                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Damga Vergisi</label>
-                  <input 
-                    type="number" 
-                    value={formData.stampTaxRate} 
-                    onChange={(e) => handleInputChange('stampTaxRate', Number(e.target.value))} 
-                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         {/* Footer */}

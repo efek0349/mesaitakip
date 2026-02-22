@@ -16,9 +16,6 @@ export interface SalarySettings {
   lastName: string;
   monthlyGrossSalary: number;
   monthlyWorkingHours: number;
-  sgkRate: number;
-  incomeTaxRate: number;
-  stampTaxRate: number;
   weekdayMultiplier: number;
   saturdayMultiplier: number;
   sundayMultiplier: number;

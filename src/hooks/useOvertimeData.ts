@@ -406,6 +406,24 @@ export const useOvertimeData = () => {
     }
   }, []);
 
+  const getYearlyTotal = React.useCallback((year: number, deductBreakTime: boolean): number => {
+    if (!isDataLoaded) return 0;
+
+    let yearlyTotal = 0;
+    Object.keys(globalData).forEach(monthKey => {
+      if (monthKey.startsWith(year.toString())) {
+        globalData[monthKey].forEach(entry => {
+          const date = new Date(entry.date);
+          const isSaturday = date.getDay() === 6;
+          const isSunday = date.getDay() === 0;
+          const isEntryHoliday = isHoliday(date);
+          yearlyTotal += calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, settings.isSaturdayWork);
+        });
+      }
+    });
+    return yearlyTotal;
+  }, [isLoaded, isHoliday, settings.isSaturdayWork]);
+
   // Memoized monthly data for performance
   const monthlyDataMemo = React.useMemo(() => globalData, [globalData]);
 
@@ -418,6 +436,7 @@ export const useOvertimeData = () => {
     getOvertimeForDate,
     getMonthlyTotal,
     getMonthlyEntries,
+    getYearlyTotal,
     exportAllData,
     exportMonthData,
     importData,

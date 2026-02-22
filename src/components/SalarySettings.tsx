@@ -68,7 +68,7 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
             <h3 className="font-semibold text-gray-800 dark:text-white">Maaş Bilgileri</h3>
             <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Brüt Maaş (₺)</label>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Maaş (Net) ₺</label>
               <input type="number" value={formData.monthlyGrossSalary} onChange={(e) => handleInputChange('monthlyGrossSalary', Number(e.target.value))} className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
             </div>
             <div>
@@ -76,26 +76,7 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
               <input type="number" value={formData.monthlyWorkingHours} onChange={(e) => handleInputChange('monthlyWorkingHours', Number(e.target.value))} className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
             </div>
             <div className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 rounded-lg p-2 text-center text-sm font-medium">
-              Brüt Saatlik Ücret: ₺{grossHourlyRate.toFixed(2)}
-            </div>
-          </div>
-
-          {/* Tax Info */}
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
-            <h3 className="font-semibold text-gray-800 dark:text-white">Vergi ve Kesintiler (%)</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">SGK</label>
-                <input type="number" value={formData.sgkRate} onChange={(e) => handleInputChange('sgkRate', Number(e.target.value))} className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Gelir V.</label>
-                <input type="number" value={formData.incomeTaxRate} onChange={(e) => handleInputChange('incomeTaxRate', Number(e.target.value))} className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Damga V.</label>
-                <input type="number" value={formData.stampTaxRate} onChange={(e) => handleInputChange('stampTaxRate', Number(e.target.value))} className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-              </div>
+              Saatlik Ücret: ₺{grossHourlyRate.toFixed(2)}
             </div>
           </div>
 
