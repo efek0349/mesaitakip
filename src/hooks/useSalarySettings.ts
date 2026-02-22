@@ -5,7 +5,7 @@ const defaultSettings: SalarySettings = {
   firstName: '',
   lastName: '',
   monthlyGrossSalary: 28075.50, // 2026 asgari ücret net
-  monthlyWorkingHours: 225, // 2025 aylık çalışma saati
+  monthlyWorkingHours: 225, // Aylık çalışma saati
   weekdayMultiplier: 1.5,
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.5,
