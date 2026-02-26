@@ -108,7 +108,15 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
     }
   };
 
-  const totalEarnings = (settings.monthlyGrossSalary + (settings.bonus || 0)) + overtimeStats.total.payment;
+  const monthlyGrossSalary = Number(settings.monthlyGrossSalary) || 0;
+  const bonus = Number(settings.bonus) || 0;
+  const salarySum = monthlyGrossSalary + bonus;
+  
+  // TES kesintisi sadece maaş toplamı üzerinden
+  const currentTesRate = settings.hasTES ? (Number(settings.tesRate) || 3) : 0;
+  const tesDeduction = settings.hasTES ? salarySum * (currentTesRate / 100) : 0;
+  
+  const totalEarnings = (salarySum - tesDeduction) + overtimeStats.total.payment;
   const finalEarnings = settings.hasSalaryAttachment ? totalEarnings * 0.75 : totalEarnings;
 
     return (
@@ -169,9 +177,17 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
                   <div className="flex items-center justify-between border-t border-white/5 pt-2">
                     <span className="text-xs text-emerald-100 leading-none">Maaş</span>
                     <span className="text-sm font-bold leading-none text-white">
-                      ₺{(settings.monthlyGrossSalary + (settings.bonus || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ₺{salarySum.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
                   </div>
+                  {settings.hasTES && (
+                    <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                      <span className="text-xs text-blue-200 leading-none font-bold">TES</span>
+                      <span className="text-sm font-bold leading-none text-blue-100">
+                        -₺{tesDeduction.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
                   {settings.hasSalaryAttachment && (
                     <div className="flex items-center justify-between border-t border-white/5 pt-2">
                       <span className="text-xs text-red-200 leading-none font-bold">Haciz</span>

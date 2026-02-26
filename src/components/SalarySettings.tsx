@@ -15,7 +15,10 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(settings);
+      setFormData({
+        ...settings,
+        tesRate: settings.tesRate ?? 3 // Eğer veri tabanında/localStorage'da yoksa 3 yap
+      });
     }
   }, [settings, isOpen]);
 
@@ -26,7 +29,7 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
 
   const handleInputChange = (field: keyof SalarySettingsType, value: any) => {
     // Sayısal alanlar için özel kontrol
-    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours') {
+    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field === 'tesRate') {
       // Sadece rakam ve nokta/virgül izni ver, virgülü noktaya çevir
       let stringValue = String(value).replace(/[^0-9.,]/g, '').replace(',', '.');
       
@@ -116,7 +119,7 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
                 className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
               />
             </div>
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <button 
                 onClick={() => handleInputChange('hasSalaryAttachment', !formData.hasSalaryAttachment)} 
                 className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors"
@@ -127,6 +130,35 @@ export const SalarySettings: React.FC<SalarySettingsProps> = ({ isOpen, onClose 
                   <span className="block text-[10px] text-gray-500 dark:text-gray-400">Aktif edilirse toplam kazançtan 1/4 oranında kesinti yapılır.</span>
                 </div>
               </button>
+
+              <div className="flex flex-col gap-2 p-2 rounded-lg bg-white/30 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700">
+                <button 
+                  onClick={() => handleInputChange('hasTES', !formData.hasTES)} 
+                  className="w-full flex items-center gap-3 text-left"
+                >
+                  {formData.hasTES ? <CheckSquare className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
+                  <div>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">TES (Tamamlayıcı Emeklilik)</span>
+                    <span className="block text-[10px] text-gray-500 dark:text-gray-400">Aktif edilirse sadece maaş üzerinden kesinti yapılır.</span>
+                  </div>
+                </button>
+                {formData.hasTES && (
+                  <div className="flex items-center gap-2 pl-8">
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Kesinti Oranı:</label>
+                    <div className="relative flex-1 max-w-[80px]">
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={formData.tesRate} 
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => handleInputChange('tesRate', e.target.value)} 
+                        className="w-full p-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white pr-4" 
+                      />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

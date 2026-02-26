@@ -25,6 +25,8 @@ export interface SalarySettings {
   showNextMonthDays: boolean;
   isSaturdayWork: boolean;
   hasSalaryAttachment: boolean;
+  hasTES: boolean;
+  tesRate: number;
   defaultStartTime: string;
   defaultEndTime:string;
 }
