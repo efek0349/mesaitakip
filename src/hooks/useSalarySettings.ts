@@ -5,6 +5,7 @@ const defaultSettings: SalarySettings = {
   firstName: '',
   lastName: '',
   monthlyGrossSalary: 28075.50, // 2026 asgari ücret net
+  bonus: 0,
   monthlyWorkingHours: 225, // Aylık çalışma saati
   weekdayMultiplier: 1.5,
   saturdayMultiplier: 1.5,
@@ -13,6 +14,7 @@ const defaultSettings: SalarySettings = {
   deductBreakTime: true,
   showNextMonthDays: false,
   isSaturdayWork: false,
+  hasSalaryAttachment: false,
   defaultStartTime: '08:05',
   defaultEndTime: '18:05',
 };

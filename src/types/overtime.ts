@@ -15,6 +15,7 @@ export interface SalarySettings {
   firstName: string;
   lastName: string;
   monthlyGrossSalary: number;
+  bonus: number;
   monthlyWorkingHours: number;
   weekdayMultiplier: number;
   saturdayMultiplier: number;
@@ -23,6 +24,7 @@ export interface SalarySettings {
   deductBreakTime: boolean;
   showNextMonthDays: boolean;
   isSaturdayWork: boolean;
+  hasSalaryAttachment: boolean;
   defaultStartTime: string;
   defaultEndTime:string;
 }

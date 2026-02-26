@@ -66,13 +66,27 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleInputChange = (field: keyof SalarySettingsType, value: number | string | boolean) => {
+  const handleInputChange = (field: keyof SalarySettingsType, value: any) => {
+    // Sayısal alanlar için özel kontrol
+    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field.toString().includes('Multiplier')) {
+      // Sadece rakam ve nokta/virgül izni ver, virgülü noktaya çevir
+      let stringValue = String(value).replace(/[^0-9.,]/g, '').replace(',', '.');
+      
+      // Birden fazla nokta olmasını engelle
+      const parts = stringValue.split('.');
+      if (parts.length > 2) {
+        stringValue = parts[0] + '.' + parts.slice(1).join('');
+      }
+
+      setFormData(prev => ({ ...prev, [field]: stringValue as any }));
+      return;
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   if (!isOpen) return null;
 
-  const grossHourlyRate = (formData.monthlyGrossSalary / formData.monthlyWorkingHours) || 0;
+  const grossHourlyRate = (Number(formData.monthlyGrossSalary) / Number(formData.monthlyWorkingHours)) || 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
@@ -223,21 +237,38 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               <Briefcase size={18} /> Maaş ve Mesai
             </h3>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Maaş (Net) ₺</label>
-                <input 
-                  type="number" 
-                  value={formData.monthlyGrossSalary} 
-                  onChange={(e) => handleInputChange('monthlyGrossSalary', Number(e.target.value))} 
-                  className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Maaş (Net) ₺</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.monthlyGrossSalary} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('monthlyGrossSalary', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Prim (₺)</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.bonus} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('bonus', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Çalışma Saati</label>
                 <input 
-                  type="number" 
+                  type="text" 
+                  inputMode="decimal"
                   value={formData.monthlyWorkingHours} 
-                  onChange={(e) => handleInputChange('monthlyWorkingHours', Number(e.target.value))} 
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} 
                   className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
                 />
               </div>
@@ -275,8 +306,17 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   </span>
                 </label>
               </div>
-              <div className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 rounded-lg p-2 text-center text-sm font-medium">
-                Saatlik Ücret: ₺{grossHourlyRate.toFixed(2)}
+              <div className="pt-2">
+                <button 
+                  onClick={() => handleInputChange('hasSalaryAttachment', !formData.hasSalaryAttachment)} 
+                  className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  {formData.hasSalaryAttachment ? <CheckSquare className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
+                  <div>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Maaş Haczi</span>
+                    <span className="block text-[10px] text-gray-500 dark:text-gray-400">Aktif edilirse toplam kazançtan 1/4 oranında kesinti yapılır.</span>
+                  </div>
+                </button>
               </div>
               <div>
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Mesai Katsayıları</h4>
