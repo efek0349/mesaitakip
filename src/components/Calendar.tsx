@@ -134,6 +134,46 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const today = React.useMemo(() => new Date(), []); // Memoize today to prevent re-creation on every render
+  
+  // Swipe navigation state
+  const [touchStart, setTouchStart] = React.useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = React.useState<number | null>(null);
+
+  // Min swipe distance (in pixels)
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      goToNextMonth();
+    } else if (isRightSwipe) {
+      goToPreviousMonth();
+    }
+  };
+
+  const goToPreviousMonth = () => {
+    const newDate = new Date(year, month - 1, 1);
+    onDateChange(newDate);
+  };
+  
+  const goToNextMonth = () => {
+    const newDate = new Date(year, month + 1, 1);
+    onDateChange(newDate);
+  };
 
   // Memoize calendar days calculation with proper dependency tracking
   const calendarDays = React.useMemo(() => getCalendarDays(year, month), [year, month]);
@@ -196,16 +236,6 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
     );
   }
 
-  const goToPreviousMonth = () => {
-    const newDate = new Date(year, month - 1, 1);
-    onDateChange(newDate);
-  };
-  
-  const goToNextMonth = () => {
-    const newDate = new Date(year, month + 1, 1);
-    onDateChange(newDate);
-  };
-  
   const handleDateClick = (date: Date) => {
     if (date.getMonth() === month) {
       onDateClick(date);
@@ -213,7 +243,12 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   };
 
   return (
-    <div className="bg-white dark:bg-dark-bg rounded-2xl shadow-lg p-2 mb-4">
+    <div 
+      className="bg-white dark:bg-dark-bg rounded-2xl shadow-lg p-2 mb-4 touch-pan-y"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <button

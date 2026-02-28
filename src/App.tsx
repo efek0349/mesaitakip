@@ -3,7 +3,6 @@ import { Calendar } from './components/Calendar';
 import { MonthlyStats } from './components/MonthlyStats';
 import { OvertimeModal } from './components/OvertimeModal';
 import { Settings } from './components/Settings';
-import { FloatingActionButton } from './components/FloatingActionButton';
 import { AboutModal } from './components/AboutModal';
 import { DataBackupModal } from './components/DataBackupModal';
 import { ActionIcons } from './components/ActionIcons';
@@ -32,11 +31,6 @@ const App: React.FC = () => {
   // Memoized callbacks for better performance
   const handleDateClick = useCallback((date: Date) => {
     setSelectedDate(date);
-    setIsModalOpen(true);
-  }, []);
-  
-  const handleFabClick = useCallback(() => {
-    setSelectedDate(new Date());
     setIsModalOpen(true);
   }, []);
   
@@ -144,8 +138,7 @@ const App: React.FC = () => {
         </div>
       </div>
       
-      {/* Floating Action Button and Modals are outside the main layout flow */}
-      <FloatingActionButton onClick={handleFabClick} />
+      {/* Modals are outside the main layout flow */}
       <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />

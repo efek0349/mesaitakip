@@ -20,7 +20,7 @@ const FeatureItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </li>
 );
 
-export const APP_VERSION = '1.6.7';
+export const APP_VERSION = '1.6.8';
 
 export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
