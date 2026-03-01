@@ -125,7 +125,8 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
   text += '\n';
   
-  let totalHours = 0;
+  let totalNetHours = 0;
+  let totalGrossHours = 0;
   let normalHours = 0;
   let sundayHours = 0;
   let saturdayHours = 0; // Keep for potential internal use, but not for summary display
@@ -201,12 +202,26 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       }
       
       text += lineText + '\n';
-      totalHours += effectiveHours;
+      totalNetHours += effectiveHours;
+      totalGrossHours += currentEntry.totalHours;
     }
   });
   
+  const totalDeductionHours = totalGrossHours - totalNetHours;
+  const formatSa = (h: number) => formatHours(h).replace(' s', ' sa');
+  const formatSaat = (h: number) => formatHours(h).replace(' s', ' saat');
+
   text += '\n';
-  text += `Toplam Mesai: ${formatHours(totalHours)}\n`;
+  
+  if (deductBreakTime) {
+    text += `Toplam Mesai (Brüt): ${formatSa(totalGrossHours)}\n`;
+    text += `Toplam Mola: ${formatSa(totalDeductionHours)}\n`;
+    text += `Toplam Net Mesai: ${formatSa(totalNetHours)}\n`;
+  } else {
+    text += `Toplam Mesai: ${formatSa(totalNetHours)}\n`;
+  }
+  
+  text += '\n';
   
   // Detaylı mesai dağılımı
   let displayNormalHours = normalHours;
@@ -215,13 +230,13 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
 
   if (displayNormalHours > 0) {
-    text += `${formatHours(displayNormalHours)} haftaiçi mesaisi\n`;
+    text += `${formatSaat(displayNormalHours)} haftaiçi mesaisi\n`;
   }
   if (sundayHours > 0) {
-    text += `${formatHours(sundayHours)} pazar günü mesaisi\n`;
+    text += `${formatSaat(sundayHours)} pazar günü mesaisi\n`;
   }
   if (holidayHours > 0) {
-    text += `${formatHours(holidayHours)} resmi & dini tatil mesaisi\n`;
+    text += `${formatSaat(holidayHours)} resmi & dini tatil mesaisi\n`;
   }
   
   text += '='.repeat(25);
