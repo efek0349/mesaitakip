@@ -19,6 +19,9 @@ const defaultSettings: SalarySettings = {
   tesRate: 3,
   defaultStartTime: '08:05',
   defaultEndTime: '18:05',
+  shiftSystemEnabled: false,
+  shiftStartDate: new Date().toISOString().split('T')[0],
+  shiftInitialType: 'day',
 };
 
 // Global salary event emitter

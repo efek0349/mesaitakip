@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent, RefreshCw, ExternalLink, Info } from 'lucide-react';
+import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent, RefreshCw, ExternalLink, Info, Calendar, Moon, Sun } from 'lucide-react';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -12,7 +12,12 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const { settings, updateSettings } = useSalarySettings();
-  const [formData, setFormData] = useState<SalarySettingsType>(settings);
+  const [formData, setFormData] = useState<SalarySettingsType>({
+    ...settings,
+    shiftSystemEnabled: settings.shiftSystemEnabled ?? false,
+    shiftStartDate: settings.shiftStartDate ?? new Date().toISOString().split('T')[0],
+    shiftInitialType: settings.shiftInitialType ?? 'day'
+  });
   const [updateStatus, setUpdateStatus] = useState<{
     loading: boolean;
     version?: string;
@@ -203,6 +208,76 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                                   <li>7.5 saatten fazla işlerde: 1 saat</li>
                                 </ul>
                               </div>            </div>
+          </div>
+
+          {/* Shift System Settings */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Calendar size={18} /> Haftalık Vardiya Düzeni
+            </h3>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-4">
+              <div>
+                <button 
+                  onClick={() => handleInputChange('shiftSystemEnabled', !formData.shiftSystemEnabled)} 
+                  className="w-full flex items-center gap-3 text-left"
+                >
+                  {formData.shiftSystemEnabled 
+                    ? <CheckSquare className="w-5 h-5 text-blue-500" /> 
+                    : <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
+                  <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Vardiya takibini aktif et
+                  </span>
+                </button>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Takvimde 1 hafta gündüz, 1 hafta gece olacak şekilde renklendirme yapar.
+                </p>
+              </div>
+
+              {formData.shiftSystemEnabled && (
+                <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                      Döngü Başlangıç Tarihi
+                    </label>
+                    <input 
+                      type="date" 
+                      value={formData.shiftStartDate} 
+                      onChange={(e) => handleInputChange('shiftStartDate', e.target.value)} 
+                      className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                      Başlangıç Haftası Vardiyası
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => handleInputChange('shiftInitialType', 'day')}
+                        className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                          formData.shiftInitialType === 'day'
+                            ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800'
+                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        <Sun size={16} />
+                        <span className="text-sm font-medium">Gündüz</span>
+                      </button>
+                      <button
+                        onClick={() => handleInputChange('shiftInitialType', 'night')}
+                        className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                          formData.shiftInitialType === 'night'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800'
+                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        <Moon size={16} />
+                        <span className="text-sm font-medium">Gece</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* User Info */}
@@ -396,7 +471,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 flex gap-3 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex-shrink-0 flex gap-3 border-t border-gray-200 dark:border-gray-700 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button 
             onClick={onClose} 
             className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium active:bg-gray-200 dark:active:bg-gray-500"

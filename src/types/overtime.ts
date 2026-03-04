@@ -30,6 +30,9 @@ export interface SalarySettings {
   tesRate: number;
   defaultStartTime: string;
   defaultEndTime:string;
+  shiftSystemEnabled: boolean;
+  shiftStartDate: string;
+  shiftInitialType: 'day' | 'night';
 }
 
 export interface Holiday {

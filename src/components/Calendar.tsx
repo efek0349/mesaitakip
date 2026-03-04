@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Sun, Moon } from 'lucide-react';
 import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours, calculateEffectiveHours } from '../utils/dateUtils';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useHolidays } from '../hooks/useHolidays';
@@ -13,6 +13,31 @@ interface CalendarProps {
   onDateClick: (date: Date) => void;
 }
 
+// Vardiya hesaplama fonksiyonu
+const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'night') => {
+  const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const startParts = startDateStr.split('-').map(Number);
+  const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+  
+  // Haftayı Pazartesi'den başlatacak şekilde normalize et
+  const startDay = startDate.getDay(); // 0 Pazar, 1 Pazartesi...
+  const diffToMonday = startDay === 0 ? -6 : 1 - startDay;
+  const normalizedStartDate = new Date(startDate);
+  normalizedStartDate.setDate(startDate.getDate() + diffToMonday);
+  
+  const diffInTime = dateObj.getTime() - normalizedStartDate.getTime();
+  const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  
+  const isOpposite = Math.abs(diffInWeeks) % 2 === 1;
+  
+  if (initialType === 'day') {
+    return isOpposite ? 'night' : 'day';
+  } else {
+    return isOpposite ? 'day' : 'night';
+  }
+};
+
 // Memoized CalendarDay component for better performance
 const CalendarDay = React.memo(({ 
   date, 
@@ -25,7 +50,8 @@ const CalendarDay = React.memo(({
   isSunday,
   onClick,
   deductBreakTime,
-  isSaturdayWork
+  isSaturdayWork,
+  shiftSettings
 }: { 
   date: Date;
   overtimeEntries: any[];
@@ -38,6 +64,11 @@ const CalendarDay = React.memo(({
   onClick: (date: Date) => void;
   deductBreakTime: boolean;
   isSaturdayWork: boolean;
+  shiftSettings: {
+    enabled: boolean;
+    startDate: string;
+    initialType: 'day' | 'night';
+  };
 }) => {
   const overtimeEntry = overtimeEntries.find(e => e.type === 'overtime');
   const leaveEntry = overtimeEntries.find(e => e.type === 'leave');
@@ -50,6 +81,10 @@ const CalendarDay = React.memo(({
       ? entry.totalHours 
       : calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
   };
+
+  const shiftType = shiftSettings.enabled 
+    ? getShiftType(date, shiftSettings.startDate, shiftSettings.initialType)
+    : null;
 
   return (
     <div
@@ -77,12 +112,23 @@ const CalendarDay = React.memo(({
           : ''
         }
         ${leaveEntry && isInCurrentMonth && !isTodayDate ? 'ring-1 ring-orange-400 dark:ring-orange-500 ring-inset' : ''}
+        ${shiftType === 'day' && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-orange-400' : ''}
+        ${shiftType === 'night' && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-indigo-400' : ''}
       `}
     >
       <span className={`text-sm font-medium ${isTodayDate ? 'text-white' : 'dark:text-gray-200'}`}>
         {date.getDate()}
       </span>
       
+      {/* Vardiya İkonu */}
+      {shiftType && isInCurrentMonth && (
+        <div className={`absolute bottom-0 left-0 p-0.5 ${
+          isTodayDate ? 'text-white/70' : shiftType === 'day' ? 'text-orange-500' : 'text-indigo-500'
+        }`}>
+          {shiftType === 'day' ? <Sun size={10} strokeWidth={3} /> : <Moon size={10} strokeWidth={3} />}
+        </div>
+      )}
+
       {/* Tatil etiketi */}
       {holiday && isInCurrentMonth && (
         <div className={`absolute top-0 left-0 text-xs px-1 rounded-br font-medium ${
@@ -339,6 +385,11 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
               onClick={handleDateClick}
               deductBreakTime={settings.deductBreakTime}
               isSaturdayWork={settings.isSaturdayWork}
+              shiftSettings={{
+                enabled: settings.shiftSystemEnabled,
+                startDate: settings.shiftStartDate,
+                initialType: settings.shiftInitialType
+              }}
             />
           );
         })}

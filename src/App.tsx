@@ -92,7 +92,7 @@ const App: React.FC = () => {
   const monthlyTotal = getMonthlyTotal(currentDate.getFullYear(), currentDate.getMonth(), settings.deductBreakTime);
 
   return (
-    <div className="bg-gray-100 dark:bg-black h-screen-dynamic flex flex-col pb-nav">
+    <div className="bg-gray-100 dark:bg-black h-screen-dynamic flex flex-col pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
       <div className="flex-shrink-0">
         <div className="container mx-auto px-2 pt-4 max-w-4xl">

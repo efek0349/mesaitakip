@@ -20,7 +20,7 @@ const FeatureItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </li>
 );
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.7.1';
 
 export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -108,7 +108,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button onClick={onClose} className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-medium active:bg-blue-600">
             Kapat
           </button>

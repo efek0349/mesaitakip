@@ -183,7 +183,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button onClick={onClose} className="w-full py-3 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium active:bg-gray-200 dark:active:bg-gray-500">
             Kapat
           </button>
