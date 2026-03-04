@@ -20,6 +20,7 @@ const defaultSettings: SalarySettings = {
   defaultStartTime: '08:05',
   defaultEndTime: '18:05',
   shiftSystemEnabled: false,
+  shiftSystemType: '2-shift',
   shiftStartDate: new Date().toISOString().split('T')[0],
   shiftInitialType: 'day',
 };

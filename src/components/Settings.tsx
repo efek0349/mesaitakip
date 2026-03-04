@@ -15,6 +15,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState<SalarySettingsType>({
     ...settings,
     shiftSystemEnabled: settings.shiftSystemEnabled ?? false,
+    shiftSystemType: settings.shiftSystemType ?? '2-shift',
     shiftStartDate: settings.shiftStartDate ?? new Date().toISOString().split('T')[0],
     shiftInitialType: settings.shiftInitialType ?? 'day'
   });
@@ -229,12 +230,40 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   </span>
                 </button>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Takvimde 1 hafta gündüz, 1 hafta gece olacak şekilde renklendirme yapar.
+                  Takvimde haftalık döngüye göre vardiya renklendirmesi yapar.
                 </p>
               </div>
 
               {formData.shiftSystemEnabled && (
                 <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                      Vardiya Sistemi
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => handleInputChange('shiftSystemType', '2-shift')}
+                        className={`p-2 rounded-lg border text-sm font-medium transition-all ${
+                          formData.shiftSystemType === '2-shift'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800'
+                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        2 Vardiya (G-G)
+                      </button>
+                      <button
+                        onClick={() => handleInputChange('shiftSystemType', '3-shift')}
+                        className={`p-2 rounded-lg border text-sm font-medium transition-all ${
+                          formData.shiftSystemType === '3-shift'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800'
+                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        3 Vardiya (S-A-G)
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
                       Döngü Başlangıç Tarihi
@@ -250,30 +279,74 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                       Başlangıç Haftası Vardiyası
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => handleInputChange('shiftInitialType', 'day')}
-                        className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
-                          formData.shiftInitialType === 'day'
-                            ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800'
-                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <Sun size={16} />
-                        <span className="text-sm font-medium">Gündüz</span>
-                      </button>
-                      <button
-                        onClick={() => handleInputChange('shiftInitialType', 'night')}
-                        className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
-                          formData.shiftInitialType === 'night'
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800'
-                            : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <Moon size={16} />
-                        <span className="text-sm font-medium">Gece</span>
-                      </button>
-                    </div>
+                    {formData.shiftSystemType === '3-shift' ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => handleInputChange('shiftInitialType', 'morning')}
+                          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
+                            formData.shiftInitialType === 'morning'
+                              ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800'
+                              : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <Sun size={16} />
+                          <span className="text-[10px] font-bold">SABAH</span>
+                          <span className="text-[8px] opacity-70">08-16</span>
+                        </button>
+                        <button
+                          onClick={() => handleInputChange('shiftInitialType', 'afternoon')}
+                          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
+                            formData.shiftInitialType === 'afternoon'
+                              ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-800'
+                              : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <Sun size={12} className="text-orange-400" />
+                            <Moon size={12} className="text-indigo-400 -ml-1" />
+                          </div>
+                          <span className="text-[10px] font-bold">AKŞAM</span>
+                          <span className="text-[8px] opacity-70">16-00</span>
+                        </button>
+                        <button
+                          onClick={() => handleInputChange('shiftInitialType', 'night')}
+                          className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
+                            formData.shiftInitialType === 'night'
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800'
+                              : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <Moon size={16} />
+                          <span className="text-[10px] font-bold">GECE</span>
+                          <span className="text-[8px] opacity-70">00-08</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => handleInputChange('shiftInitialType', 'day')}
+                          className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                            formData.shiftInitialType === 'day' || (formData.shiftInitialType !== 'day' && formData.shiftInitialType !== 'night')
+                              ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800'
+                              : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <Sun size={16} />
+                          <span className="text-sm font-medium">Gündüz</span>
+                        </button>
+                        <button
+                          onClick={() => handleInputChange('shiftInitialType', 'night')}
+                          className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                            formData.shiftInitialType === 'night'
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800'
+                              : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          <Moon size={16} />
+                          <span className="text-sm font-medium">Gece</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

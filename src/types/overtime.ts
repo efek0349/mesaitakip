@@ -31,8 +31,9 @@ export interface SalarySettings {
   defaultStartTime: string;
   defaultEndTime:string;
   shiftSystemEnabled: boolean;
+  shiftSystemType?: '2-shift' | '3-shift';
   shiftStartDate: string;
-  shiftInitialType: 'day' | 'night';
+  shiftInitialType: 'day' | 'night' | 'morning' | 'afternoon';
 }
 
 export interface Holiday {

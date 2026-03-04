@@ -14,7 +14,7 @@ interface CalendarProps {
 }
 
 // Vardiya hesaplama fonksiyonu
-const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'night') => {
+const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'night' | 'morning' | 'afternoon', systemType: '2-shift' | '3-shift' = '2-shift') => {
   const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const startParts = startDateStr.split('-').map(Number);
   const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
@@ -29,12 +29,22 @@ const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'ni
   const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
   const diffInWeeks = Math.floor(diffInDays / 7);
   
-  const isOpposite = Math.abs(diffInWeeks) % 2 === 1;
-  
-  if (initialType === 'day') {
-    return isOpposite ? 'night' : 'day';
+  if (systemType === '3-shift') {
+    const sequence: ('morning' | 'afternoon' | 'night')[] = ['morning', 'afternoon', 'night'];
+    let startIndex = 0;
+    if (initialType === 'afternoon') startIndex = 1;
+    if (initialType === 'night') startIndex = 2;
+    
+    // Negatif haftalar için (startIndex + (diffInWeeks % 3) + 3) % 3 formülü kullanılır
+    const currentIndex = (startIndex + (diffInWeeks % 3) + 3) % 3;
+    return sequence[currentIndex];
   } else {
-    return isOpposite ? 'day' : 'night';
+    const isOpposite = Math.abs(diffInWeeks) % 2 === 1;
+    if (initialType === 'day' || initialType === 'morning') {
+      return isOpposite ? 'night' : 'day';
+    } else {
+      return isOpposite ? 'day' : 'night';
+    }
   }
 };
 
@@ -66,8 +76,9 @@ const CalendarDay = React.memo(({
   isSaturdayWork: boolean;
   shiftSettings: {
     enabled: boolean;
+    systemType: '2-shift' | '3-shift';
     startDate: string;
-    initialType: 'day' | 'night';
+    initialType: 'day' | 'night' | 'morning' | 'afternoon';
   };
 }) => {
   const overtimeEntry = overtimeEntries.find(e => e.type === 'overtime');
@@ -83,7 +94,7 @@ const CalendarDay = React.memo(({
   };
 
   const shiftType = shiftSettings.enabled 
-    ? getShiftType(date, shiftSettings.startDate, shiftSettings.initialType)
+    ? getShiftType(date, shiftSettings.startDate, shiftSettings.initialType, shiftSettings.systemType)
     : null;
 
   return (
@@ -112,7 +123,8 @@ const CalendarDay = React.memo(({
           : ''
         }
         ${leaveEntry && isInCurrentMonth && !isTodayDate ? 'ring-1 ring-orange-400 dark:ring-orange-500 ring-inset' : ''}
-        ${shiftType === 'day' && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-orange-400' : ''}
+        ${(shiftType === 'day' || shiftType === 'morning') && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-orange-400' : ''}
+        ${shiftType === 'afternoon' && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-yellow-400' : ''}
         ${shiftType === 'night' && isInCurrentMonth && !isTodayDate ? 'border-t-2 border-t-indigo-400' : ''}
       `}
     >
@@ -123,9 +135,18 @@ const CalendarDay = React.memo(({
       {/* Vardiya İkonu */}
       {shiftType && isInCurrentMonth && (
         <div className={`absolute bottom-0 left-0 p-0.5 ${
-          isTodayDate ? 'text-white/70' : shiftType === 'day' ? 'text-orange-500' : 'text-indigo-500'
+          isTodayDate ? 'text-white/70' : (shiftType === 'day' || shiftType === 'morning') ? 'text-orange-500' : shiftType === 'afternoon' ? 'text-yellow-500' : 'text-indigo-500'
         }`}>
-          {shiftType === 'day' ? <Sun size={10} strokeWidth={3} /> : <Moon size={10} strokeWidth={3} />}
+          {shiftType === 'day' || shiftType === 'morning' ? (
+            <Sun size={10} strokeWidth={3} />
+          ) : shiftType === 'afternoon' ? (
+            <div className="flex items-center">
+              <Sun size={8} strokeWidth={3} />
+              <Moon size={8} strokeWidth={3} className="-ml-1" />
+            </div>
+          ) : (
+            <Moon size={10} strokeWidth={3} />
+          )}
         </div>
       )}
 
@@ -387,6 +408,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
               isSaturdayWork={settings.isSaturdayWork}
               shiftSettings={{
                 enabled: settings.shiftSystemEnabled,
+                systemType: settings.shiftSystemType || '2-shift',
                 startDate: settings.shiftStartDate,
                 initialType: settings.shiftInitialType
               }}
