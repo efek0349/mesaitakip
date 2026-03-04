@@ -22,10 +22,9 @@ Uygulamayı yerel ortamınızda çalıştırmak yada paketlemek için aşağıda
 $ npm install
 $ npm run build
 //$ npm run dev # Yerel ortaminizda çalıştırmak için kullanın
-$ rm -rf android
-$ npx cap add android
+$ npx cap sync android
 $ cd .\android\
-$ .\gradlew.bat assembleDebug
+$ ./gradlew.bat assembleDebug
 ```
 **Apk** dosyasını **android\app\build\outputs\apk\debug** dizini altında bulabilirsiniz!
 
@@ -76,7 +75,7 @@ Tüm hesaplamalar SGK, gelir vergisi ve damga vergisi kesintileri düşüldükte
 - **GitHub**: [efek0349](https://github.com/efek0349)
 - **E-posta**: kndmrefe@gmail.com
 - **Telegram**: https://t.me/efek0349
-- **Proje**: [mesaitakip](https://github.com/efek0349/mesaitakip)
+- **GPG**: [publickey.asc](https://raw.githubusercontent.com/efek0349/dotfiles/refs/heads/openbsd/publickey.asc)
 
 ## 📄 Lisans
 
@@ -87,10 +86,6 @@ Bu proje açık kaynak kodludur ve GPL-3.0 lisansı altında dağıtılmaktadır
 Projeye katkıda bulunmak için:
 
 Repository'yi fork edin
-
-## 📱 APK İndirme
-
-Android APK dosyasını  [burada](https://github.com/efek0349/mesaitakip/releases) bulabilirsiniz.
 
 ---
 

@@ -15,7 +15,7 @@ interface MonthlyStatsProps {
 export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDate, onOpenSettings, onOpenDataBackup }) => {
   // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getYearlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
-  const { getOvertimeRate, settings, isLoaded: salaryLoaded } = useSalarySettings();
+  const { getOvertimeRate, getHourlyRate, settings, isLoaded: salaryLoaded } = useSalarySettings();
   const { getHoliday } = useHolidays();
 
   const year = currentDate.getFullYear();
@@ -39,34 +39,42 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
       const dayOfWeek = entryDate.getDay();
       const isSaturday = dayOfWeek === 6;
       const isSunday = dayOfWeek === 0;
-      const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
 
-      const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, settings.isSaturdayWork);
-
-      const payment = effectiveHours * (overtimeRate || 0);
-
-      if (isHolidayDate) {
-        stats.holiday.hours += effectiveHours;
-        stats.holiday.payment += payment;
-      } else if (isSunday) {
-        stats.sunday.hours += effectiveHours;
-        stats.sunday.payment += payment;
+      if (entry.type === 'leave') {
+        const hours = entry.totalHours || 0;
+        const hourlyRate = getHourlyRate();
+        const deduction = hours * hourlyRate;
+        stats.leave.hours += hours;
+        stats.leave.deduction += deduction;
       } else {
-        stats.normal.hours += effectiveHours;
-        stats.normal.payment += payment;
-      }
+        const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, settings.isSaturdayWork);
+        const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
+        const payment = effectiveHours * (overtimeRate || 0);
 
-      stats.total.hours += effectiveHours;
-      stats.total.payment += payment;
+        if (isHolidayDate) {
+          stats.holiday.hours += effectiveHours;
+          stats.holiday.payment += payment;
+        } else if (isSunday) {
+          stats.sunday.hours += effectiveHours;
+          stats.sunday.payment += payment;
+        } else {
+          stats.normal.hours += effectiveHours;
+          stats.normal.payment += payment;
+        }
+
+        stats.total.hours += effectiveHours;
+        stats.total.payment += payment;
+      }
 
       return stats;
     }, {
       normal: { hours: 0, payment: 0 },
       sunday: { hours: 0, payment: 0 },
       holiday: { hours: 0, payment: 0 },
+      leave: { hours: 0, deduction: 0 },
       total: { hours: 0, payment: 0 }
     });
-  }, [monthlyEntries, getHoliday, getOvertimeRate, settings.deductBreakTime, settings.isSaturdayWork]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, settings.isSaturdayWork]);
 
   if (isLoading) {
     return (
@@ -110,7 +118,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
 
   const monthlyGrossSalary = Number(settings.monthlyGrossSalary) || 0;
   const bonus = Number(settings.bonus) || 0;
-  const salarySum = monthlyGrossSalary + bonus;
+  const salarySum = (monthlyGrossSalary + bonus) - overtimeStats.leave.deduction;
   
   // TES kesintisi sadece maaş toplamı üzerinden
   const currentTesRate = settings.hasTES ? (Number(settings.tesRate) || 3) : 0;
@@ -180,6 +188,14 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
                       ₺{salarySum.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
                   </div>
+                  {overtimeStats.leave.hours > 0 && (
+                    <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                      <span className="text-xs text-orange-200 leading-none font-bold">İzin Kesintisi</span>
+                      <span className="text-sm font-bold leading-none text-orange-100">
+                        -₺{overtimeStats.leave.deduction.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
                   {settings.hasTES && (
                     <div className="flex items-center justify-between border-t border-white/5 pt-2">
                       <span className="text-xs text-blue-200 leading-none font-bold">TES</span>
@@ -244,6 +260,21 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
                 <div className="text-right">
                   <p className="text-red-800 dark:text-red-200 font-bold">{formatHours(overtimeStats.holiday.hours)}</p>
                   <p className="text-red-600 dark:text-red-300 text-xs">₺{overtimeStats.holiday.payment.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {overtimeStats.leave.hours > 0 && (
+            <div className="bg-orange-50 dark:bg-orange-900/50 rounded-lg p-3 border border-orange-200/50 dark:border-orange-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-800 dark:text-orange-200 font-semibold text-sm">Ücretli İzin / Kesinti</p>
+                  <p className="text-orange-600 dark:text-orange-300 text-xs">Maaştan düşülen izin saatleri</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-orange-800 dark:text-orange-200 font-bold">{formatHours(overtimeStats.leave.hours)}</p>
+                  <p className="text-orange-600 dark:text-orange-300 text-xs">-₺{overtimeStats.leave.deduction.toFixed(2)}</p>
                 </div>
               </div>
             </div>

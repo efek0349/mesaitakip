@@ -191,7 +191,7 @@ export const generateCsvContent = (
     const yearMonthString = `${year}-${(month + 1).toString().padStart(2, '0')}`;
     
     const monthDataEntries = monthlyData[yearMonthString] || [];
-    const dayData = monthDataEntries.filter(entry => entry.date === dateString);
+    const dayData = monthDataEntries.filter(entry => entry.date === dateString && entry.type !== 'leave');
     const totalOvertimeHoursForDay = dayData.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
     const noteForDay = dayData.map(entry => entry.note).filter(Boolean).join('; ');
 

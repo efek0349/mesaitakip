@@ -16,7 +16,7 @@ interface CalendarProps {
 // Memoized CalendarDay component for better performance
 const CalendarDay = React.memo(({ 
   date, 
-  overtimeEntry, 
+  overtimeEntries, 
   isInCurrentMonth, 
   isTodayDate, 
   holiday, 
@@ -28,7 +28,7 @@ const CalendarDay = React.memo(({
   isSaturdayWork
 }: { 
   date: Date;
-  overtimeEntry: any;
+  overtimeEntries: any[];
   isInCurrentMonth: boolean;
   isTodayDate: boolean;
   holiday: Holiday | undefined;
@@ -39,11 +39,18 @@ const CalendarDay = React.memo(({
   deductBreakTime: boolean;
   isSaturdayWork: boolean;
 }) => {
-  const hasNote = overtimeEntry?.note && overtimeEntry.note.trim().length > 0;
-  const displayedHours = overtimeEntry 
-    ? calculateEffectiveHours(overtimeEntry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork)
-    : 0;
+  const overtimeEntry = overtimeEntries.find(e => e.type === 'overtime');
+  const leaveEntry = overtimeEntries.find(e => e.type === 'leave');
   
+  const hasNote = overtimeEntries.some(e => e.note && e.note.trim().length > 0);
+  
+  const getDisplayedHours = (entry: any) => {
+    if (!entry) return 0;
+    return entry.type === 'leave' 
+      ? entry.totalHours 
+      : calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
+  };
+
   return (
     <div
       onClick={() => isInCurrentMonth && onClick(date)}
@@ -56,7 +63,7 @@ const CalendarDay = React.memo(({
           : 'text-gray-300 dark:text-gray-600 cursor-not-allowed border-transparent'
         }
         ${!isTodayDate && isHolidayDate && isInCurrentMonth
-          ? getHolidayColorClass(holiday) + ' dark:bg-opacity-30' // Holiday colors already have dark mode variants
+          ? getHolidayColorClass(holiday) + ' dark:bg-opacity-30'
           : !isTodayDate && !isHolidayDate && isSaturday && isInCurrentMonth
           ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-800/50'
           : !isTodayDate && !isHolidayDate && isSunday && isInCurrentMonth
@@ -69,6 +76,7 @@ const CalendarDay = React.memo(({
           ? 'bg-blue-500 text-white font-bold ring-2 ring-blue-300 ring-offset-1 dark:ring-offset-gray-800 border-transparent' 
           : ''
         }
+        ${leaveEntry && isInCurrentMonth && !isTodayDate ? 'ring-1 ring-orange-400 dark:ring-orange-500 ring-inset' : ''}
       `}
     >
       <span className={`text-sm font-medium ${isTodayDate ? 'text-white' : 'dark:text-gray-200'}`}>
@@ -105,22 +113,33 @@ const CalendarDay = React.memo(({
         </div>
       )}
       
-      {/* Mesai etiketi */}
-      {overtimeEntry && isInCurrentMonth && (
-        <div className={`absolute bottom-0 right-0 text-xs px-1 rounded-tl font-medium ${
-          isTodayDate 
-            ? 'bg-white/90 text-blue-600' 
-            : isHolidayDate
-            ? 'bg-white/90 text-gray-800'
-            : isSaturday
-            ? 'bg-orange-200 text-orange-800 dark:bg-orange-400/30 dark:text-orange-200'
-            : isSunday
-            ? 'bg-purple-200 text-purple-800 dark:bg-purple-400/30 dark:text-purple-200'
-            : 'bg-blue-100 text-blue-700 dark:bg-blue-400/30 dark:text-blue-200'
-        }`}>
-          {formatHours(displayedHours)}
-        </div>
-      )}
+      {/* Mesai/İzin etiketleri */}
+      <div className="absolute bottom-0 right-0 flex flex-col items-end pointer-events-none">
+        {overtimeEntry && isInCurrentMonth && (
+          <div className={`text-[9px] leading-tight px-1 rounded-tl font-bold shadow-sm ${
+            isTodayDate 
+              ? 'bg-white/90 text-blue-600' 
+              : isHolidayDate
+              ? 'bg-white/90 text-gray-800'
+              : isSaturday
+              ? 'bg-orange-200 text-orange-800 dark:bg-orange-400/30 dark:text-orange-200'
+              : isSunday
+              ? 'bg-purple-200 text-purple-800 dark:bg-purple-400/30 dark:text-purple-200'
+              : 'bg-blue-100 text-blue-700 dark:bg-blue-400/30 dark:text-blue-200'
+          }`}>
+            {formatHours(getDisplayedHours(overtimeEntry))}
+          </div>
+        )}
+        {leaveEntry && isInCurrentMonth && (
+          <div className={`text-[9px] leading-tight px-1 rounded-tl font-bold shadow-sm ${
+            isTodayDate 
+              ? 'bg-white/90 text-orange-600' 
+              : 'bg-orange-500 text-white'
+          }`}>
+            İ:{formatHours(getDisplayedHours(leaveEntry))}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -128,7 +147,7 @@ const CalendarDay = React.memo(({
 CalendarDay.displayName = 'CalendarDay';
 
 export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDateChange, onDateClick }) => {
-  const { getOvertimeForDate, isLoaded } = useOvertimeData();
+  const { getEntriesForDate, isLoaded } = useOvertimeData();
   const { getHoliday } = useHolidays();
   const { settings } = useSalarySettings(); // Get settings
   const year = currentDate.getFullYear();
@@ -182,14 +201,14 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   const memoizedData = React.useMemo(() => {
     return calendarDays.map(date => ({
       date,
-      overtimeEntry: getOvertimeForDate(date),
+      overtimeEntries: getEntriesForDate(date),
       isInCurrentMonth: date.getMonth() === month,
       isTodayDate: date.toDateString() === today.toDateString(),
       isSaturday: date.getDay() === 6,
       isSunday: date.getDay() === 0,
       holiday: getHoliday(date),
     }));
-  }, [calendarDays, month, today, getOvertimeForDate, getHoliday]);
+  }, [calendarDays, month, today, getEntriesForDate, getHoliday]);
   
   // Conditionally filter calendar days based on showNextMonthDays setting
   const filteredCalendarDays = React.useMemo(() => {
@@ -296,7 +315,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
 
         {filteredCalendarDays.map(({ 
           date, 
-          overtimeEntry, 
+          overtimeEntries, 
           isInCurrentMonth, 
           isTodayDate, 
           isSaturday, 
@@ -304,13 +323,13 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
           holiday 
         }) => {
           const isHolidayDate = holiday !== undefined;
-          const uniqueKey = `${date.getTime()}-${overtimeEntry?.id || 'no-entry'}`;
+          const uniqueKey = `${date.getTime()}-${overtimeEntries.map(e => e.id).join('-') || 'no-entry'}`;
           
           return (
             <CalendarDay
               key={uniqueKey}
               date={date}
-              overtimeEntry={overtimeEntry}
+              overtimeEntries={overtimeEntries}
               isInCurrentMonth={isInCurrentMonth}
               isTodayDate={isTodayDate}
               holiday={holiday}

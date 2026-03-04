@@ -124,9 +124,13 @@ const validateAndCleanData = (data: any): MonthlyData => {
                typeof entry.hours === 'number' &&
                typeof entry.minutes === 'number' &&
                typeof entry.totalHours === 'number' &&
+               (!entry.type || entry.type === 'overtime' || entry.type === 'leave') &&
                entry.hours >= 0 && entry.hours <= 24 &&
                entry.minutes >= 0 && entry.minutes < 60;
-      });
+      }).map((entry: any) => ({
+        ...entry,
+        type: entry.type || 'overtime' // Ensure type exists
+      }));
       
       if (validEntries.length > 0) {
         cleanData[monthKey] = validEntries;
@@ -232,7 +236,7 @@ export const useOvertimeData = () => {
     };
   }, [forceUpdate]);
 
-  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, note?: string) => {
+  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string) => {
     if (!isDataLoaded) {
       return;
     }
@@ -248,6 +252,7 @@ export const useOvertimeData = () => {
       hours,
       minutes,
       totalHours: totalHours, // Store raw totalHours
+      type,
       note: note || undefined
     };
 
@@ -256,8 +261,8 @@ export const useOvertimeData = () => {
       globalData[monthKey] = [];
     }
     
-    // Check if entry already exists for this date
-    const existingIndex = globalData[monthKey].findIndex(entry => entry.date === dateKey);
+    // Check if entry already exists for this date and type
+    const existingIndex = globalData[monthKey].findIndex(entry => entry.date === dateKey && entry.type === type);
     if (existingIndex >= 0) {
       globalData[monthKey][existingIndex] = newEntry;
     } else {
@@ -274,7 +279,7 @@ export const useOvertimeData = () => {
     saveGlobalData();
   }, []);
 
-  const removeOvertimeEntry = React.useCallback((date: Date) => {
+  const removeOvertimeEntry = React.useCallback((date: Date, type?: 'overtime' | 'leave') => {
     if (!isDataLoaded) {
       return;
     }
@@ -283,7 +288,9 @@ export const useOvertimeData = () => {
     const dateKey = getDateKey(date);
 
     if (globalData[monthKey]) {
-      globalData[monthKey] = globalData[monthKey].filter(entry => entry.date !== dateKey);
+      globalData[monthKey] = globalData[monthKey].filter(entry => 
+        entry.date !== dateKey || (type && entry.type !== type)
+      );
       if (globalData[monthKey].length === 0) {
         delete globalData[monthKey];
       }
@@ -305,17 +312,27 @@ export const useOvertimeData = () => {
     saveGlobalData();
   }, []);
 
-  const getOvertimeForDate = React.useCallback((date: Date): OvertimeEntry | undefined => {
+  const getOvertimeForDate = React.useCallback((date: Date, type?: 'overtime' | 'leave'): OvertimeEntry | undefined => {
     if (!isDataLoaded) return undefined;
 
     const monthKey = getMonthKey(date);
     const dateKey = getDateKey(date);
-    const cacheKey = `overtime-${dateKey}`;
+    const cacheKey = `overtime-${dateKey}-${type || 'any'}`;
     
     return getCachedData(cacheKey, () => {
       if (!globalData[monthKey]) return undefined;
-      return globalData[monthKey].find(entry => entry.date === dateKey);
+      return globalData[monthKey].find(entry => entry.date === dateKey && (!type || entry.type === type));
     });
+  }, [isLoaded]);
+
+  const getEntriesForDate = React.useCallback((date: Date): OvertimeEntry[] => {
+    if (!isDataLoaded) return [];
+
+    const monthKey = getMonthKey(date);
+    const dateKey = getDateKey(date);
+    
+    if (!globalData[monthKey]) return [];
+    return globalData[monthKey].filter(entry => entry.date === dateKey);
   }, [isLoaded]);
 
   const { isHoliday } = useHolidays();
@@ -329,6 +346,7 @@ export const useOvertimeData = () => {
     return getCachedData(cacheKey, () => {
       if (!globalData[monthKey]) return 0;
       return globalData[monthKey].reduce((total, entry) => {
+        if (entry.type === 'leave') return total;
         const date = new Date(entry.date);
         const isSaturday = date.getDay() === 6;
         const isSunday = date.getDay() === 0;
@@ -413,6 +431,7 @@ export const useOvertimeData = () => {
     Object.keys(globalData).forEach(monthKey => {
       if (monthKey.startsWith(year.toString())) {
         globalData[monthKey].forEach(entry => {
+          if (entry.type === 'leave') return;
           const date = new Date(entry.date);
           const isSaturday = date.getDay() === 6;
           const isSunday = date.getDay() === 0;
@@ -434,6 +453,7 @@ export const useOvertimeData = () => {
     removeOvertimeEntry,
     clearMonthData,
     getOvertimeForDate,
+    getEntriesForDate,
     getMonthlyTotal,
     getMonthlyEntries,
     getYearlyTotal,

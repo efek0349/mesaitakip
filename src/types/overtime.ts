@@ -4,6 +4,7 @@ export interface OvertimeEntry {
   hours: number;
   minutes: number;
   totalHours: number;
+  type: 'overtime' | 'leave';
   note?: string; // Opsiyonel not alanı
 }
 

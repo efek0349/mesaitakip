@@ -138,6 +138,9 @@ export const generateExportText = (monthlyData: any, year: number, month: number
     const dateKey = getDateKey(date);
     const entry = entriesMap.get(dateKey);
     
+    // Skip leave entries for export as requested
+    if (entry?.type === 'leave') return;
+
     const dayOfWeek = date.getDay();
     const isSaturday = dayOfWeek === 6;
     const isSunday = dayOfWeek === 0;

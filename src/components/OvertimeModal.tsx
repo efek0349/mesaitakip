@@ -13,23 +13,25 @@ interface OvertimeModalProps {
 }
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen, onClose, selectedDate }) => {
-  const { addOvertimeEntry, removeOvertimeEntry, getOvertimeForDate } = useOvertimeData();
+  const { addOvertimeEntry, removeOvertimeEntry, getEntriesForDate } = useOvertimeData();
   const { getOvertimeRate, settings } = useSalarySettings();
   const { getHoliday } = useHolidays();
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
+  const [type, setType] = useState<'overtime' | 'leave'>('overtime');
   const [note, setNote] = useState('');
   const [showNoteSection, setShowNoteSection] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const existingEntry = selectedDate ? getOvertimeForDate(selectedDate) : null;
+  const existingEntries = selectedDate ? getEntriesForDate(selectedDate) : [];
+  const existingEntryForCurrentType = existingEntries.find(e => e.type === type);
 
   useEffect(() => {
     if (isOpen) {
-      if (existingEntry) {
-        setHours(existingEntry.hours);
-        setMinutes(existingEntry.minutes);
-        const noteText = existingEntry.note || '';
+      if (existingEntryForCurrentType) {
+        setHours(existingEntryForCurrentType.hours);
+        setMinutes(existingEntryForCurrentType.minutes);
+        const noteText = existingEntryForCurrentType.note || '';
         setNote(noteText);
         setShowNoteSection(!!noteText.trim());
       } else {
@@ -39,7 +41,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
         setShowNoteSection(false);
       }
     }
-  }, [isOpen, existingEntry]);
+  }, [isOpen, type, existingEntryForCurrentType]);
 
   useEffect(() => {
     if (showNoteSection) {
@@ -54,17 +56,17 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const handleSave = () => {
     if (selectedDate) {
       if (hours > 0 || minutes > 0) {
-        addOvertimeEntry(selectedDate, hours, minutes, note.trim());
-      } else if (existingEntry) {
-        removeOvertimeEntry(selectedDate);
+        addOvertimeEntry(selectedDate, hours, minutes, type, note.trim());
+      } else if (existingEntryForCurrentType) {
+        removeOvertimeEntry(selectedDate, type);
       }
     }
     onClose();
   };
 
   const handleDelete = () => {
-    if (selectedDate && existingEntry) {
-      removeOvertimeEntry(selectedDate);
+    if (selectedDate && existingEntryForCurrentType) {
+      removeOvertimeEntry(selectedDate, type);
     }
     onClose();
   };
@@ -92,9 +94,10 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const formattedDate = formatTurkishDate(selectedDate);
   const holiday = getHoliday(selectedDate);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday);
+  const hourlyRate = settings.monthlyGrossSalary / settings.monthlyWorkingHours;
   
-  const effectiveHours = calculateEffectiveHours(totalHours, settings.deductBreakTime);
-  const totalPayment = effectiveHours * overtimeRate;
+  const paymentHours = type === 'overtime' ? calculateEffectiveHours(totalHours, settings.deductBreakTime) : totalHours;
+  const totalPayment = type === 'overtime' ? paymentHours * overtimeRate : paymentHours * hourlyRate;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 h-screen-dynamic hardware-accelerated">
@@ -102,7 +105,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 p-4">
           <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-            {existingEntry ? 'Mesai Düzenle' : 'Mesai Ekle'}
+            {existingEntryForCurrentType ? (type === 'overtime' ? 'Mesai Düzenle' : 'İzin Düzenle') : (type === 'overtime' ? 'Mesai Ekle' : 'İzin Ekle')}
           </h2>
           <button onClick={onClose} className="p-2 rounded-full active:bg-gray-100 dark:active:bg-gray-600">
             <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
@@ -111,10 +114,34 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Type Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <button
+              onClick={() => setType('overtime')}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                type === 'overtime'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              Mesai
+            </button>
+            <button
+              onClick={() => setType('leave')}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                type === 'leave'
+                  ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              İzin
+            </button>
+          </div>
+
           {/* Date & Payment Info */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-500" />
+              <Clock className={`w-5 h-5 ${type === 'overtime' ? 'text-blue-500' : 'text-orange-500'}`} />
               <span className="text-base text-gray-700 dark:text-gray-200 font-medium">{formattedDate}</span>
               {holiday && (
                 <div className={`text-xs px-2 py-1 rounded-full ${getHolidayColorClass(holiday)} dark:bg-opacity-30`}>
@@ -123,8 +150,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
               )}
             </div>
             {totalHours > 0 && (
-              <p className="font-semibold text-green-600 dark:text-green-400">
-                ₺{totalPayment.toFixed(2)} <span className="font-medium text-sm">net</span>
+              <p className={`font-semibold ${type === 'overtime' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {type === 'overtime' ? '₺' : '-₺'}{totalPayment.toFixed(2)} <span className="font-medium text-sm">net</span>
               </p>
             )}
           </div>
@@ -175,7 +202,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
         {/* Footer Buttons */}
         <div className="flex-shrink-0 flex gap-3 border-t border-gray-200 dark:border-gray-700 p-4">
-          {existingEntry && (
+          {existingEntryForCurrentType && (
             <button onClick={handleDelete} className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg font-medium active:bg-red-600">
               Sil
             </button>
@@ -184,7 +211,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
             onClick={handleSave}
             className="flex-1 px-4 py-3 rounded-lg font-medium bg-blue-500 text-white active:bg-blue-600 disabled:bg-gray-300"
           >
-            {existingEntry ? 'Güncelle' : 'Kaydet'}
+            {existingEntryForCurrentType ? 'Güncelle' : 'Kaydet'}
           </button>
         </div>
       </div>
