@@ -80,11 +80,11 @@ const clearSalarySettings = () => {
 };
 
 export const useSalarySettings = () => {
-  const [, setUpdateCounter] = React.useState(0);
+  const [updateCounter, setUpdateCounter] = React.useState(0);
   const [isLoaded, setIsLoaded] = React.useState(false);
 
-  // Memoized settings for performance - Move to top to avoid TDZ
-  const settingsMemo = React.useMemo(() => globalSettings, [globalSettings]);
+  // Memoized settings for performance - Triggered by updateCounter
+  const settingsMemo = React.useMemo(() => ({ ...globalSettings }), [updateCounter]);
 
   // Force re-render
   const forceUpdate = React.useCallback(() => {
