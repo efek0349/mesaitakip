@@ -215,6 +215,7 @@ export const useOvertimeData = () => {
     // Load data on mount
     loadGlobalData();
     setIsLoaded(true);
+    forceUpdate(); // Veriler yüklendikten sonra ilk güncellemeyi tetikle
     
     // Subscribe to data changes
     const unsubscribe = dataEmitter.subscribe(forceUpdate);

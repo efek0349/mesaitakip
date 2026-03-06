@@ -173,9 +173,9 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       // Mola kesintisi hesaplama
       const effectiveHours = calculateEffectiveHours(currentEntry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, isSaturdayWork);
       
-      // Kesinti yapılıp yapılmadığını metinde göstermek için aynı koşulu burada da kullan
+      // Sadece mola süresi gerçekten varsa (4 saat ve üzeri) wasDeducted true olsun
       const shouldDeductForText = isSunday || isEntryHoliday || (!isSaturdayWork && isSaturday);
-      const wasDeducted = deductBreakTime && shouldDeductForText && currentEntry.totalHours > 0;
+      const wasDeducted = deductBreakTime && shouldDeductForText && currentEntry.totalHours >= 4;
 
       let deductionText = '';
       if (wasDeducted) {
@@ -210,11 +210,6 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       }
       
       let lineText = `${formattedDate} - ${hoursText} mesai`;
-      
-      // Not varsa ekle
-      if (currentEntry.note && currentEntry.note.trim()) {
-        lineText += ` (${currentEntry.note.trim()})`;
-      }
       
       text += lineText + '\n';
       totalNetHours += effectiveHours;
