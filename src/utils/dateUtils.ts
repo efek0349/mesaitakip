@@ -211,6 +211,11 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       
       let lineText = `${formattedDate} - ${hoursText} mesai`;
       
+      // Not varsa ekle
+      if (currentEntry.note && currentEntry.note.trim()) {
+        lineText += ` (${currentEntry.note.trim()})`;
+      }
+      
       text += lineText + '\n';
       totalNetHours += effectiveHours;
       totalGrossHours += currentEntry.totalHours;
