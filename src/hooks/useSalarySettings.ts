@@ -1,6 +1,8 @@
 import React from 'react';
 import { SalarySettings } from '../types/overtime';
 
+import { EventEmitter } from '../utils/EventEmitter';
+
 const defaultSettings: SalarySettings = {
   firstName: '',
   lastName: '',
@@ -25,23 +27,7 @@ const defaultSettings: SalarySettings = {
   shiftInitialType: 'day',
 };
 
-// Global salary event emitter
-class SalaryEventEmitter {
-  private listeners: (() => void)[] = [];
-  
-  subscribe(listener: () => void) {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
-    };
-  }
-  
-  emit() {
-    this.listeners.forEach(listener => listener());
-  }
-}
-
-const salaryEmitter = new SalaryEventEmitter();
+const salaryEmitter = new EventEmitter();
 
 // Global salary settings
 let globalSettings: SalarySettings = { ...defaultSettings };
@@ -97,6 +83,9 @@ export const useSalarySettings = () => {
   const [, setUpdateCounter] = React.useState(0);
   const [isLoaded, setIsLoaded] = React.useState(false);
 
+  // Memoized settings for performance - Move to top to avoid TDZ
+  const settingsMemo = React.useMemo(() => globalSettings, [globalSettings]);
+
   // Force re-render
   const forceUpdate = React.useCallback(() => {
     setUpdateCounter(prev => prev + 1);
@@ -121,7 +110,7 @@ export const useSalarySettings = () => {
   const getHourlyRate = React.useCallback(() => {
     if (!isSalaryLoaded) return 0;
     return globalSettings.monthlyGrossSalary / globalSettings.monthlyWorkingHours;
-  }, [isLoaded]);
+  }, [isLoaded, settingsMemo]);
 
   const getOvertimeRate = React.useCallback((date: Date, isHoliday: boolean = false) => {
     if (!isSalaryLoaded) return 0;
@@ -144,10 +133,7 @@ export const useSalarySettings = () => {
     }
     
     return Math.max(0, netOvertimeRate);
-  }, [isLoaded, getHourlyRate]);
-
-  // Memoized settings for performance
-  const settingsMemo = React.useMemo(() => globalSettings, [globalSettings]);
+  }, [isLoaded, getHourlyRate, settingsMemo]);
 
   return {
     settings: settingsMemo,

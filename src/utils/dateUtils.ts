@@ -39,8 +39,23 @@ export const getMonthKey = (date: Date): string => {
   return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
 };
 
+const dateKeyCache = new Map<number, string>();
+
 export const getDateKey = (date: Date): string => {
-  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  const time = date.getTime();
+  const cached = dateKeyCache.get(time);
+  if (cached) return cached;
+
+  const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  
+  // Cache size limit to prevent memory leaks
+  if (dateKeyCache.size > 1000) {
+    const firstKey = dateKeyCache.keys().next().value;
+    dateKeyCache.delete(firstKey);
+  }
+  
+  dateKeyCache.set(time, key);
+  return key;
 };
 
 export const getCalendarDays = (year: number, month: number): Date[] => {

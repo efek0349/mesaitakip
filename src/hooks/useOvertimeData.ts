@@ -4,23 +4,9 @@ import { getMonthKey, getDateKey, calculateEffectiveHours } from '../utils/dateU
 import { useSalarySettings } from './useSalarySettings';
 import { useHolidays } from './useHolidays';
 
-// Global state için event emitter
-class DataEventEmitter {
-  private listeners: (() => void)[] = [];
-  
-  subscribe(listener: () => void) {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
-    };
-  }
-  
-  emit() {
-    this.listeners.forEach(listener => listener());
-  }
-}
+import { EventEmitter } from '../utils/EventEmitter';
 
-const dataEmitter = new DataEventEmitter();
+const dataEmitter = new EventEmitter();
 
 // Global data store
 let globalData: MonthlyData = {};
@@ -217,6 +203,9 @@ export const useOvertimeData = () => {
   const [isLoaded, setIsLoaded] = React.useState(false);
   const { settings } = useSalarySettings();
 
+  // Memoized monthly data for performance - Move to top to avoid TDZ
+  const monthlyDataMemo = React.useMemo(() => globalData, [globalData]);
+
   // Force re-render
   const forceUpdate = React.useCallback(() => {
     setUpdateCounter(prev => prev + 1);
@@ -323,7 +312,7 @@ export const useOvertimeData = () => {
       if (!globalData[monthKey]) return undefined;
       return globalData[monthKey].find(entry => entry.date === dateKey && (!type || entry.type === type));
     });
-  }, [isLoaded]);
+  }, [isLoaded, monthlyDataMemo]);
 
   const getEntriesForDate = React.useCallback((date: Date): OvertimeEntry[] => {
     if (!isDataLoaded) return [];
@@ -333,7 +322,7 @@ export const useOvertimeData = () => {
     
     if (!globalData[monthKey]) return [];
     return globalData[monthKey].filter(entry => entry.date === dateKey);
-  }, [isLoaded]);
+  }, [isLoaded, monthlyDataMemo]);
 
   const { isHoliday } = useHolidays();
 
@@ -442,9 +431,6 @@ export const useOvertimeData = () => {
     });
     return yearlyTotal;
   }, [isLoaded, isHoliday, settings.isSaturdayWork]);
-
-  // Memoized monthly data for performance
-  const monthlyDataMemo = React.useMemo(() => globalData, [globalData]);
 
   return {
     monthlyData: monthlyDataMemo,

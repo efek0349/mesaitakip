@@ -93,9 +93,9 @@ const CalendarDay = React.memo(({
       : calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
   };
 
-  const shiftType = shiftSettings.enabled 
+  const shiftType = React.useMemo(() => shiftSettings.enabled 
     ? getShiftType(date, shiftSettings.startDate, shiftSettings.initialType, shiftSettings.systemType)
-    : null;
+    : null, [date, shiftSettings]);
 
   return (
     <div
@@ -209,6 +209,24 @@ const CalendarDay = React.memo(({
       </div>
     </div>
   );
+}, (prev, next) => {
+  // Custom comparison to prevent re-renders unless data actually changed
+  return prev.isTodayDate === next.isTodayDate &&
+         prev.isInCurrentMonth === next.isInCurrentMonth &&
+         prev.isHolidayDate === next.isHolidayDate &&
+         prev.isSaturday === next.isSaturday &&
+         prev.isSunday === next.isSunday &&
+         prev.deductBreakTime === next.deductBreakTime &&
+         prev.isSaturdayWork === next.isSaturdayWork &&
+         prev.date.getTime() === next.date.getTime() &&
+         prev.overtimeEntries.length === next.overtimeEntries.length &&
+         JSON.stringify(prev.shiftSettings) === JSON.stringify(next.shiftSettings) &&
+         // Deep check for overtime entries content
+         prev.overtimeEntries.every((e, i) => 
+           e.id === next.overtimeEntries[i].id && 
+           e.totalHours === next.overtimeEntries[i].totalHours &&
+           e.note === next.overtimeEntries[i].note
+         );
 });
 
 CalendarDay.displayName = 'CalendarDay';
@@ -219,7 +237,10 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   const { settings } = useSalarySettings(); // Get settings
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const today = React.useMemo(() => new Date(), []); // Memoize today to prevent re-creation on every render
+  const today = React.useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }, []); 
   
   // Swipe navigation state
   const [touchStart, setTouchStart] = React.useState<number | null>(null);
@@ -228,16 +249,16 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   // Min swipe distance (in pixels)
   const minSwipeDistance = 50;
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  const onTouchStart = React.useCallback((e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
-  };
+  }, []);
 
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchMove = React.useCallback((e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
-  };
+  }, []);
 
-  const onTouchEnd = () => {
+  const onTouchEnd = React.useCallback(() => {
     if (!touchStart || !touchEnd) return;
     
     const distance = touchStart - touchEnd;
@@ -245,21 +266,23 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
     const isRightSwipe = distance < -minSwipeDistance;
 
     if (isLeftSwipe) {
-      goToNextMonth();
+      const newDate = new Date(year, month + 1, 1);
+      onDateChange(newDate);
     } else if (isRightSwipe) {
-      goToPreviousMonth();
+      const newDate = new Date(year, month - 1, 1);
+      onDateChange(newDate);
     }
-  };
+  }, [touchStart, touchEnd, year, month, onDateChange]);
 
-  const goToPreviousMonth = () => {
+  const goToPreviousMonth = React.useCallback(() => {
     const newDate = new Date(year, month - 1, 1);
     onDateChange(newDate);
-  };
+  }, [year, month, onDateChange]);
   
-  const goToNextMonth = () => {
+  const goToNextMonth = React.useCallback(() => {
     const newDate = new Date(year, month + 1, 1);
     onDateChange(newDate);
-  };
+  }, [year, month, onDateChange]);
 
   // Memoize calendar days calculation with proper dependency tracking
   const calendarDays = React.useMemo(() => getCalendarDays(year, month), [year, month]);
@@ -270,7 +293,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
       date,
       overtimeEntries: getEntriesForDate(date),
       isInCurrentMonth: date.getMonth() === month,
-      isTodayDate: date.toDateString() === today.toDateString(),
+      isTodayDate: date.getTime() === today,
       isSaturday: date.getDay() === 6,
       isSunday: date.getDay() === 0,
       holiday: getHoliday(date),
@@ -279,19 +302,15 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   
   // Conditionally filter calendar days based on showNextMonthDays setting
   const filteredCalendarDays = React.useMemo(() => {
-    if (settings.showNextMonthDays) {
-      return memoizedData;
-    } else {
-      // Check if the 6th row (indices 35 to 41) exists and contains only next month's days
+    let baseData = memoizedData;
+    if (!settings.showNextMonthDays) {
       const sixthRow = memoizedData.slice(35, 42);
       const isSixthRowAllNextMonth = sixthRow.length > 0 && sixthRow.every(day => !day.isInCurrentMonth);
-
       if (isSixthRowAllNextMonth) {
-        return memoizedData.slice(0, 35); // Return only the first 5 rows
-      } else {
-        return memoizedData; // Keep all days if 6th row has current month days or is empty
+        baseData = memoizedData.slice(0, 35);
       }
     }
+    return baseData;
   }, [memoizedData, settings.showNextMonthDays]);
 
   // Show loading state if data is not loaded yet

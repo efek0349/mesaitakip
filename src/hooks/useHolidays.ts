@@ -38,20 +38,20 @@ export const useHolidays = () => {
     }
   }, [currentYear]);
 
-  const isHoliday = (date: Date): boolean => {
+  const isHoliday = React.useCallback((date: Date): boolean => {
     const dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
     return holidays.some(holiday => holiday.date === dateKey);
-  };
+  }, [holidays]);
 
-  const getHoliday = (date: Date): Holiday | undefined => {
+  const getHoliday = React.useCallback((date: Date): Holiday | undefined => {
     const dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
     return holidays.find(holiday => holiday.date === dateKey);
-  };
+  }, [holidays]);
 
   // Belirli bir yılın tatillerini getir
-  const getHolidaysForYear = (year: number): Holiday[] => {
+  const getHolidaysForYear = React.useCallback((year: number): Holiday[] => {
     return holidays.filter(holiday => holiday.date.startsWith(year.toString()));
-  };
+  }, [holidays]);
 
   // Memoized current year holidays
   const currentYearHolidays = React.useMemo(() => {
