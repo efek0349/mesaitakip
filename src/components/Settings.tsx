@@ -204,11 +204,9 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                                   </span>
                                 </label>
                                                                 <ul className="list-disc list-inside text-sm text-gray-500 dark:text-gray-400 ml-4">
-                                  <li>4 saate kadar işlerde: 15 dakika</li>
-                                  <li>4 saatten fazla ve 7.5 saate kadar işlerde: 30 dakika</li>
-                                  <li>7.5 saatten fazla işlerde: 1 saat</li>
-                                </ul>
-                              </div>            </div>
+                                                                <li>4 saat ile 8 saate kadar işlerde: 30 dakika</li>
+                                                                <li>8 saatten fazla işlerde: 1 saat</li>
+                                                                </ul>                              </div>            </div>
           </div>
 
           {/* Shift System Settings */}

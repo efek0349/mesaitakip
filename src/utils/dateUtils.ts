@@ -92,13 +92,12 @@ export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boo
   const shouldDeduct = isSunday || isHoliday || (!isSaturdayWork && isSaturday);
 
   if (shouldDeduct) {
-    if (totalHours > 7.5) {
-      return Math.max(0, totalHours - 1); // 1 saat mola
-    } else if (totalHours > 4) {
-      return Math.max(0, totalHours - 0.5); // 30 dakika mola
-    } else if (totalHours > 0) {
-      return Math.max(0, totalHours - 0.25); // 15 dakika mola
+    if (totalHours > 8) {
+      return Math.max(0, totalHours - 1); // 8 saat üzeri: 1 saat mola
+    } else if (totalHours >= 4) {
+      return Math.max(0, totalHours - 0.5); // 4-8 saat arası: 30 dakika mola
     }
+    // 4 saate kadar: Mola yok (15 dk silindi)
   }
   
   return totalHours;
@@ -180,12 +179,10 @@ export const generateExportText = (monthlyData: any, year: number, month: number
 
       let deductionText = '';
       if (wasDeducted) {
-          if (currentEntry.totalHours > 7.5) {
+          if (currentEntry.totalHours > 8) {
               deductionText = '1s mola';
-          } else if (currentEntry.totalHours > 4) {
+          } else if (currentEntry.totalHours >= 4) {
               deductionText = '30dk mola';
-          } else {
-              deductionText = '15dk mola';
           }
       }
 

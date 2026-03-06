@@ -20,9 +20,11 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const monthlyTotal = getMonthlyTotal(year, month, settings.deductBreakTime);
-  const yearlyTotal = getYearlyTotal(year, settings.deductBreakTime);
-  const monthlyEntries = getMonthlyEntries(year, month);
+  
+  // Veri değişimlerini izlemek için monthlyData'yı (monthlyDataMemo) dependency olarak ekliyoruz
+  const monthlyTotal = useMemo(() => getMonthlyTotal(year, month, settings.deductBreakTime), [year, month, settings.deductBreakTime, getMonthlyTotal, monthlyData]);
+  const yearlyTotal = useMemo(() => getYearlyTotal(year, settings.deductBreakTime), [year, settings.deductBreakTime, getYearlyTotal, monthlyData]);
+  const monthlyEntries = useMemo(() => getMonthlyEntries(year, month), [year, month, getMonthlyEntries, monthlyData]);
   
   const YEARLY_LIMIT = 270;
   const isOverLimit = yearlyTotal > YEARLY_LIMIT;
@@ -30,7 +32,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
   // Loading flag
   const isLoading = !dataLoaded || !salaryLoaded;
 
-  // Memoize overtime stats calculation
+  // Memoize overtime stats calculation - Veri değişimini (monthlyData) buraya da ekledik
   const overtimeStats = useMemo(() => {
     return monthlyEntries.reduce((stats, entry) => {
       const entryDate = new Date(entry.date);
@@ -74,7 +76,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
       leave: { hours: 0, deduction: 0 },
       total: { hours: 0, payment: 0 }
     });
-  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, settings.isSaturdayWork]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, settings.isSaturdayWork, monthlyData]);
 
   if (isLoading) {
     return (

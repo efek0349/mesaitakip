@@ -3,7 +3,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { FilePicker } from '@capawesome/capacitor-file-picker'; // Added this import
 import { MonthlyData, SalarySettings, Holiday, OvertimeEntry } from '../types/overtime';
-import { generateExportText } from '../utils/dateUtils';
+import { generateExportText, getMonthKey, getDateKey } from '../utils/dateUtils';
 
 const formatDecimalHoursToHHMM = (decimalHours: number): string => {
   if (isNaN(decimalHours) || decimalHours < 0) {
@@ -183,15 +183,16 @@ export const generateCsvContent = (
   const normalWorkingHours = (endHour - startHour) + (endMinute - startMinute) / 60;
   const formattedNormalWorkingHours = formatDecimalHoursToHHMM(normalWorkingHours);
 
+  const monthKey = getMonthKey(new Date(year, month));
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month, day);
-    const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    const yearMonthString = `${year}-${(month + 1).toString().padStart(2, '0')}`;
+    const dateKey = getDateKey(currentDate);
     
-    const monthDataEntries = monthlyData[yearMonthString] || [];
-    const dayData = monthDataEntries.filter(entry => entry.date === dateString && entry.type !== 'leave');
+    const monthDataEntries = monthlyData[monthKey] || [];
+    const dayData = monthDataEntries.filter(entry => entry.date === dateKey && entry.type !== 'leave');
     const totalOvertimeHoursForDay = dayData.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
     const noteForDay = dayData.map(entry => entry.note).filter(Boolean).join('; ');
 
@@ -219,7 +220,7 @@ export const generateCsvContent = (
       const formattedOvertimeHours = formatDecimalHoursToHHMM(totalOvertimeHoursForDay);
 
       rows.push(
-        `"${dateString}","${employeeName}","${defaultStartTime}","${defaultEndTime}","${formattedNormalWorkingHours}","${formattedOvertimeHours}","${noteForDay}"`
+        `"${dateKey}","${employeeName}","${defaultStartTime}","${defaultEndTime}","${formattedNormalWorkingHours}","${formattedOvertimeHours}","${noteForDay}"`
       );
     }
   }

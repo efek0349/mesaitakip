@@ -67,18 +67,6 @@ const saveGlobalSettings = () => {
   }
 };
 
-// Tüm maaş ayarlarını sıfırla
-const clearSalarySettings = () => {
-  try {
-    localStorage.removeItem('mesai-salary-settings');
-    globalSettings = { ...defaultSettings };
-    isSalaryLoaded = false;
-    salaryEmitter.emit();
-  } catch (error) {
-    console.error('Maaş ayarları temizleme hatası:', error);
-  }
-};
-
 export const useSalarySettings = () => {
   const [updateCounter, setUpdateCounter] = React.useState(0);
   const [isLoaded, setIsLoaded] = React.useState(false);
@@ -89,6 +77,19 @@ export const useSalarySettings = () => {
   // Force re-render
   const forceUpdate = React.useCallback(() => {
     setUpdateCounter(prev => prev + 1);
+  }, []);
+
+  // Tüm maaş ayarlarını sıfırla - DOĞRU YER: Hook içinde
+  const clearSalarySettings = React.useCallback(() => {
+    try {
+      localStorage.removeItem('mesai-salary-settings');
+      globalSettings = { ...defaultSettings };
+      // Force update by resetting isLoaded and triggering emitter
+      isSalaryLoaded = false;
+      salaryEmitter.emit();
+    } catch (error) {
+      console.error('Maaş ayarları temizleme hatası:', error);
+    }
   }, []);
 
   React.useEffect(() => {
