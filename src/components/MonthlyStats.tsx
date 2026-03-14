@@ -128,7 +128,8 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
   const tesDeduction = settings.hasTES ? salarySum * (currentTesRate / 100) : 0;
   
   const totalEarnings = (salarySum - tesDeduction) + overtimeStats.total.payment;
-  const finalEarnings = settings.hasSalaryAttachment ? totalEarnings * 0.75 : totalEarnings;
+  const attachmentRate = settings.salaryAttachmentRate || 25;
+  const finalEarnings = settings.hasSalaryAttachment ? totalEarnings * (1 - attachmentRate / 100) : totalEarnings;
 
     return (
       <div className="bg-white dark:bg-dark-bg rounded-2xl shadow-lg p-2 mb-4">
@@ -211,7 +212,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
                     <div className="flex items-center justify-between border-t border-white/5 pt-2">
                       <span className="text-xs text-red-200 leading-none font-bold">Haciz</span>
                       <span className="text-sm font-bold leading-none text-red-100">
-                        -₺{(totalEarnings * 0.25).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        -₺{(totalEarnings * (attachmentRate / 100)).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   )}

@@ -4,7 +4,7 @@ import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
 import { useHolidays } from '../hooks/useHolidays';
-import { saveBackupFile, pickAndReadBackupFile, generateCsvContent } from '../utils/fileUtils';
+import { saveBackupFile, pickAndReadBackupFile, generateCsvContent, shareText, shareFile } from '../utils/fileUtils';
 
 interface DataBackupModalProps {
   isOpen: boolean;
@@ -16,6 +16,8 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
   const { clearSalarySettings, settings } = useSalarySettings();
   const { getHoliday } = useHolidays();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pasteText, setPasteText] = useState('');
+  const [showPasteArea, setShowPasteArea] = useState(false);
 
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
@@ -36,13 +38,13 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
         const month = today.getMonth();
         const monthName = ayAdlari[month];
         data = exportMonthData(year, month);
-        fileName = `${monthName}-${year}.mesai-takip.json`;
+        fileName = `MesaiTakip-${monthName}-${year}.json`;
       } else { // all
         const day = today.getDate().toString().padStart(2, '0');
         const month = (today.getMonth() + 1).toString().padStart(2, '0');
         const year = today.getFullYear();
         data = exportAllData();
-        fileName = `Tam-yedek-${day}-${month}-${year}.mesai-takip.json`;
+        fileName = `MesaiTakip-Tam-Yedek-${day}-${month}-${year}.json`;
       }
       
       await saveBackupFile(data, fileName);
@@ -54,12 +56,51 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
     }
   };
 
+  const handleCopyAllData = async () => {
+    try {
+      const data = exportAllData();
+      await navigator.clipboard.writeText(data);
+      setMessage({ type: 'success', text: 'Tüm MesaiTakip verileri kopyalandı! WhatsApp veya notlarınıza yapıştırabilirsiniz.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Kopyalama başarısız oldu. Lütfen manuel olarak seçip kopyalayın.' });
+      setShowPasteArea(true);
+      setPasteText(exportAllData());
+    }
+  };
+
+  const handleShareAsText = async () => {
+    try {
+      const data = exportAllData();
+      const day = today.getDate().toString().padStart(2, '0');
+      const month = (today.getMonth() + 1).toString().padStart(2, '0');
+      const year = today.getFullYear();
+      const fileName = `MesaiTakip-Tam-Yedek-${day}-${month}-${year}.txt`;
+      await shareFile(data, fileName, 'MesaiTakip Tam Yedek');
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Paylaşım sırasında bir hata oluştu.' });
+    }
+  };
+
+  const handleImportFromText = () => {
+    if (!pasteText.trim()) {
+      setMessage({ type: 'error', text: 'Lütfen yedekleme metnini kutuya yapıştırın.' });
+      return;
+    }
+
+    if (importData(pasteText)) {
+      setMessage({ type: 'success', text: 'Veriler başarıyla içe aktarıldı! Sayfa yenileniyor...' });
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      setMessage({ type: 'error', text: 'Geçersiz yedekleme metni. Lütfen metnin tamamını kopyaladığınızdan emin olun.' });
+    }
+  };
+
   const handleExportCsv = async () => {
     try {
       const monthName = ayAdlari[selectedMonth];
 
       const csvContent = generateCsvContent(selectedYear, selectedMonth, monthlyData, settings, getHoliday);
-      const fileName = `${monthName}-${selectedYear}-mesai-raporu.csv`;
+      const fileName = `MesaiTakip-${monthName}-${selectedYear}-Raporu.csv`;
       
       await saveBackupFile(csvContent, fileName);
       setMessage({ type: 'success', text: 'CSV raporu başarıyla oluşturuldu! Dosyanızı kaydetmek veya paylaşmak için bir seçenek belirleyin.' });
@@ -123,7 +164,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              <h3 className="font-semibold text-gray-800 dark:text-white">Verileri Dışa Aktar</h3>
+              <h3 className="font-semibold text-gray-800 dark:text-white">Dosya Olarak Yedekle</h3>
             </div>
             <div className="flex gap-2">
                 <button onClick={() => handleExport('currentMonth')} className="flex-1 w-full py-2 px-4 bg-green-500 text-white rounded-lg font-medium active:bg-green-600">
@@ -158,14 +199,63 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
+          {/* Text Backup/Restore */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Copy className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="font-semibold text-blue-800 dark:text-blue-200">Metin Olarak Tam Yedekleme</h3>
+            </div>
+            <p className="text-xs text-blue-700 dark:text-blue-300 italic font-medium">Bu işlem tüm ayları ve tüm ayarlarınızı kapsayan bir tam yedektir.</p>
+            <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80">Dosya yüklemede sorun yaşıyorsanız bu metni kopyalayıp WhatsApp gibi yerlere kendinize not olarak gönderebilirsiniz.</p>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={handleCopyAllData} 
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium active:bg-blue-700 text-sm"
+              >
+                <Copy size={16} /> Tam Yedeği Kopyala
+              </button>
+              <button 
+                onClick={handleShareAsText} 
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-green-600 text-white rounded-lg font-medium active:bg-green-700 text-sm"
+              >
+                <Share2 size={16} /> Paylaş
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setShowPasteArea(!showPasteArea)} 
+              className="w-full py-2 px-4 border border-blue-500 text-blue-600 dark:text-blue-400 rounded-lg font-medium active:bg-blue-50 dark:active:bg-blue-900/30 text-sm"
+            >
+              {showPasteArea ? 'Metin Alanını Kapat' : 'Yedekten Tam Geri Yükle'}
+            </button>
+
+            {showPasteArea && (
+              <div className="space-y-2 mt-2">
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  placeholder="Kopyaladığınız tam yedek metnini buraya yapıştırın..."
+                  className="w-full h-32 p-3 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button 
+                  onClick={handleImportFromText}
+                  className="w-full py-2 px-4 bg-blue-500 text-white rounded-lg font-medium active:bg-blue-600"
+                >
+                  Tam Yedeği Şimdi Yükle
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Import */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Download className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              <h3 className="font-semibold text-gray-800 dark:text-white">Verileri İçe Aktar</h3>
+              <h3 className="font-semibold text-gray-800 dark:text-white">Dosyadan Geri Yükle</h3>
             </div>
             <button onClick={handleImport} className="w-full py-2 px-4 bg-blue-500 text-white rounded-lg font-medium active:bg-blue-600">
-              Yedekten Geri Yükle
+              Dosya Seç ve Yükle
             </button>
           </div>
 

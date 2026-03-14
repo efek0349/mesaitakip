@@ -96,11 +96,51 @@ export const shareText = async (text: string, title: string) => {
   }
 };
 
-// Placeholder for saveBackupFile - You need to provide the original implementation
+export const shareFile = async (data: string, filename: string, title: string = 'Dosya Paylaş') => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Write to a temporary cache directory
+      await Filesystem.writeFile({
+        path: filename,
+        data: data,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+
+      // Get the URI of the temporary file
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: filename,
+      });
+
+      // Share the file
+      await Share.share({
+        title: title,
+        url: fileUri.uri,
+        dialogTitle: title,
+      });
+
+      // Optional: Delete after a delay or don't delete immediately as some apps might need it
+      // For simplicity in this flow, we'll keep it in cache which OS clears eventually
+    } catch (error) {
+      console.error('Dosya paylaşma hatası:', error);
+      if (!(error instanceof Error && error.message.includes('cancelled'))) {
+        alert('Dosya paylaşılırken bir hata oluştu.');
+      }
+    }
+  } else {
+    const element = document.createElement('a');
+    const file = new Blob([data], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  }
+};
+
 export const saveBackupFile = async (data: string, filename: string): Promise<void> => {
-  console.warn('saveBackupFile: Placeholder function called. Provide original implementation.');
-  // Original implementation should go here
-  await downloadTextFile(data, filename); // Using downloadTextFile as a fallback
+  await shareFile(data, filename, 'Yedek Dosyasını Kaydet/Paylaş');
 };
 
 export const pickAndReadBackupFile = async (): Promise<string | null> => {

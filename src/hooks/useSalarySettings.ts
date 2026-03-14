@@ -18,6 +18,7 @@ const defaultSettings: SalarySettings = {
   showNextMonthDays: false,
   isSaturdayWork: false,
   hasSalaryAttachment: false,
+  salaryAttachmentRate: 25,
   hasTES: false,
   tesRate: 3,
   defaultStartTime: '08:05',
