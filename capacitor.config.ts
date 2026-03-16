@@ -20,6 +20,11 @@ const config: CapacitorConfig = {
     },
     Share: {
       // Share plugin ayarları
+    },
+    GoogleAuth: {
+      scopes: ["email", "profile", "openid", "https://www.googleapis.com/auth/drive.file"],
+      serverClientId: "971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com",
+      forceCodeForRefreshToken: true
     }
   },
   android: {

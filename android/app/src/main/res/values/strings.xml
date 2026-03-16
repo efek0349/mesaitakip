@@ -4,4 +4,5 @@
     <string name="title_activity_main">Mesai Takip</string>
     <string name="package_name">com.efek0349.mesaitakip</string>
     <string name="custom_url_scheme">com.efek0349.mesaitakip</string>
+    <string name="google_client_id">971204589871-5r68r9ut9ou73r9aie1enblcpbmf7rm5.apps.googleusercontent.com</string>
 </resources>
