@@ -1,6 +1,5 @@
 import React from 'react';
 import { X, Info, Github, Code, Check } from 'lucide-react';
-import Game2048 from './Game2048';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -98,12 +97,6 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <FeatureItem>Her mesaiye özel not ekleme</FeatureItem>
               <FeatureItem>Mobil uyumlu ve modern tasarım</FeatureItem>
             </ul>
-          </div>
-
-          {/* Game */}
-          <div>
-            <SectionTitle>Biraz da Eğlence: 2048</SectionTitle>
-            <Game2048 />
           </div>
         </div>
 

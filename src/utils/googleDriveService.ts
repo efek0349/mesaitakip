@@ -1,5 +1,5 @@
 /**
- * Google Drive Yedekleme Servisi (V3 - Deep Linking Destekli)
+ * Google Drive Yedekleme Servisi
  * ✅ Google plugin gerekmez
  * ✅ Android / Web aynı kod
  * ✅ Google Drive AppFolder kullanır (Gizli ve güvenli)
@@ -8,7 +8,6 @@
 
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
-import { App } from '@capacitor/app';
 
 const CLIENT_ID = '971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
@@ -37,14 +36,23 @@ class GoogleDriveService {
 
   constructor() {
     this.handleRedirect();
-    
-    // Android için Deep Link dinleyicisi ekle
+    this.initNativeListeners();
+  }
+
+  // Android için Deep Link dinleyicisi ekle (Native ise dinamik yükle)
+  private async initNativeListeners() {
     if (Capacitor.isNativePlatform()) {
-      App.addListener('appUrlOpen', (event) => {
-        if (event.url.includes('access_token')) {
-          this.parseHash(new URL(event.url).hash);
-        }
-      });
+      try {
+        const { App } = await import('@capacitor/app');
+        App.addListener('appUrlOpen', (event) => {
+          if (event.url.includes('access_token')) {
+            const hash = new URL(event.url).hash;
+            if (hash) this.parseHash(hash);
+          }
+        });
+      } catch (e) {
+        console.warn('Capacitor App plugin yüklenemedi, deep link çalışmayabilir.');
+      }
     }
   }
 
@@ -107,10 +115,10 @@ class GoogleDriveService {
   }
 
   async signIn() {
-    // Android'de redirect_uri sonuna / eklemek bazen eşleşmeyi kolaylaştırır
+    // Web'de tam URL'yi al (alt klasörler dahil: https://efek0349.github.io/mesaitakip/)
     const redirectUri = Capacitor.isNativePlatform() 
       ? 'https://localhost/' 
-      : window.location.origin;
+      : window.location.origin + window.location.pathname;
 
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
