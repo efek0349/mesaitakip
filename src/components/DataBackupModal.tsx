@@ -5,6 +5,7 @@ import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
 import { saveBackupFile, pickAndReadBackupFile, generateCsvContent, shareFile } from '../utils/fileUtils';
 import { googleDriveService, GoogleUser, DriveFile } from '../utils/googleDriveService';
+import { generateDynamicHash } from '../utils/dateUtils';
 import { Dialog } from '@capacitor/dialog';
 
 interface DataBackupModalProps {
@@ -23,6 +24,9 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
   const [backups, setBackups] = useState<DriveFile[]>([]);
   const [showPasteArea, setShowPasteArea] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [showVerifyArea, setShowVerifyArea] = useState(false);
+  const [verifyText, setVerifyText] = useState('');
+  const [verifyResult, setVerifyResult] = useState<{ success: boolean; message: string } | null>(null);
   
   const isInitialMount = useRef(true);
   const today = new Date();
@@ -46,6 +50,30 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
     } catch (e) {
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyLog = () => {
+    if (!verifyText.trim()) return;
+    
+    // Mesajın sonundaki hash satırını ayıkla
+    const hashLabel = ' [!] LOG_HASH: ';
+    const lastLineStart = verifyText.lastIndexOf(hashLabel);
+    
+    if (lastLineStart === -1) {
+      setVerifyResult({ success: false, message: 'Log içerisinde Hash bulunamadı!' });
+      return;
+    }
+
+    const providedHash = verifyText.substring(lastLineStart + hashLabel.length).trim();
+    const contentToHash = verifyText.substring(0, lastLineStart);
+    
+    const calculatedHash = generateDynamicHash(contentToHash);
+    
+    if (providedHash === calculatedHash) {
+      setVerifyResult({ success: true, message: `DOĞRULANDI: Veri orijinal. (${calculatedHash})` });
+    } else {
+      setVerifyResult({ success: false, message: `HATA: Veri manipüle edilmiş! (Beklenen: ${providedHash}, Hesaplanan: ${calculatedHash})` });
     }
   };
 
@@ -250,6 +278,42 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                 <button onClick={handleImportFromText} className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold">Metinden Geri Yükle</button>
                 <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div><span className="flex-shrink mx-4 text-gray-400 text-[10px]">VEYA</span><div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div></div>
                 <button onClick={() => pickAndReadBackupFile().then(d => d && importData(d) && window.location.reload())} className="w-full py-2 border-2 border-dashed border-blue-400 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold">Dosyadan Geri Yükle</button>
+              </div>
+            )}
+          </div>
+
+          {/* LOG DOĞRULAMA BÖLÜMÜ */}
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-emerald-800 dark:text-emerald-200 flex items-center gap-2"><Shield size={20} /> Log Doğrulama</h3>
+              <button onClick={() => setShowVerifyArea(!showVerifyArea)} className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                {showVerifyArea ? 'Gizle' : 'Göster'}
+              </button>
+            </div>
+            
+            {showVerifyArea && (
+              <div className="space-y-3 animate-in slide-in-from-top-2">
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic">Paylaşılan mesai logunun orijinal olup olmadığını hash değeri ile kontrol edin.</p>
+                <textarea 
+                  value={verifyText} 
+                  onChange={(e) => { setVerifyText(e.target.value); setVerifyResult(null); }} 
+                  placeholder="Doğrulanacak log metnini buraya yapıştırın..." 
+                  className="w-full h-32 p-3 text-[10px] font-mono border rounded-xl dark:bg-gray-900 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800 focus:ring-2 focus:ring-emerald-500" 
+                />
+                <button 
+                  onClick={handleVerifyLog} 
+                  disabled={!verifyText.trim()}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition-all"
+                >
+                  <RefreshCw size={18} /> Logu Doğrula
+                </button>
+                
+                {verifyResult && (
+                  <div className={`p-3 rounded-xl text-[11px] font-bold flex items-start gap-2 ${verifyResult.success ? 'bg-green-100 text-green-800 dark:bg-green-900/40' : 'bg-red-100 text-red-800 dark:bg-red-900/40'}`}>
+                    {verifyResult.success ? <CheckCircle size={16} className="mt-0.5" /> : <AlertTriangle size={16} className="mt-0.5" />}
+                    <span>{verifyResult.message}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

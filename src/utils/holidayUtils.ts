@@ -119,6 +119,12 @@ export function getOfficialHolidays(year: number): Holiday[] {
       shortName: "Yılbaşı"
     },
     {
+      date: `${year}-03-21`,
+      name: "Nevruz Bayramı",
+      type: "official",
+      shortName: "Nevruz"
+    },
+    {
       date: `${year}-04-23`,
       name: "23 Nisan Ulusal Egemenlik ve Çocuk Bayramı",
       type: "official",

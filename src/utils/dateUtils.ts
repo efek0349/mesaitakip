@@ -119,140 +119,152 @@ export const formatHours = (totalHours: number): string => {
   }
 };
 
+import { APP_VERSION } from '../components/AboutModal';
+
+// Basit bir hash fonksiyonu (LOG_HASH için)
+export const generateDynamicHash = (content: string): string => {
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return '0x' + Math.abs(hash).toString(16).toUpperCase().substring(0, 6);
+};
+
 export const generateExportText = (monthlyData: any, year: number, month: number, firstName: string = '', lastName: string = '', getHoliday?: (date: Date) => any, deductBreakTime: boolean = false, isSaturdayWork: boolean = false): string => {
   const monthKey = getMonthKey(new Date(year, month));
-  const allDaysInMonth = getCalendarDays(year, month); // Get all days for the month
-  const entriesMap = new Map(monthlyData[monthKey]?.map((entry: OvertimeEntry) => [entry.date, entry])); // Map entries for easy lookup
+  const allDaysInMonth = getCalendarDays(year, month);
+  const entriesMap = new Map(monthlyData[monthKey]?.map((entry: OvertimeEntry) => [entry.date, entry]));
+  const appVersion = APP_VERSION;
 
-  let text = '';
+  let text = `>>> MESAI_TAKIP_SYSTEM v${appVersion}\n`;
+  const separator = '_'.repeat(40) + '\n';
   
-  text += '='.repeat(25) + '\n';
-  // İsim-soyisim varsa ekle
+  text += separator;
+  text += ' [SYSTEM_LOG]\n';
+  
   if (firstName.trim() || lastName.trim()) {
-    text += `${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
+    text += ` [+] TARGET : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
   }
   
-  text += `${TURKISH_MONTHS[month]} ${year} - Mesai Saatleri\n`;
+  text += ` [+] PERIOD : ${TURKISH_MONTHS[month]} ${year}\n`;
   if (deductBreakTime) {
-    text += '(4857 sayılı iş kanunu ara dinlenmesi fazla mesailere dahil degildir)\n';
+    text += ' [!] MODULE : 4857_PROTOCOL (NO_BREAKS)\n';
   }
-  text += '\n';
-  
+  text += separator;
+  text += ' [DATA_ENTRIES]\n';
+
   let totalNetHours = 0;
   let totalGrossHours = 0;
   let normalHours = 0;
   let sundayHours = 0;
-  let saturdayHours = 0; // Keep for potential internal use, but not for summary display
+  let saturdayHours = 0;
   let officialHolidayHours = 0;
   let religiousHolidayHours = 0;
-  let holidayHours = 0;
+  
+  let entryIndex = 0;
 
   allDaysInMonth.forEach(date => {
     const dateKey = getDateKey(date);
     const entry = entriesMap.get(dateKey);
     
-    // Skip leave entries for export as requested
-    if (entry?.type === 'leave') return;
+    if (entry?.type === 'leave' || entry === undefined) return;
 
+    entryIndex++;
     const dayOfWeek = date.getDay();
     const isSaturday = dayOfWeek === 6;
     const isSunday = dayOfWeek === 0;
     const holiday = getHoliday ? getHoliday(date) : null;
     const isEntryHoliday = !!holiday;
 
-    // Determine if this day should be included in the export
-    // Only include if there's an actual overtime entry
-    const shouldIncludeDay = (entry !== undefined);
+    const formattedDate = formatTurkishDateWithDay(date);
+    const currentEntry = entry;
 
-    if (shouldIncludeDay) {
-      const formattedDate = formatTurkishDateWithDay(date);
-      
-      const currentEntry = entry || { totalHours: 0, note: '' };
+    const effectiveHours = calculateEffectiveHours(currentEntry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, isSaturdayWork);
+    
+    const shouldDeductForText = isSunday || isEntryHoliday || (!isSaturdayWork && isSaturday);
+    const wasDeducted = deductBreakTime && shouldDeductForText && currentEntry.totalHours >= 4;
 
-      // Mola kesintisi hesaplama
-      const effectiveHours = calculateEffectiveHours(currentEntry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, isSaturdayWork);
-      
-      // Sadece mola süresi gerçekten varsa (4 saat ve üzeri) wasDeducted true olsun
-      const shouldDeductForText = isSunday || isEntryHoliday || (!isSaturdayWork && isSaturday);
-      const wasDeducted = deductBreakTime && shouldDeductForText && currentEntry.totalHours >= 4;
-
-      let deductionText = '';
-      if (wasDeducted) {
-          if (currentEntry.totalHours > 7.5) {
-              deductionText = '1s mola';
-          } else if (currentEntry.totalHours >= 4) {
-              deductionText = '30dk mola';
-          }
-      }
-
-      const hoursText = `${formatHours(currentEntry.totalHours)}${wasDeducted ? ` (${deductionText})` : ''}`;
-              
-      // Gün tipini belirle
-      if (holiday) {
-        if (holiday.type === 'religious') {
-          religiousHolidayHours += effectiveHours;
-          holidayHours += effectiveHours;
-        } else {
-          officialHolidayHours += effectiveHours;
-          holidayHours += effectiveHours;
+    let statusText = 'OK';
+    if (wasDeducted) {
+        if (currentEntry.totalHours > 7.5) {
+            statusText = '1s_MOLA';
+        } else if (currentEntry.totalHours >= 4) {
+            statusText = '30dk_MOLA';
         }
-      } else if (isSunday) { // Pazar
-        sundayHours += effectiveHours;
-      } else if (isSaturday) { // Cumartesi
-        if (isSaturdayWork) {
-          normalHours += effectiveHours; // If Saturday is a working day, add to normal hours
-        } else {
-          saturdayHours += effectiveHours; // Otherwise, keep separate (not displayed in summary)
-        }
-      } else { // Haftaiçi
-        normalHours += effectiveHours;
-      }
-      
-      let lineText = `${formattedDate} - ${hoursText} mesai`;
-      
-      // Not varsa ekle
-      if (currentEntry.note && currentEntry.note.trim()) {
-        lineText += ` (${currentEntry.note.trim()})`;
-      }
-      
-      text += lineText + '\n';
-      totalNetHours += effectiveHours;
-      totalGrossHours += currentEntry.totalHours;
     }
+
+    const hexIndex = `0x${entryIndex.toString(16).padStart(2, '0').toUpperCase()}`;
+    const hoursText = formatHours(currentEntry.totalHours);
+            
+    if (holiday) {
+      if (holiday.type === 'religious') {
+        religiousHolidayHours += effectiveHours;
+      } else {
+        officialHolidayHours += effectiveHours;
+      }
+    } else if (isSunday) {
+      sundayHours += effectiveHours;
+    } else if (isSaturday) {
+      if (isSaturdayWork) {
+        normalHours += effectiveHours;
+      } else {
+        saturdayHours += effectiveHours;
+      }
+    } else {
+      normalHours += effectiveHours;
+    }
+    
+    let lineText = ` [${hexIndex}] ${formattedDate} | ${hoursText} mesai [${statusText}]`;
+    if (currentEntry.note && currentEntry.note.trim()) {
+      lineText += ` (${currentEntry.note.trim()})`;
+    }
+    
+    text += lineText + '\n';
+    totalNetHours += effectiveHours;
+    totalGrossHours += currentEntry.totalHours;
   });
   
   const totalDeductionHours = totalGrossHours - totalNetHours;
   const formatSa = (h: number) => formatHours(h).replace(' s', ' sa');
-  const formatSaat = (h: number) => formatHours(h).replace(' s', ' saat');
+  const formatSaat = (h: number) => formatHours(h).replace(' s', ' sa');
 
-  text += '\n';
+  text += separator;
+  text += ' [STATISTICS_ANALYSIS]\n';
   
   if (deductBreakTime) {
-    text += `Toplam Mesai (Brüt): ${formatSa(totalGrossHours)}\n`;
-    text += `Toplam Mola: ${formatSa(totalDeductionHours)}\n`;
-    text += `Toplam Net Mesai: ${formatSa(totalNetHours)}\n`;
+    text += ` [*] TOPLAM_BRUT_MESAI : ${formatSa(totalGrossHours)}\n`;
+    text += ` [*] TOPLAM_MOLA       : ${formatSa(totalDeductionHours)}\n`;
+    text += ` [*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
   } else {
-    text += `Toplam Mesai: ${formatSa(totalNetHours)}\n`;
+    text += ` [*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
   }
   
-  text += '\n';
+  text += separator;
+  text += ' [LOAD_DISTRIBUTION]\n';
   
-  // Detaylı mesai dağılımı
   let displayNormalHours = normalHours;
   if (!isSaturdayWork && saturdayHours > 0) {
-    displayNormalHours += saturdayHours; // Add Saturday hours to normal hours for display if not a working Saturday
+    displayNormalHours += saturdayHours;
   }
 
   if (displayNormalHours > 0) {
-    text += `${formatSaat(displayNormalHours)} haftaiçi mesaisi\n`;
+    text += ` - HAFTAICI_PAYLOAD    : ${formatSaat(displayNormalHours)}\n`;
   }
   if (sundayHours > 0) {
-    text += `${formatSaat(sundayHours)} pazar günü mesaisi\n`;
+    text += ` - PAZAR_GUNU_PAYLOAD  : ${formatSaat(sundayHours)}\n`;
   }
-  if (holidayHours > 0) {
-    text += `${formatSaat(holidayHours)} resmi & dini tatil mesaisi\n`;
+  if (religiousHolidayHours > 0) {
+    text += ` - DINI_BAYRAM_PAYLOAD : ${formatSaat(religiousHolidayHours)}\n`;
+  }
+  if (officialHolidayHours > 0) {
+    text += ` - RESMI_TATIL_PAYLOAD : ${formatSaat(officialHolidayHours)}\n`;
   }
   
-  text += '='.repeat(25);
+  text += separator;
+  text += ' [!] STATUS: SUCCESSFUL_ENFILTRATION\n';
+  text += ` [!] LOG_HASH: ${generateDynamicHash(text)}`;
+  
   return text;
 };

@@ -1,92 +1,120 @@
-# Mesai Takip Uygulaması
 
-Modern ve kullanıcı dostu bir mesai takip uygulaması. React, TypeScript ve Tailwind CSS ile geliştirilmiştir.
+```text
+################################################################################
+#                                                                              #
+#   __  __ ______  _____         _____  _______       _  _______ _____         #
+#  |  \/  |  ____|/ ____|  /\   |_   _||__   __|     | |/ /_   _|  __ \        #
+#  | \  / | |__  | (___   /  \    | |     | |   __ _ | ' /  | | | |__) |       #
+#  | |\/| |  __|  \___ \ / /\ \   | |     | |  / _` ||  <   | | |  ___/        #
+#  | |  | | |____ ____) / ____ \ _| |_    | | | (_| || . \ _| |_| |            #
+#  |_|  |_|______|_____/_/    \_\_____|   |_|  \__,_||_|\_\_____|_|            #
+#                                                                              #
+#               >> MESAİ TAKİP SİSTEMİ v1.0.5 <<                               #
+#                                                                              #
+################################################################################
 
-## 📱 Özellikler
-
-- **Aylık Mesai Takibi**: Günlük mesai saatlerinizi kolayca kaydedin ve takip edin
-- **Akıllı Ücret Hesaplama**: Haftaiçi, cumartesi, pazar ve resmi tatil günleri için farklı katsayılarla otomatik ücret hesaplama
-- **Resmi & Dini Tatil Desteği**: 2025-2035 yılları arası tüm resmi ve dini tatiller önceden tanımlı
-- **Detaylı Raporlama**: Aylık özet raporları ve mesai türlerine göre ayrıntılı analiz
-- **Mesai Notlari**: Mesai eklemelerine özel not ekleme özelliği ile detaylı kayıt imkânı
-- **Veri Yedekleme**: Verilerinizi yedekleyin, paylaşın ve geri yükleyin
-- **Maaş Ayarları**: Kişiselleştirilebilir maaş ve vergi oranları
-- **Mobil Uyumlu**: Android APK desteği ile mobil cihazlarda sorunsuz çalışma
-- **Modern Tasarım**: Kullanıcı dostu arayüz ve smooth animasyonlar
-
-## 🚀 Android için Kurulum ve Paketleme
-
-Uygulamayı yerel ortamınızda çalıştırmak yada paketlemek için aşağıdaki adımları takip edin:
-
-```bash
-$ npm install
-$ npm run build
-//$ npm run dev # Yerel ortaminizda çalıştırmak için kullanın
-$ npx cap sync android
-$ cd .\android\
-$ ./gradlew.bat assembleDebug
-```
-**Apk** dosyasını **android\app\build\outputs\apk\debug** dizini altında bulabilirsiniz!
-
-## 💰 Mesai Ücret Hesaplama
-
-Uygulama farklı gün türleri için otomatik ücret hesaplama yapar:
-
-- **Haftaiçi Mesailer**: Pazartesi-Cuma (varsayılan 1.5x katsayı)
-- **Cumartesi Mesailer**: Cumartesi günleri (varsayılan 1.5x katsayı)  
-- **Pazar Mesailer**: Pazar günleri (varsayılan 2.5x katsayı)
-- **Resmi & Dini Tatil Mesailer**: Bayram ve resmi tatiller (varsayılan 2.0x katsayı)
-
-Tüm hesaplamalar SGK, gelir vergisi ve damga vergisi kesintileri düşüldükten sonraki net tutarları gösterir.
-
-## 📅 Desteklenen Tatiller
-
-### Resmi Tatiller (Her Yıl)
-- Yılbaşı (1 Ocak)
-- 23 Nisan Ulusal Egemenlik ve Çocuk Bayramı
-- 1 Mayıs Emek ve Dayanışma Günü
-- 19 Mayıs Gençlik ve Spor Bayramı
-- 15 Temmuz Demokrasi ve Milli Birlik Günü
-- 30 Ağustos Zafer Bayramı
-- 29 Ekim Cumhuriyet Bayramı
-
-### Dini Tatiller (2025-2035)
-- Ramazan Bayramı (3 gün)
-- Kurban Bayramı (4 gün)
-
-## 🛠️ Teknoloji Stack
-
-- **Frontend**: React 18 + TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Mobile**: Capacitor (Android APK desteği)
-- **Build Tool**: Vite
-- **Data Storage**: LocalStorage (otomatik yedekleme)
-
-## 📊 Veri Yönetimi
-
-- **Otomatik Kaydetme**: Tüm veriler otomatik olarak tarayıcıda saklanır
-- **Yedekleme Sistemi**: JSON formatında veri export/import
-- **Paylaşma**: Mobil cihazlarda native paylaşma desteği
-- **Veri Güvenliği**: Veriler sadece cihazınızda saklanır, hiçbir sunucuya gönderilmez
-
-## 👨‍💻 Geliştirici
-
-- **GitHub**: [efek0349](https://github.com/efek0349)
-- **E-posta**: kndmrefe@gmail.com
-- **Telegram**: https://t.me/efek0349
-- **GPG**: [publickey.asc](https://raw.githubusercontent.com/efek0349/dotfiles/refs/heads/openbsd/publickey.asc)
-
-## 📄 Lisans
-
-Bu proje açık kaynak kodludur ve GPL-3.0 lisansı altında dağıtılmaktadır.
-
-## 🤝 Katkıda Bulunma
-
-Projeye katkıda bulunmak için:
-
-Repository'yi fork edin
+[SYSTEM_INFO]
+-------------
+[+] TARGET      : Modern ve kullanıcı dostu mesai takip uygulaması.
+[+] ENVIRONMENT : React, TypeScript & Tailwind CSS.
+[+] STATUS      : STABLE / READY FOR DEPLOYMENT
+[+] KERNEL      : Vite v6.0.0
 
 ---
 
-**Not**: Bu uygulama kişisel mesai takibi için geliştirilmiştir. Resmi muhasebe işlemleri için profesyonel danışmanlık alınması önerilir.
+[FEATURES_MANIFEST]
+-------------------
+[*] MODULE_01: Aylık Mesai Takibi - Günlük verileri sisteme enjekte eder.
+[*] MODULE_02: Akıllı Ücret Hesaplama - Dinamik katsayı algoritması aktif.
+[*] MODULE_03: Resmi & Dini Tatil Desteği - 2025-2035 DB entegre edildi.
+[*] MODULE_04: Detaylı Raporlama - Derinlemesine veri analizi ve özetler.
+[*] MODULE_05: Mesai Notları - Her entry için metadata desteği.
+[*] MODULE_06: Veri Yedekleme - Local backup ve JSON export/import.
+[*] MODULE_07: Maaş Ayarları - Vergi parametreleri (Bypass Tax Limits).
+[*] MODULE_08: Mobil Uyumlu - Android Native APK desteği.
+[*] MODULE_09: Modern Tasarım - Optimize edilmiş UI/UX motoru.
+
+---
+
+[DEPLOYMENT_SCRIPT]
+-------------------
+$ npm install
+$ npm run build
+$ npx cap sync android
+$ cd ./android/
+$ ./gradlew.bat assembleDebug
+
+[INFO] Output: android\app\build\outputs\apk\debug\app-debug.apk
+
+---
+
+[CALCULATION_PAYLOAD]
+---------------------
+[0x01] HAFTAİÇİ_MESAI   : 1.5x (Variable)
+[0x02] CUMARTESİ_MESAI  : 1.5x (Variable)
+[0x03] PAZAR_MESAI      : 2.5x (Fixed)
+[0x04] RESMİ_TATİL_MESAİ: 2.0x (Priority)
+
+[!] NOTICE: Hesaplamalar net tutarlar üzerinden yapılmaktadır.
+
+---
+
+[HOLIDAY_DATABASE]
+------------------
+[OFFICIAL_HOOKS]
+- [1] 1 Ocak Yılbaşı
+- [2] 21 Mart Nevruz Bayramı [+] NEW_UPDATE
+- [3] 23 Nisan Ulusal Egemenlik ve Çocuk Bayramı
+- [4] 1 Mayıs Emek ve Dayanışma Günü
+- [5] 19 Mayıs Gençlik ve Spor Bayramı
+- [6] 15 Temmuz Demokrasi ve Milli Birlik Günü
+- [7] 30 Ağustos Zafer Bayramı
+- [8] 29 Ekim Cumhuriyet Bayramı
+
+[RELIGIOUS_HOOKS]
+- Ramazan Bayramı (3 Days Loop)
+- Kurban Bayramı (4 Days Loop)
+
+---
+
+[TECH_STACK_OVERRIDE]
+---------------------
+[CORE]    : React 18 + TypeScript
+[STYLE]   : Tailwind CSS
+[ICONS]   : Lucide React (Vector-only)
+[BRIDGE]  : Capacitor (Android Engine)
+[STORAGE] : LocalStorage (Client-side persistence)
+
+---
+
+[DATA_ENFILTRATION]
+-------------------
+[+] AUTO_SAVE : Real-time persistent storage enabled.
+[+] EXPORT    : JSON data format supported.
+[+] SHARE     : Native sharing API integration.
+[+] SECURITY  : 0-Server Leakage. All data remains on-device.
+
+---
+
+[AUTHOR_CREDENTIALS]
+--------------------
+[USER] : efek0349
+[MAIL] : kndmrefe@gmail.com
+[TG]   : https://t.me/efek0349
+[GPG]  : [publickey.asc] (https://raw.githubusercontent.com/efek0349/dotfiles/refs/heads/openbsd/publickey.asc)
+
+---
+
+[LICENSE_AGREEMENT]
+-------------------
+LICENSE : GPL-3.0 (Open Source)
+
+[CONTRIBUTION]
+- Clone Repo
+- Inject Code
+- Send Pull Request
+
+---
+
+[!] WARNING: Bu yazılım kişisel takip içindir. Muhasebe işlemleri için uzman onayı alınız.
+```
