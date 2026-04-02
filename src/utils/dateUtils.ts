@@ -142,18 +142,18 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   const separator = '_'.repeat(40) + '\n';
   
   text += separator;
-  text += ' [SYSTEM_LOG]\n';
+  text += '[SYSTEM_LOG]\n';
   
   if (firstName.trim() || lastName.trim()) {
-    text += ` [+] TARGET : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
+    text += `[+] TARGET : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
   }
   
-  text += ` [+] PERIOD : ${TURKISH_MONTHS[month]} ${year}\n`;
+  text += `[+] PERIOD : ${TURKISH_MONTHS[month]} ${year}\n`;
   if (deductBreakTime) {
-    text += ' [!] MODULE : 4857_PROTOCOL (NO_BREAKS)\n';
+    text += '[!] MODULE : 4857_PROTOCOL\n';
   }
   text += separator;
-  text += ' [DATA_ENTRIES]\n';
+  text += '[DATA_ENTRIES]\n';
 
   let totalNetHours = 0;
   let totalGrossHours = 0;
@@ -163,15 +163,12 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   let officialHolidayHours = 0;
   let religiousHolidayHours = 0;
   
-  let entryIndex = 0;
-
   allDaysInMonth.forEach(date => {
     const dateKey = getDateKey(date);
     const entry = entriesMap.get(dateKey);
     
     if (entry?.type === 'leave' || entry === undefined) return;
 
-    entryIndex++;
     const dayOfWeek = date.getDay();
     const isSaturday = dayOfWeek === 6;
     const isSunday = dayOfWeek === 0;
@@ -195,9 +192,8 @@ export const generateExportText = (monthlyData: any, year: number, month: number
         }
     }
 
-    const hexIndex = `0x${entryIndex.toString(16).padStart(2, '0').toUpperCase()}`;
-    const hoursText = formatHours(currentEntry.totalHours);
-            
+    const hoursText = formatHours(currentEntry.totalHours).replace(' ', '');
+    
     if (holiday) {
       if (holiday.type === 'religious') {
         religiousHolidayHours += effectiveHours;
@@ -216,7 +212,7 @@ export const generateExportText = (monthlyData: any, year: number, month: number
       normalHours += effectiveHours;
     }
     
-    let lineText = ` [${hexIndex}] ${formattedDate} | ${hoursText} mesai [${statusText}]`;
+    let lineText = `${formattedDate} | ${hoursText} [${statusText}]`;
     if (currentEntry.note && currentEntry.note.trim()) {
       lineText += ` (${currentEntry.note.trim()})`;
     }
@@ -231,18 +227,18 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   const formatSaat = (h: number) => formatHours(h).replace(' s', ' sa');
 
   text += separator;
-  text += ' [STATISTICS_ANALYSIS]\n';
+  text += '[STATISTICS_ANALYSIS]\n';
   
   if (deductBreakTime) {
-    text += ` [*] TOPLAM_BRUT_MESAI : ${formatSa(totalGrossHours)}\n`;
-    text += ` [*] TOPLAM_MOLA       : ${formatSa(totalDeductionHours)}\n`;
-    text += ` [*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
+    text += `[*] TOPLAM_BRUT_MESAI : ${formatSa(totalGrossHours)}\n`;
+    text += `[*] TOPLAM_MOLA       : ${formatSa(totalDeductionHours)}\n`;
+    text += `[*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
   } else {
-    text += ` [*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
+    text += `[*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
   }
   
   text += separator;
-  text += ' [LOAD_DISTRIBUTION]\n';
+  text += '[LOAD_DISTRIBUTION]\n';
   
   let displayNormalHours = normalHours;
   if (!isSaturdayWork && saturdayHours > 0) {
@@ -250,21 +246,21 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
 
   if (displayNormalHours > 0) {
-    text += ` - HAFTAICI_PAYLOAD    : ${formatSaat(displayNormalHours)}\n`;
+    text += `- HAFTAICI_PAYLOAD    : ${formatSaat(displayNormalHours)}\n`;
   }
   if (sundayHours > 0) {
-    text += ` - PAZAR_GUNU_PAYLOAD  : ${formatSaat(sundayHours)}\n`;
+    text += `- PAZAR_GUNU_PAYLOAD  : ${formatSaat(sundayHours)}\n`;
   }
   if (religiousHolidayHours > 0) {
-    text += ` - DINI_BAYRAM_PAYLOAD : ${formatSaat(religiousHolidayHours)}\n`;
+    text += `- DINI_BAYRAM_PAYLOAD : ${formatSaat(religiousHolidayHours)}\n`;
   }
   if (officialHolidayHours > 0) {
-    text += ` - RESMI_TATIL_PAYLOAD : ${formatSaat(officialHolidayHours)}\n`;
+    text += `- RESMI_TATIL_PAYLOAD : ${formatSaat(officialHolidayHours)}\n`;
   }
   
   text += separator;
-  text += ' [!] STATUS: SUCCESSFUL_ENFILTRATION\n';
-  text += ` [!] LOG_HASH: ${generateDynamicHash(text)}`;
+  text += '[!] STATUS: COMPLETED\n';
+  text += `[!] LOG_HASH: ${generateDynamicHash(text)}`;
   
   return text;
 };
