@@ -1,4 +1,5 @@
 import { isHoliday } from '../utils/holidayUtils';
+import { OvertimeEntry } from '../types/overtime';
 
 export const TURKISH_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -139,7 +140,7 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   const appVersion = APP_VERSION;
 
   let text = `>>> MESAI_TAKIP_SYSTEM v${appVersion}\n`;
-  const separator = '_'.repeat(40) + '\n';
+  const separator = '_'.repeat(31) + '\n';
   
   text += separator;
   text += '[SYSTEM_LOG]\n';
@@ -260,7 +261,8 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   
   text += separator;
   text += '[!] STATUS: COMPLETED\n';
-  text += `[!] LOG_HASH: ${generateDynamicHash(text)}`;
+  const contentToHash = text;
+  const hash = generateDynamicHash(contentToHash);
   
-  return text;
+  return '```\n' + contentToHash + `[!] LOG_HASH: ${hash}\n` + '```';
 };

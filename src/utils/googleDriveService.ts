@@ -306,7 +306,7 @@ class GoogleDriveService {
   }
 
   // API isteklerini otomatik refresh ile yapan yardımcı metod
-  private async apiRequest(url: string, options: RequestInit = {}): Promise<Response> {
+  private async apiRequest(url: string, options: any = {}): Promise<Response> {
     if (!this.accessToken) {
       const refreshed = await this.refreshAccessToken();
       if (!refreshed) throw new Error('Oturum kapalı');

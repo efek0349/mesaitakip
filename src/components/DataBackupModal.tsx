@@ -48,6 +48,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
       const list = await googleDriveService.listBackups();
       setBackups(list);
     } catch (e) {
+      // Hata durumunda listeyi güncelleme, sessizce geç
     } finally {
       setLoading(false);
     }
@@ -56,17 +57,20 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
   const handleVerifyLog = () => {
     if (!verifyText.trim()) return;
     
+    // Baştaki ve sondaki backtick ve boşlukları temizle
+    const cleanText = verifyText.trim().replace(/^```[\s\S]*?\n|^```|```$/g, '').trim();
+    
     // Mesajın sonundaki hash satırını ayıkla
-    const hashLabel = ' [!] LOG_HASH: ';
-    const lastLineStart = verifyText.lastIndexOf(hashLabel);
+    const hashLabel = '[!] LOG_HASH: ';
+    const lastLineStart = cleanText.lastIndexOf(hashLabel);
     
     if (lastLineStart === -1) {
       setVerifyResult({ success: false, message: 'Log içerisinde Hash bulunamadı!' });
       return;
     }
 
-    const providedHash = verifyText.substring(lastLineStart + hashLabel.length).trim();
-    const contentToHash = verifyText.substring(0, lastLineStart);
+    const providedHash = cleanText.substring(lastLineStart + hashLabel.length).trim();
+    const contentToHash = cleanText.substring(0, lastLineStart);
     
     const calculatedHash = generateDynamicHash(contentToHash);
     
