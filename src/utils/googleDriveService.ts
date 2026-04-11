@@ -23,6 +23,7 @@ const STORAGE_KEY = 'google_drive_token';
 const REFRESH_TOKEN_KEY = 'google_drive_refresh_token';
 const USER_KEY = 'google_drive_user';
 const CODE_VERIFIER_KEY = 'google_drive_code_verifier';
+const EXPIRES_AT_KEY = 'google_drive_expires_at';
 
 export interface GoogleUser {
   email: string;
@@ -40,6 +41,7 @@ export interface DriveFile {
 class GoogleDriveService {
   private accessToken: string | null = null;
   private user: GoogleUser | null = null;
+  private expiresAt: number | null = null;
 
   constructor() {
     if (!Capacitor.isNativePlatform() || isLocalhost) {
@@ -78,9 +80,10 @@ class GoogleDriveService {
           // Hem code hem access_token kontrolü
           const code = url.searchParams.get('code') || new URLSearchParams(url.hash.substring(1)).get('code');
           const token = url.searchParams.get('access_token') || new URLSearchParams(url.hash.substring(1)).get('access_token');
+          const expiresIn = new URLSearchParams(url.hash.substring(1)).get('expires_in');
           
           if (code) await this.handleCode(code);
-          else if (token) await this.parseToken(token);
+          else if (token) await this.parseToken(token, expiresIn ? parseInt(expiresIn) : 3600);
         });
       } catch (e) {
         console.warn('Capacitor App plugin yüklenemedi, deep link çalışmayabilir.');
@@ -95,18 +98,21 @@ class GoogleDriveService {
     
     const code = url.searchParams.get('code') || hashParams.get('code');
     const token = url.searchParams.get('access_token') || hashParams.get('access_token');
+    const expiresIn = url.searchParams.get('expires_in') || hashParams.get('expires_in');
 
     if (code) {
       await this.handleCode(code);
     } else if (token) {
-      await this.parseToken(token);
+      await this.parseToken(token, expiresIn ? parseInt(expiresIn) : 3600);
     }
   }
 
   // Web için (Implicit Flow) token işleme
-  private async parseToken(token: string) {
+  private async parseToken(token: string, expiresIn: number = 3600) {
     this.accessToken = token;
+    this.expiresAt = Date.now() + (expiresIn * 1000);
     await Preferences.set({ key: STORAGE_KEY, value: token });
+    await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
     await this.fetchUserInfo(token);
     window.history.replaceState(null, '', window.location.origin + window.location.pathname);
     window.location.reload();
@@ -124,8 +130,6 @@ class GoogleDriveService {
     const { value: codeVerifier } = await Preferences.get({ key: CODE_VERIFIER_KEY });
     if (!codeVerifier) return;
     
-    // ... rest of the code logic stays the same but within this protection ...
-
     try {
       const res = await fetch(TOKEN_URL, {
         method: 'POST',
@@ -143,7 +147,9 @@ class GoogleDriveService {
 
       if (res.ok) {
         this.accessToken = data.access_token;
+        this.expiresAt = Date.now() + (data.expires_in * 1000);
         await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
+        await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
         if (data.refresh_token) {
           await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
         }
@@ -185,7 +191,9 @@ class GoogleDriveService {
       if (res.ok) {
         const data = await res.json();
         this.accessToken = data.access_token;
+        this.expiresAt = Date.now() + (data.expires_in * 1000);
         await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
+        await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
         if (data.refresh_token) {
           await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
         }
@@ -214,8 +222,6 @@ class GoogleDriveService {
           accessToken: token
         };
         await Preferences.set({ key: USER_KEY, value: JSON.stringify(this.user) });
-      } else if (res.status === 401) {
-        // Token geçersizse yenilemeyi dene (init içinde yapılıyor zaten ama güvenlik için)
       }
     } catch (e) {
       console.error('User info fetch error', e);
@@ -226,42 +232,56 @@ class GoogleDriveService {
     const { value: token } = await Preferences.get({ key: STORAGE_KEY });
     const { value: userStr } = await Preferences.get({ key: USER_KEY });
     const { value: refreshToken } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
+    const { value: expiresAtStr } = await Preferences.get({ key: EXPIRES_AT_KEY });
     
+    if (expiresAtStr) this.expiresAt = parseInt(expiresAtStr);
+
     if (token && userStr) {
       this.accessToken = token;
       this.user = JSON.parse(userStr);
       
-      // Token hala geçerli mi kontrol et
+      // Süre dolmuş mu kontrol et (vakti gelmeden 1 dk önce dolmuş sayalım)
+      const isExpired = !this.expiresAt || (Date.now() > this.expiresAt - 60000);
+
+      if (isExpired) {
+        console.warn('Google Drive token expired, attempting refresh...');
+        const refreshed = await this.refreshAccessToken();
+        if (refreshed && this.accessToken) {
+          await this.fetchUserInfo(this.accessToken);
+          return this.user;
+        }
+        await this.signOut();
+        return null;
+      }
+
+      // Token hala geçerli görünüyor ama yine de network kontrolü yapalım
       try {
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
         if (!res.ok) {
-          // Token geçersizse yenilemeyi dene
           const refreshed = await this.refreshAccessToken();
           if (refreshed && this.accessToken) {
             await this.fetchUserInfo(this.accessToken);
             return this.user;
           }
-          // Refresh de başarısızsa user'ı null yapma (belki offline'dır), 
-          // ama accessToken'ı temizle ki apiRequest refresh denesin
-          this.accessToken = null;
+          await this.signOut();
+          return null;
         }
       } catch (e) {
-        // Network hatası olabilir, mevcut user bilgisini koru
         console.warn('Network error during Google Drive init, using cached user info');
       }
       
       return this.user;
     } else if (refreshToken) {
-      // Sadece refresh token varsa yeni access token almayı dene
       const refreshed = await this.refreshAccessToken();
       if (refreshed && this.accessToken) {
         await this.fetchUserInfo(this.accessToken);
         return this.user;
       }
     }
+    
     return null;
   }
 
@@ -279,7 +299,6 @@ class GoogleDriveService {
       redirect_uri: redirectUri,
       scope: SCOPES,
       include_granted_scopes: 'true',
-      prompt: 'consent select_account'
     });
 
     if (isNative) {
@@ -292,9 +311,14 @@ class GoogleDriveService {
       params.set('access_type', 'offline');
       params.set('code_challenge', codeChallenge);
       params.set('code_challenge_method', 'S256');
+      
+      // prompt=consent: Her seferinde refresh token almak için (APK'da bu daha garantidir)
+      // select_account: Kullanıcıya hangi hesapla gireceğini sorar
+      params.set('prompt', 'consent select_account');
     } else {
       // TARAYICIDA VEYA LOCALHOST TESTLERİNDE: Hata almamak için basit Token Flow
       params.set('response_type', 'token');
+      params.set('prompt', 'select_account');
     }
 
     const url = `${AUTH_URL}?${params.toString()}`;
@@ -304,17 +328,22 @@ class GoogleDriveService {
   async signOut() {
     this.accessToken = null;
     this.user = null;
+    this.expiresAt = null;
     await Preferences.remove({ key: STORAGE_KEY });
     await Preferences.remove({ key: REFRESH_TOKEN_KEY });
     await Preferences.remove({ key: USER_KEY });
     await Preferences.remove({ key: CODE_VERIFIER_KEY });
+    await Preferences.remove({ key: EXPIRES_AT_KEY });
   }
 
   // API isteklerini otomatik refresh ile yapan yardımcı metod
   private async apiRequest(url: string, options: any = {}): Promise<Response> {
     if (!this.accessToken) {
       const refreshed = await this.refreshAccessToken();
-      if (!refreshed) throw new Error('Oturum kapalı');
+      if (!refreshed) {
+        await this.signOut();
+        throw new Error('Oturum kapalı');
+      }
     }
 
     let res = await fetch(url, {
@@ -326,6 +355,7 @@ class GoogleDriveService {
     });
 
     if (res.status === 401) {
+      console.warn('API returned 401, attempting token refresh...');
       const refreshed = await this.refreshAccessToken();
       if (refreshed) {
         res = await fetch(url, {
@@ -335,6 +365,9 @@ class GoogleDriveService {
             Authorization: `Bearer ${this.accessToken}`
           }
         });
+      } else {
+        await this.signOut();
+        throw new Error('Oturum süresi doldu');
       }
     }
 

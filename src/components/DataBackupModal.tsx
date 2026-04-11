@@ -39,12 +39,13 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
         refreshBackupList();
       } else {
         setLoading(true);
-        googleDriveService.init().then(user => {
-          if (user) {
+        googleDriveService.init()
+          .then(user => {
             setGoogleUser(user);
-            refreshBackupList();
-          }
-        }).catch(() => {}).finally(() => setLoading(false));
+            if (user) refreshBackupList();
+          })
+          .catch(() => setGoogleUser(null))
+          .finally(() => setLoading(false));
       }
     }
   }, [isOpen]);
@@ -54,8 +55,10 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
     try {
       const list = await googleDriveService.listBackups();
       setBackups(list);
+      // Servis içinde signOut yapılmış olabilir (örn. refresh hatası), local state'i güncelle
+      setGoogleUser(googleDriveService.getUser());
     } catch (e) {
-      // Hata durumunda listeyi güncelleme, sessizce geç
+      setGoogleUser(googleDriveService.getUser());
     } finally {
       setLoading(false);
     }
