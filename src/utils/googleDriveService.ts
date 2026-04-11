@@ -225,6 +225,7 @@ class GoogleDriveService {
   async init(): Promise<GoogleUser | null> {
     const { value: token } = await Preferences.get({ key: STORAGE_KEY });
     const { value: userStr } = await Preferences.get({ key: USER_KEY });
+    const { value: refreshToken } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
     
     if (token && userStr) {
       this.accessToken = token;
@@ -237,19 +238,23 @@ class GoogleDriveService {
         });
         
         if (!res.ok) {
+          // Token geçersizse yenilemeyi dene
           const refreshed = await this.refreshAccessToken();
           if (refreshed && this.accessToken) {
             await this.fetchUserInfo(this.accessToken);
             return this.user;
           }
-          return null;
+          // Refresh de başarısızsa user'ı null yapma (belki offline'dır), 
+          // ama accessToken'ı temizle ki apiRequest refresh denesin
+          this.accessToken = null;
         }
       } catch (e) {
-        return null;
+        // Network hatası olabilir, mevcut user bilgisini koru
+        console.warn('Network error during Google Drive init, using cached user info');
       }
       
       return this.user;
-    } else {
+    } else if (refreshToken) {
       // Sadece refresh token varsa yeni access token almayı dene
       const refreshed = await this.refreshAccessToken();
       if (refreshed && this.accessToken) {

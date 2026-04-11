@@ -88,9 +88,13 @@ const CalendarDay = React.memo(({
   
   const getDisplayedHours = (entry: any) => {
     if (!entry) return 0;
-    return entry.type === 'leave' 
-      ? entry.totalHours 
-      : calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
+    if (entry.type === 'leave') {
+      if (entry.isFullDay) {
+        return isSaturdayWork ? 7.5 : 9;
+      }
+      return entry.totalHours;
+    }
+    return calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
   };
 
   const shiftType = React.useMemo(() => shiftSettings.enabled 

@@ -115,7 +115,8 @@ const validateAndCleanData = (data: any): MonthlyData => {
                entry.minutes >= 0 && entry.minutes < 60;
       }).map((entry: any) => ({
         ...entry,
-        type: entry.type || 'overtime' // Ensure type exists
+        type: entry.type || 'overtime', // Ensure type exists
+        isFullDay: !!entry.isFullDay // Ensure isFullDay is boolean
       }));
       
       if (validEntries.length > 0) {
@@ -231,7 +232,7 @@ export const useOvertimeData = () => {
     };
   }, [forceUpdate, isLoaded]);
 
-  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string) => {
+  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string, isFullDay: boolean = false) => {
     if (!isDataLoaded) {
       return;
     }
@@ -248,6 +249,7 @@ export const useOvertimeData = () => {
       minutes,
       totalHours: totalHours, // Store raw totalHours
       type,
+      isFullDay,
       note: note || undefined
     };
 
@@ -355,6 +357,12 @@ export const useOvertimeData = () => {
     return globalData[monthKey] || [];
   }, [isLoaded, monthlyDataMemo]);
 
+  const hasMonthData = React.useCallback((year: number, month: number): boolean => {
+    if (!isDataLoaded) return false;
+    const monthKey = getMonthKey(new Date(year, month));
+    return !!globalData[monthKey] && globalData[monthKey].length > 0;
+  }, [isLoaded, monthlyDataMemo]);
+
   // Veri export fonksiyonu (yedekleme için)
   const exportAllData = React.useCallback(() => {
     const backup = {
@@ -456,6 +464,7 @@ export const useOvertimeData = () => {
     getOvertimeForDate,
     getEntriesForDate,
     getMonthlyTotal,
+    hasMonthData,
     getMonthlyEntries,
     getYearlyTotal,
     exportAllData,

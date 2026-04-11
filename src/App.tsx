@@ -13,13 +13,19 @@ import { useTheme } from './hooks/useTheme';
 import { TURKISH_MONTHS } from './utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
 import { Clock, Info } from 'lucide-react';
+import { googleDriveService } from './utils/googleDriveService';
 
 const App: React.FC = () => {
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
-  const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData } = useOvertimeData();
+  const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate } = useSalarySettings();
   const { getHoliday } = useHolidays();
   useTheme(); // Tema yönetimini etkinleştir
+
+  // Google Drive session recovery on start
+  React.useEffect(() => {
+    googleDriveService.init().catch(console.error);
+  }, []);
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -90,6 +96,7 @@ const App: React.FC = () => {
   }
 
   const monthlyTotal = getMonthlyTotal(currentDate.getFullYear(), currentDate.getMonth(), settings.deductBreakTime);
+  const hasData = hasMonthData(currentDate.getFullYear(), currentDate.getMonth());
 
   return (
     <div className="bg-gray-100 dark:bg-black h-screen-dynamic flex flex-col pb-[env(safe-area-inset-bottom)]">
@@ -121,8 +128,8 @@ const App: React.FC = () => {
               onOpenSettings={handleOpenSettings}
               onShareMonthlyStats={handleShareMonthlyStats}
               onClearMonthlyStats={handleClearMonthlyStats}
-              canShare={monthlyTotal > 0}
-              canClear={monthlyTotal > 0}
+              canShare={hasData}
+              canClear={hasData}
               className="flex-shrink-0"
             />
           </div>

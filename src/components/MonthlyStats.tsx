@@ -43,10 +43,18 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = React.memo(({ currentDa
       const isSunday = dayOfWeek === 0;
 
       if (entry.type === 'leave') {
-        const hours = entry.totalHours || 0;
-        const hourlyRate = getHourlyRate(entryDate);
-        const deduction = hours * hourlyRate;
-        stats.leave.hours += hours;
+        let deduction = 0;
+        if (entry.isFullDay) {
+          const dailyHours = settings.isSaturdayWork ? 7.5 : 9;
+          const hourlyRate = getHourlyRate(entryDate);
+          deduction = dailyHours * hourlyRate;
+          stats.leave.hours += dailyHours;
+        } else {
+          const hours = entry.totalHours || 0;
+          const hourlyRate = getHourlyRate(entryDate);
+          deduction = hours * hourlyRate;
+          stats.leave.hours += hours;
+        }
         stats.leave.deduction += deduction;
       } else {
         const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, settings.isSaturdayWork);

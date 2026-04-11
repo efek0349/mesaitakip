@@ -19,6 +19,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [type, setType] = useState<'overtime' | 'leave'>('overtime');
+  const [isFullDay, setIsFullDay] = useState(false);
   const [note, setNote] = useState('');
   const [showNoteSection, setShowNoteSection] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
@@ -31,12 +32,14 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
       if (existingEntryForCurrentType) {
         setHours(existingEntryForCurrentType.hours);
         setMinutes(existingEntryForCurrentType.minutes);
+        setIsFullDay(!!existingEntryForCurrentType.isFullDay);
         const noteText = existingEntryForCurrentType.note || '';
         setNote(noteText);
         setShowNoteSection(!!noteText.trim());
       } else {
         setHours(0);
         setMinutes(0);
+        setIsFullDay(false);
         setNote('');
         setShowNoteSection(false);
       }
@@ -55,8 +58,8 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
   const handleSave = () => {
     if (selectedDate) {
-      if (hours > 0 || minutes > 0) {
-        addOvertimeEntry(selectedDate, hours, minutes, type, note.trim());
+      if (hours > 0 || minutes > 0 || (type === 'leave' && isFullDay)) {
+        addOvertimeEntry(selectedDate, hours, minutes, type, note.trim(), isFullDay);
       } else if (existingEntryForCurrentType) {
         removeOvertimeEntry(selectedDate, type);
       }
@@ -90,7 +93,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
     return null;
   }
 
-  const totalHours = hours + minutes / 60;
+  const totalHours = (isFullDay && type === 'leave') ? (settings.isSaturdayWork ? 7.5 : 9) : (hours + minutes / 60);
   const formattedDate = formatTurkishDate(selectedDate);
   const holiday = getHoliday(selectedDate);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday);
@@ -149,15 +152,46 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
                 </div>
               )}
             </div>
-            {totalHours > 0 && (
+            {(totalHours > 0 || isFullDay) && (
               <p className={`font-semibold ${type === 'overtime' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {type === 'overtime' ? '₺' : '-₺'}{totalPayment.toFixed(2)} <span className="font-medium text-sm">net</span>
+                {type === 'overtime' ? '₺' : '-₺'}
+                {totalPayment.toFixed(2)} 
+                <span className="font-medium text-sm">net</span>
               </p>
             )}
           </div>
 
+          {/* Tam Gün İzinli Checkbox (Sadece İzin tipinde) */}
+          {type === 'leave' && (
+            <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-100 dark:border-orange-800/30">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-orange-800 dark:text-orange-200">Tam Gün İzinli</span>
+                <span className="text-xs text-orange-600 dark:text-orange-400">1 günlük ({settings.isSaturdayWork ? '7.5' : '9'} saat) yevmiye kesilir</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={isFullDay}
+                  onChange={(e) => {
+                    setIsFullDay(e.target.checked);
+                    if (e.target.checked) {
+                      const dailyHours = settings.isSaturdayWork ? 7.5 : 9;
+                      setHours(Math.floor(dailyHours));
+                      setMinutes((dailyHours % 1) * 60);
+                    } else {
+                      setHours(0);
+                      setMinutes(0);
+                    }
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500"></div>
+              </label>
+            </div>
+          )}
+
           {/* Time Adjusters */}
-          <div className="space-y-3">
+          <div className={`space-y-3 transition-opacity ${isFullDay ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="flex items-center justify-between">
               <span className="text-base text-gray-700 dark:text-gray-200">Saat</span>
               <div className="flex items-center gap-3">

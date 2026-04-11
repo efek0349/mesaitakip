@@ -33,12 +33,19 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
 
   useEffect(() => {
     if (isOpen) {
-      googleDriveService.init().then(user => {
-        if (user) {
-          setGoogleUser(user);
-          refreshBackupList();
-        }
-      }).catch(() => {});
+      const existingUser = googleDriveService.getUser();
+      if (existingUser) {
+        setGoogleUser(existingUser);
+        refreshBackupList();
+      } else {
+        setLoading(true);
+        googleDriveService.init().then(user => {
+          if (user) {
+            setGoogleUser(user);
+            refreshBackupList();
+          }
+        }).catch(() => {}).finally(() => setLoading(false));
+      }
     }
   }, [isOpen]);
 

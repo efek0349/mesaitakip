@@ -5,6 +5,7 @@ export interface OvertimeEntry {
   minutes: number;
   totalHours: number;
   type: 'overtime' | 'leave';
+  isFullDay?: boolean; // Tam gün izinli mi?
   note?: string; // Opsiyonel not alanı
 }
 
