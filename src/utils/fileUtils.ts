@@ -279,10 +279,7 @@ export const generateShareableSummaryText = (
     monthlyData,
     year,
     month,
-    settings.firstName,
-    settings.lastName,
-    getHoliday,
-    settings.deductBreakTime,
-    settings.isSaturdayWork
+    settings,
+    getHoliday
   );
 };

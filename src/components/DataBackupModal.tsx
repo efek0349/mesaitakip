@@ -323,9 +323,15 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                 </button>
                 
                 {verifyResult && (
-                  <div className={`p-3 rounded-xl text-[11px] font-bold flex items-start gap-2 ${verifyResult.success ? 'bg-green-100 text-green-800 dark:bg-green-900/40' : 'bg-red-100 text-red-800 dark:bg-red-900/40'}`}>
-                    {verifyResult.success ? <CheckCircle size={16} className="mt-0.5" /> : <AlertTriangle size={16} className="mt-0.5" />}
-                    <span>{verifyResult.message}</span>
+                  <div className={`p-4 rounded-xl text-xs font-bold flex items-start gap-3 shadow-lg animate-in zoom-in-95 duration-200 ${
+                    verifyResult.success 
+                      ? 'bg-emerald-600 text-white border-emerald-500' 
+                      : 'bg-red-600 text-white border-red-500'
+                  }`}>
+                    <div className="flex-shrink-0 mt-0.5">
+                      {verifyResult.success ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                    </div>
+                    <span className="leading-tight">{verifyResult.message}</span>
                   </div>
                 )}
               </div>

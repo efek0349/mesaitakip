@@ -42,6 +42,11 @@ export interface SalarySettings {
   shiftStartDate: string;
   shiftInitialType: 'day' | 'night' | 'morning' | 'afternoon';
   salaryHistory?: { [monthKey: string]: MonthlySalary };
+  autoBackupEnabled?: boolean;
+  lastBackupDate?: string;
+  dailyMealAllowance?: number;
+  dailyTravelAllowance?: number;
+  allowanceHistory?: { date: string; meal: number; travel: number }[];
 }
 
 export interface Holiday {

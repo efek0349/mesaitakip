@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent, RefreshCw, ExternalLink, Info, Calendar, Moon, Sun } from 'lucide-react';
+import { X, CheckSquare, Square, Settings as SettingsIcon, User, Briefcase, Percent, RefreshCw, ExternalLink, Info, Calendar, Moon, Sun, Cloud } from 'lucide-react';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { APP_VERSION } from './AboutModal';
 import { getMonthKey } from '../utils/dateUtils';
+import { googleDriveService } from '../utils/googleDriveService';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
 
   const handleInputChange = (field: keyof SalarySettingsType, value: any) => {
     // Sayısal alanlar için özel kontrol
-    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field === 'tesRate' || field === 'salaryAttachmentRate' || field.toString().includes('Multiplier')) {
+    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field === 'tesRate' || field === 'salaryAttachmentRate' || field === 'dailyMealAllowance' || field === 'dailyTravelAllowance' || field.toString().includes('Multiplier')) {
       // Sadece rakam ve nokta/virgül izni ver, virgülü noktaya çevir
       let stringValue = String(value).replace(/[^0-9.,]/g, '').replace(',', '.');
       
@@ -361,6 +362,46 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
             </div>
           </div>
 
+          {/* Backup Settings */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Cloud size={18} /> Yedekleme
+            </h3>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Google Drive Bağlantısı
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-full font-bold ${googleDriveService.getUser() ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                  {googleDriveService.getUser() ? 'Bağlı' : 'Bağlı Değil'}
+                </span>
+              </div>
+
+              <div>
+                <button 
+                  onClick={() => handleInputChange('autoBackupEnabled', !formData.autoBackupEnabled)} 
+                  disabled={!googleDriveService.getUser()}
+                  className={`w-full flex items-center gap-3 text-left ${!googleDriveService.getUser() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {formData.autoBackupEnabled 
+                    ? <CheckSquare className="w-5 h-5 text-blue-500" /> 
+                    : <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
+                  <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Haftalık Otomatik Yedekleme
+                  </span>
+                </button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                  * Otomatik yedekleme için Google Drive'a giriş yapmış olmanız gerekir.
+                </p>
+                {formData.lastBackupDate && (
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Son yedekleme: {new Date(formData.lastBackupDate).toLocaleString('tr-TR')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* User Info */}
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
@@ -416,6 +457,30 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                     value={formData.bonus} 
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleInputChange('bonus', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Günlük Yemek (₺)</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.dailyMealAllowance} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('dailyMealAllowance', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Günlük Yol (₺)</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.dailyTravelAllowance} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('dailyTravelAllowance', e.target.value)} 
                     className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
                   />
                 </div>

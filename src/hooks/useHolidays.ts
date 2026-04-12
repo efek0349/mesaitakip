@@ -38,15 +38,22 @@ export const useHolidays = () => {
     }
   }, [currentYear]);
 
+  // Tatilleri bir Map olarak sakla (Hızlı erişim için)
+  const holidayMap = React.useMemo(() => {
+    const map = new Map<string, Holiday>();
+    holidays.forEach(h => map.set(h.date, h));
+    return map;
+  }, [holidays]);
+
   const isHoliday = React.useCallback((date: Date): boolean => {
     const dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-    return holidays.some(holiday => holiday.date === dateKey);
-  }, [holidays]);
+    return holidayMap.has(dateKey);
+  }, [holidayMap]);
 
   const getHoliday = React.useCallback((date: Date): Holiday | undefined => {
     const dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-    return holidays.find(holiday => holiday.date === dateKey);
-  }, [holidays]);
+    return holidayMap.get(dateKey);
+  }, [holidayMap]);
 
   // Belirli bir yılın tatillerini getir
   const getHolidaysForYear = React.useCallback((year: number): Holiday[] => {

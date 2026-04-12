@@ -27,7 +27,12 @@ const defaultSettings: SalarySettings = {
   shiftSystemType: '2-shift',
   shiftStartDate: new Date().toISOString().split('T')[0],
   shiftInitialType: 'day',
-  salaryHistory: {}
+  salaryHistory: {},
+  autoBackupEnabled: false,
+  lastBackupDate: '',
+  dailyMealAllowance: 0,
+  dailyTravelAllowance: 0,
+  allowanceHistory: []
 };
 
 const salaryEmitter = new EventEmitter();
@@ -130,6 +135,32 @@ export const useSalarySettings = () => {
   }, [isLoaded, settingsMemo]);
 
   const updateSettings = React.useCallback((newSettings: SalarySettings, monthKey?: string) => {
+    // Fiyat değişmişse tarih bazlı geçmişe ekle (Yemek veya Yol değişmişse)
+    if (newSettings.dailyMealAllowance !== globalSettings.dailyMealAllowance || 
+        newSettings.dailyTravelAllowance !== globalSettings.dailyTravelAllowance) {
+      
+      const today = new Date().toISOString().split('T')[0];
+      const newHistory = [...(globalSettings.allowanceHistory || [])];
+      
+      // Eğer aynı gün zaten bir değişim yapılmışsa onu güncelle, yoksa yeni ekle
+      const existingTodayIndex = newHistory.findIndex(h => h.date === today);
+      const newEntry = { 
+        date: today, 
+        meal: Number(newSettings.dailyMealAllowance) || 0, 
+        travel: Number(newSettings.dailyTravelAllowance) || 0 
+      };
+
+      if (existingTodayIndex >= 0) {
+        newHistory[existingTodayIndex] = newEntry;
+      } else {
+        newHistory.push(newEntry);
+      }
+      
+      // Tarihe göre sırala
+      newHistory.sort((a, b) => b.date.localeCompare(a.date));
+      newSettings.allowanceHistory = newHistory;
+    }
+
     globalSettings = { ...newSettings };
     
     // If monthKey is provided, also update/initialize salaryHistory for that month
@@ -161,8 +192,11 @@ export const useSalarySettings = () => {
   const getHourlyRate = React.useCallback((date?: Date) => {
     if (!isSalaryLoaded) return 0;
     
+    const workingHours = Number(globalSettings.monthlyWorkingHours) || 225;
+    if (workingHours <= 0) return 0;
+
     const salary = date ? getSalaryForDate(date) : { monthlyGrossSalary: globalSettings.monthlyGrossSalary, bonus: globalSettings.bonus };
-    return Number(salary.monthlyGrossSalary) / globalSettings.monthlyWorkingHours;
+    return Number(salary.monthlyGrossSalary) / workingHours;
   }, [isLoaded, settingsMemo, getSalaryForDate]);
 
   const getOvertimeRate = React.useCallback((date: Date, isHoliday: boolean = false) => {

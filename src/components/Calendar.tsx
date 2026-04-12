@@ -13,20 +13,12 @@ interface CalendarProps {
   onDateClick: (date: Date) => void;
 }
 
-// Vardiya hesaplama fonksiyonu
-const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'night' | 'morning' | 'afternoon', systemType: '2-shift' | '3-shift' = '2-shift') => {
+// Vardiya hesaplama fonksiyonu - Optimize edildi (Parse işlemi dışarıda yapılmalı)
+const getShiftType = (date: Date, normalizedStartDate: Date, initialType: 'day' | 'night' | 'morning' | 'afternoon', systemType: '2-shift' | '3-shift' = '2-shift') => {
   const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const startParts = startDateStr.split('-').map(Number);
-  const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-  
-  // Haftayı Pazartesi'den başlatacak şekilde normalize et
-  const startDay = startDate.getDay(); // 0 Pazar, 1 Pazartesi...
-  const diffToMonday = startDay === 0 ? -6 : 1 - startDay;
-  const normalizedStartDate = new Date(startDate);
-  normalizedStartDate.setDate(startDate.getDate() + diffToMonday);
   
   const diffInTime = dateObj.getTime() - normalizedStartDate.getTime();
-  const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
+  const diffInDays = Math.round(diffInTime / (1000 * 3600 * 24)); // Round daha güvenli
   const diffInWeeks = Math.floor(diffInDays / 7);
   
   if (systemType === '3-shift') {
@@ -35,7 +27,6 @@ const getShiftType = (date: Date, startDateStr: string, initialType: 'day' | 'ni
     if (initialType === 'afternoon') startIndex = 1;
     if (initialType === 'night') startIndex = 2;
     
-    // Negatif haftalar için (startIndex + (diffInWeeks % 3) + 3) % 3 formülü kullanılır
     const currentIndex = (startIndex + (diffInWeeks % 3) + 3) % 3;
     return sequence[currentIndex];
   } else {
@@ -77,7 +68,7 @@ const CalendarDay = React.memo(({
   shiftSettings: {
     enabled: boolean;
     systemType: '2-shift' | '3-shift';
-    startDate: string;
+    normalizedStartDate: Date | null;
     initialType: 'day' | 'night' | 'morning' | 'afternoon';
   };
 }) => {
@@ -97,9 +88,10 @@ const CalendarDay = React.memo(({
     return calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
   };
 
-  const shiftType = React.useMemo(() => shiftSettings.enabled 
-    ? getShiftType(date, shiftSettings.startDate, shiftSettings.initialType, shiftSettings.systemType)
-    : null, [date, shiftSettings]);
+  const shiftType = React.useMemo(() => {
+    if (!shiftSettings.enabled || !shiftSettings.normalizedStartDate) return null;
+    return getShiftType(date, shiftSettings.normalizedStartDate, shiftSettings.initialType, shiftSettings.systemType);
+  }, [date, shiftSettings.enabled, shiftSettings.normalizedStartDate, shiftSettings.initialType, shiftSettings.systemType]);
 
   return (
     <div
@@ -288,6 +280,18 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
     onDateChange(newDate);
   }, [year, month, onDateChange]);
 
+  // Vardiya başlangıç tarihini bir kez hesapla (O(1) vs O(42))
+  const normalizedShiftStartDate = React.useMemo(() => {
+    if (!settings.shiftSystemEnabled || !settings.shiftStartDate) return null;
+    const startParts = settings.shiftStartDate.split('-').map(Number);
+    const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+    const startDay = startDate.getDay();
+    const diffToMonday = startDay === 0 ? -6 : 1 - startDay;
+    const normalized = new Date(startDate);
+    normalized.setDate(startDate.getDate() + diffToMonday);
+    return normalized;
+  }, [settings.shiftSystemEnabled, settings.shiftStartDate]);
+
   // Memoize calendar days calculation with proper dependency tracking
   const calendarDays = React.useMemo(() => getCalendarDays(year, month), [year, month]);
   
@@ -432,7 +436,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
               shiftSettings={{
                 enabled: settings.shiftSystemEnabled,
                 systemType: settings.shiftSystemType || '2-shift',
-                startDate: settings.shiftStartDate,
+                normalizedStartDate: normalizedShiftStartDate,
                 initialType: settings.shiftInitialType
               }}
             />

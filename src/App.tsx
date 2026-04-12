@@ -5,11 +5,14 @@ import { OvertimeModal } from './components/OvertimeModal';
 import { Settings } from './components/Settings';
 import { AboutModal } from './components/AboutModal';
 import { DataBackupModal } from './components/DataBackupModal';
+import { Toast } from './components/Toast';
 import { ActionIcons } from './components/ActionIcons';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
 import { useHolidays } from './hooks/useHolidays';
 import { useTheme } from './hooks/useTheme';
+import { useAutoBackup } from './hooks/useAutoBackup';
+import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { TURKISH_MONTHS } from './utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
 import { Clock, Info } from 'lucide-react';
@@ -21,6 +24,8 @@ const App: React.FC = () => {
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate } = useSalarySettings();
   const { getHoliday } = useHolidays();
   useTheme(); // Tema yönetimini etkinleştir
+  useAutoBackup(); // Otomatik yedekleme kontrolünü etkinleştir
+  useUpdateCheck(); // Güncelleme kontrolünü etkinleştir
 
   // Google Drive session recovery on start
   React.useEffect(() => {
@@ -157,6 +162,7 @@ const App: React.FC = () => {
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentDate={currentDate} />
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
       <DataBackupModal isOpen={isDataBackupOpen} onClose={() => setIsDataBackupOpen(false)} />
+      <Toast />
     </div>
   );
 }

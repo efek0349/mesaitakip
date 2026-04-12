@@ -133,22 +133,31 @@ const saveGlobalData = () => {
   try {
     const dataString = JSON.stringify(globalData);
     localStorage.setItem('mesai-data', dataString);
-    
-    // Cache'i temizle
     dataCache.clear();
-    
     dataEmitter.emit();
-    
   } catch (error) {
-    // Storage dolu ise eski verileri temizle
     if (error.name === 'QuotaExceededError') {
+      // 1. Önce 2 yıldan eski verileri temizle
       cleanOldData();
-      // Tekrar dene
-      try {
-        localStorage.setItem('mesai-data', JSON.stringify(globalData));
-      } catch (retryError) {
-        console.error('Veri kaydetme başarısız:', retryError);
+      
+      // 2. Hala yer yoksa, en eski ayı sil (tekrarlı)
+      let attempt = 0;
+      while (attempt < 5) { // Sonsuz döngü koruması
+        try {
+          localStorage.setItem('mesai-data', JSON.stringify(globalData));
+          break; // Başarılıysa çık
+        } catch (retryError) {
+          const allMonthKeys = Object.keys(globalData).sort();
+          if (allMonthKeys.length > 0) {
+            delete globalData[allMonthKeys[0]]; // En eski ayı sil
+          } else {
+            break; // Silecek bir şey kalmadı
+          }
+        }
+        attempt++;
       }
+      dataCache.clear();
+      dataEmitter.emit();
     }
   }
 };
@@ -253,21 +262,23 @@ export const useOvertimeData = () => {
       note: note || undefined
     };
 
-    // Update global data
+    // Update global data with new array reference
     if (!globalData[monthKey]) {
       globalData[monthKey] = [];
     }
     
-    // Check if entry already exists for this date and type
-    const existingIndex = globalData[monthKey].findIndex(entry => entry.date === dateKey && entry.type === type);
+    const newMonthData = [...globalData[monthKey]];
+    const existingIndex = newMonthData.findIndex(entry => entry.date === dateKey && entry.type === type);
+    
     if (existingIndex >= 0) {
-      globalData[monthKey][existingIndex] = newEntry;
+      newMonthData[existingIndex] = newEntry;
     } else {
-      globalData[monthKey].push(newEntry);
+      newMonthData.push(newEntry);
     }
     
-    // Sort entries by date
-    globalData[monthKey].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Sort and update
+    newMonthData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    globalData[monthKey] = newMonthData;
     
     // Cache'i temizle
     dataCache.clear();
@@ -285,11 +296,14 @@ export const useOvertimeData = () => {
     const dateKey = getDateKey(date);
 
     if (globalData[monthKey]) {
-      globalData[monthKey] = globalData[monthKey].filter(entry => 
+      const newMonthData = globalData[monthKey].filter(entry => 
         entry.date !== dateKey || (type && entry.type !== type)
       );
-      if (globalData[monthKey].length === 0) {
+      
+      if (newMonthData.length === 0) {
         delete globalData[monthKey];
+      } else {
+        globalData[monthKey] = newMonthData;
       }
     }
     

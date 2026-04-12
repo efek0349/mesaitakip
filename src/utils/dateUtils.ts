@@ -133,7 +133,12 @@ export const generateDynamicHash = (content: string): string => {
   return '0x' + Math.abs(hash).toString(16).toUpperCase().substring(0, 6);
 };
 
-export const generateExportText = (monthlyData: any, year: number, month: number, firstName: string = '', lastName: string = '', getHoliday?: (date: Date) => any, deductBreakTime: boolean = false, isSaturdayWork: boolean = false): string => {
+export const generateExportText = (monthlyData: any, year: number, month: number, settings: any, getHoliday?: (date: Date) => any): string => {
+  const firstName = settings?.firstName || '';
+  const lastName = settings?.lastName || '';
+  const deductBreakTime = settings?.deductBreakTime || false;
+  const isSaturdayWork = settings?.isSaturdayWork || false;
+  
   const monthKey = getMonthKey(new Date(year, month));
   const allDaysInMonth = getCalendarDays(year, month);
   const entriesMap = new Map(monthlyData[monthKey]?.map((entry: OvertimeEntry) => [entry.date, entry]));
@@ -227,6 +232,40 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   const formatSa = (h: number) => formatHours(h).replace(' s', ' sa');
   const formatSaat = (h: number) => formatHours(h).replace(' s', ' sa');
 
+  // AKILLI YEMEK/YOL HESAPLAMA (MonthlyStats.tsx ile aynı mantık)
+  let totalAllowance = 0;
+  let earnedDays = 0;
+
+  const getRateForDate = (dateStr: string) => {
+    const history = [...(settings?.allowanceHistory || [])].sort((a, b) => b.date.localeCompare(a.date));
+    const found = history.find(h => h.date <= dateStr);
+    return found || { meal: settings?.dailyMealAllowance || 0, travel: settings?.dailyTravelAllowance || 0 };
+  };
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dateStr = getDateKey(date);
+    const dayOfWeek = date.getDay();
+    const isDateHoliday = !!getHoliday?.(date);
+    const dayEntries = (monthlyData[monthKey] || []).filter((e: OvertimeEntry) => e.date === dateStr);
+    
+    const hasOvertime = dayEntries.some((e: OvertimeEntry) => e.type === 'overtime' && (e.totalHours || 0) > 0);
+    const isFullDayLeave = dayEntries.some((e: OvertimeEntry) => e.type === 'leave' && e.isFullDay);
+    
+    const isStandardWorkDay = isSaturdayWork 
+      ? (dayOfWeek !== 0) 
+      : (dayOfWeek !== 0 && dayOfWeek !== 6);
+
+    const shouldGetAllowance = hasOvertime || (isStandardWorkDay && !isDateHoliday && !isFullDayLeave);
+
+    if (shouldGetAllowance) {
+      const rate = getRateForDate(dateStr);
+      totalAllowance += (Number(rate.meal) + Number(rate.travel));
+      earnedDays++;
+    }
+  }
+
   text += separator;
   text += '[STATISTICS_ANALYSIS]\n';
   
@@ -236,6 +275,13 @@ export const generateExportText = (monthlyData: any, year: number, month: number
     text += `[*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
   } else {
     text += `[*] TOPLAM_NET_MESAI  : ${formatSa(totalNetHours)}\n`;
+  }
+
+  const hasAllowanceSystem = (Number(settings?.dailyMealAllowance) || 0) > 0 || (Number(settings?.dailyTravelAllowance) || 0) > 0;
+
+  if (hasAllowanceSystem) {
+    text += `[*] TOPLAM_YOL_YEMEK  : ${earnedDays} gün\n`;
+    text += `[*] YOL_YEMEK_TOPLAMI : ${totalAllowance} tl\n`;
   }
   
   text += separator;
