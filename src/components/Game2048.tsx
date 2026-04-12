@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AI } from '../utils/AI';
 import { Grid } from '../utils/Grid';
@@ -95,55 +94,6 @@ const Game2048: React.FC = () => {
         setTimeout(() => setHint(''), 1000);
       }
     }
-  };
-
-  const simulateMove = (currentGrid: number[], direction: 'up' | 'down' | 'left' | 'right') => {
-    let tempGrid = [...currentGrid];
-    let score = 0;
-    let moved = false;
-
-    const rotateGrid = (g: number[], count: number) => {
-        let rotated = [...g];
-        for (let i = 0; i < count; i++) {
-            const newRotated = Array(GRID_SIZE * GRID_SIZE).fill(0);
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    newRotated[c * GRID_SIZE + (GRID_SIZE - 1 - r)] = rotated[r * GRID_SIZE + c];
-                }
-            }
-            rotated = newRotated;
-        }
-        return rotated;
-    };
-
-    const getIndex = (row: number, col: number) => row * GRID_SIZE + col;
-
-    let rotationCount = 0;
-    if (direction === 'up') {
-        tempGrid = rotateGrid(tempGrid, 3);
-        rotationCount = 1;
-    } else if (direction === 'right') {
-        tempGrid = rotateGrid(tempGrid, 2);
-        rotationCount = 2;
-    } else if (direction === 'down') {
-        tempGrid = rotateGrid(tempGrid, 1);
-        rotationCount = 3;
-    }
-
-    for (let i = 0; i < GRID_SIZE; i++) {
-        const row = tempGrid.slice(i * GRID_SIZE, i * GRID_SIZE + GRID_SIZE);
-        const { newRow, score: rowScore } = moveRowLeft(row);
-        score += rowScore;
-        for (let j = 0; j < GRID_SIZE; j++) {
-            const newIndex = getIndex(i, j);
-            if (tempGrid[newIndex] !== newRow[j]) moved = true;
-            tempGrid[newIndex] = newRow[j];
-        }
-    }
-    
-    tempGrid = rotateGrid(tempGrid, rotationCount);
-
-    return { grid: tempGrid, score, moved };
   };
 
   const move = (direction: 'up' | 'down' | 'left' | 'right') => {
@@ -260,7 +210,7 @@ const Game2048: React.FC = () => {
         <div className="text-white">
           <span className="font-bold">SKOR:</span> {score}
         </div>
-        <button onClick={restartGame} className="px-3 py-1 bg-orange-500 text-white rounded-md">Yeniden Başlat</button>
+        <button onClick={restartGame} className="px-3 py-1 bg-orange-500 text-white rounded-md text-xs">Yeniden Başlat</button>
       </div>
       <div className="grid grid-cols-4 gap-2 bg-gray-600 p-2 rounded-md" onTouchStart={handleTouchStart}>
         {grid.map((value, index) => (
@@ -269,16 +219,16 @@ const Game2048: React.FC = () => {
       </div>
 
       <div className="flex flex-col items-center mt-4">
-        <button onClick={() => move('up')} className="p-4 bg-gray-600 text-white rounded-md mb-2"><ArrowUp size={24} /></button>
+        <button onClick={() => move('up')} className="p-4 bg-gray-600 text-white rounded-md mb-2"><ArrowUp size={20} /></button>
         <div className="flex space-x-2">
-          <button onClick={() => move('left')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowLeft size={24} /></button>
-          <button onClick={() => move('down')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowDown size={24} /></button>
-          <button onClick={() => move('right')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowRight size={24} /></button>
+          <button onClick={() => move('left')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowLeft size={20} /></button>
+          <button onClick={() => move('down')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowDown size={20} /></button>
+          <button onClick={() => move('right')} className="p-4 bg-gray-600 text-white rounded-md"><ArrowRight size={20} /></button>
         </div>
       </div>
 
       {hint && (
-        <div className="absolute inset-0 bg-black bg-opacity-25 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black bg-opacity-25 flex items-center justify-center pointer-events-none">
           <div className="text-white text-4xl font-bold">
             {hint === 'up' && '↑'}
             {hint === 'down' && '↓'}
@@ -288,7 +238,7 @@ const Game2048: React.FC = () => {
         </div>
       )}
       {gameOver && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded-lg">
           <div className="text-white text-4xl font-bold">Oyun Bitti!</div>
           <button onClick={restartGame} className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md">Yeniden Oyna</button>
         </div>

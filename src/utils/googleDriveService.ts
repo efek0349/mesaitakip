@@ -1,29 +1,28 @@
 /**
- * Google Drive Yedekleme Servisi
- * ✅ Google plugin gerekmez
- * ✅ Android / Web aynı kod
- * ✅ Google Drive AppFolder kullanır (Gizli ve güvenli)
- * ✅ Deep Link (https://localhost) desteği ile APK'da çalışır
+ *  Google Drive Yedekleme Servisi
+ *  Android: Kalıcı Oturum (Refresh Token)
+ *  Web: Geçici Oturum (Token Flow - Secret gerektirmez)
  */
 
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
+import { Dialog } from '@capacitor/dialog';
 
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const CLIENT_ID = (!Capacitor.isNativePlatform() || isLocalhost)
-  ? '971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com' // Web Client ID
-  : '971204589871-5r68r9ut9ou73r9aie1enblcpbmf7rm5.apps.googleusercontent.com'; // Android Client ID
+const CLIENT_ID = Capacitor.isNativePlatform()
+  ? '971204589871-5r68r9ut9ou73r9aie1enblcpbmf7rm5.apps.googleusercontent.com' // Android Client ID
+  : '971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com'; // Web Client ID
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3/files';
-const STORAGE_KEY = 'google_drive_token';
-const REFRESH_TOKEN_KEY = 'google_drive_refresh_token';
-const USER_KEY = 'google_drive_user';
-const CODE_VERIFIER_KEY = 'google_drive_code_verifier';
-const EXPIRES_AT_KEY = 'google_drive_expires_at';
+
+const STORAGE_KEY = 'gd_access';
+const REFRESH_TOKEN_KEY = 'gd_refresh';
+const EXPIRES_AT_KEY = 'gd_exp';
+const USER_KEY = 'gd_user';
+const CODE_VERIFIER_KEY = 'gd_cv';
 
 export interface GoogleUser {
   email: string;
@@ -41,141 +40,130 @@ export interface DriveFile {
 class GoogleDriveService {
   private accessToken: string | null = null;
   private user: GoogleUser | null = null;
-  private expiresAt: number | null = null;
+  private expiresAt: number = 0;
+  private isProcessing = false;
 
   constructor() {
-    if (!Capacitor.isNativePlatform() || isLocalhost) {
-      this.handleRedirect();
-    }
     this.initNativeListeners();
+    this.handleRedirect();
   }
 
-  // PKCE Helpers
-  private generateRandomString(length: number) {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    let result = '';
-    const values = new Uint32Array(length);
-    window.crypto.getRandomValues(values);
-    for (let i = 0; i < length; i++) {
-      result += charset[values[i] % charset.length];
-    }
-    return result;
+  private randomString(length: number) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    return Array.from(crypto.getRandomValues(new Uint8Array(length)))
+      .map(x => chars[x % chars.length])
+      .join('');
   }
 
-  private async generateCodeChallenge(codeVerifier: string) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await window.crypto.subtle.digest('SHA-256', data);
-    const base64Digest = btoa(String.fromCharCode(...new Uint8Array(digest)));
-    return base64Digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  private async sha256(str: string) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  // Android için Deep Link dinleyicisi ekle
   private async initNativeListeners() {
     if (Capacitor.isNativePlatform()) {
       try {
         const { App } = await import('@capacitor/app');
         App.addListener('appUrlOpen', async (event) => {
           const url = new URL(event.url);
-          // Hem code hem access_token kontrolü
-          const code = url.searchParams.get('code') || new URLSearchParams(url.hash.substring(1)).get('code');
-          const token = url.searchParams.get('access_token') || new URLSearchParams(url.hash.substring(1)).get('access_token');
-          const expiresIn = new URLSearchParams(url.hash.substring(1)).get('expires_in');
-          
+          const code = url.searchParams.get('code');
           if (code) await this.handleCode(code);
-          else if (token) await this.parseToken(token, expiresIn ? parseInt(expiresIn) : 3600);
         });
+        const launchUrl = await App.getLaunchUrl();
+        if (launchUrl?.url) {
+          const url = new URL(launchUrl.url);
+          const code = url.searchParams.get('code');
+          if (code) await this.handleCode(code);
+        }
       } catch (e) {
-        console.warn('Capacitor App plugin yüklenemedi, deep link çalışmayabilir.');
+        console.warn('App plugin error', e);
       }
     }
   }
 
-  // URL'deki code veya token'ı yakalar
   private async handleRedirect() {
+    if (Capacitor.isNativePlatform()) return;
+
     const url = new URL(window.location.href);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
-    const code = url.searchParams.get('code') || hashParams.get('code');
+    // Web'de Implicit Flow (token) veya Code Flow (code) gelebilir
     const token = url.searchParams.get('access_token') || hashParams.get('access_token');
     const expiresIn = url.searchParams.get('expires_in') || hashParams.get('expires_in');
+    const code = url.searchParams.get('code');
 
-    if (code) {
+    if (token) {
+      await this.saveTokens({ access_token: token, expires_in: parseInt(expiresIn || '3600') });
+      await this.fetchUserInfo(token);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.location.reload();
+    } else if (code) {
       await this.handleCode(code);
-    } else if (token) {
-      await this.parseToken(token, expiresIn ? parseInt(expiresIn) : 3600);
     }
-  }
-
-  // Web için (Implicit Flow) token işleme
-  private async parseToken(token: string, expiresIn: number = 3600) {
-    this.accessToken = token;
-    this.expiresAt = Date.now() + (expiresIn * 1000);
-    await Preferences.set({ key: STORAGE_KEY, value: token });
-    await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
-    await this.fetchUserInfo(token);
-    window.history.replaceState(null, '', window.location.origin + window.location.pathname);
-    window.location.reload();
   }
 
   private async handleCode(code: string) {
-    // Sadece Native platformda code flow kullan (Web'de secret hatası verir)
-    const isNative = Capacitor.isNativePlatform() && !isLocalhost;
-    if (!isNative) {
-      console.warn('Web platformunda code flow desteklenmiyor, lütfen token akışını kullanın.');
-      return;
-    }
+    if (this.isProcessing) return;
+    this.isProcessing = true;
 
-    const redirectUri = 'com.efek0349.mesaitakip:/oauth2redirect';
-    const { value: codeVerifier } = await Preferences.get({ key: CODE_VERIFIER_KEY });
-    if (!codeVerifier) return;
-    
     try {
+      const { value: verifier } = await Preferences.get({ key: CODE_VERIFIER_KEY });
+      if (!verifier) throw new Error('Oturum anahtarı bulunamadı.');
+
+      const redirectUri = Capacitor.isNativePlatform()
+        ? 'com.efek0349.mesaitakip:/oauth2redirect'
+        : window.location.origin + window.location.pathname;
+
       const res = await fetch(TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           client_id: CLIENT_ID,
-          code: code,
-          code_verifier: codeVerifier,
+          code,
+          code_verifier: verifier,
           grant_type: 'authorization_code',
-          redirect_uri: redirectUri,
-        }),
+          redirect_uri: redirectUri
+        })
       });
 
       const data = await res.json();
-
       if (res.ok) {
-        this.accessToken = data.access_token;
-        this.expiresAt = Date.now() + (data.expires_in * 1000);
-        await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
-        await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
-        if (data.refresh_token) {
-          await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
-        }
+        await this.saveTokens(data);
         await this.fetchUserInfo(data.access_token);
-        
         await Preferences.remove({ key: CODE_VERIFIER_KEY });
-        
-        // URL'yi temizle ve yenile (reload yerine kesin yönlendirme)
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.location.href = cleanUrl;
-      } else {
-        console.error('Google Token Error Details:', data);
-        // Hata durumunda kodun URL'den temizlenmesi gerekir ki sonsuz döngüye girmesin
-        if (data.error === 'invalid_grant') {
-           await Preferences.remove({ key: CODE_VERIFIER_KEY });
-           window.history.replaceState(null, '', window.location.origin + window.location.pathname);
+        if (Capacitor.isNativePlatform()) {
+          await Dialog.alert({ title: 'Başarılı', message: 'Google Drive bağlantısı kuruldu!' });
+          window.location.href = '/';
+        } else {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          window.location.reload();
         }
+      } else {
+        throw new Error(data.error_description || data.error);
       }
-    } catch (e) {
-      console.error('Token exchange request failed', e);
+    } catch (e: any) {
+      if (Capacitor.isNativePlatform()) {
+        await Dialog.alert({ title: 'Giriş Hatası', message: e.message });
+      }
+    } finally {
+      this.isProcessing = false;
     }
   }
 
-  private async refreshAccessToken() {
-    const { value: refreshToken } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
-    if (!refreshToken) return false;
+  private async saveTokens(data: any) {
+    this.accessToken = data.access_token;
+    this.expiresAt = Date.now() + (data.expires_in * 1000);
+    await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
+    await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
+    if (data.refresh_token) {
+      await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
+    }
+  }
+
+  private async refresh() {
+    const { value: refresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
+    if (!refresh) return false;
 
     try {
       const res = await fetch(TOKEN_URL, {
@@ -183,29 +171,86 @@ class GoogleDriveService {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           client_id: CLIENT_ID,
-          refresh_token: refreshToken,
           grant_type: 'refresh_token',
-        }),
+          refresh_token: refresh
+        })
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        this.accessToken = data.access_token;
-        this.expiresAt = Date.now() + (data.expires_in * 1000);
-        await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
-        await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
-        if (data.refresh_token) {
-          await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
-        }
-        return true;
-      } else if (res.status === 400 || res.status === 401) {
-        // Refresh token geçersiz ise çıkış yap
-        await this.signOut();
+      if (!res.ok) {
+        if (res.status === 400 || res.status === 401) await this.signOut();
+        return false;
       }
+      const data = await res.json();
+      await this.saveTokens(data);
+      return true;
     } catch (e) {
-      console.error('Token refresh error', e);
+      return false;
     }
-    return false;
+  }
+
+  async init(): Promise<GoogleUser | null> {
+    const { value: token } = await Preferences.get({ key: STORAGE_KEY });
+    const { value: exp } = await Preferences.get({ key: EXPIRES_AT_KEY });
+    const { value: userStr } = await Preferences.get({ key: USER_KEY });
+
+    if (!token || !exp) {
+      const { value: hasRefresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
+      if (hasRefresh) {
+        const ok = await this.refresh();
+        if (ok && this.accessToken) {
+          await this.fetchUserInfo(this.accessToken);
+          return this.user;
+        }
+      }
+      return null;
+    }
+
+    this.accessToken = token;
+    this.expiresAt = parseInt(exp);
+    if (userStr) this.user = JSON.parse(userStr);
+
+    if (Date.now() > this.expiresAt - 60000) {
+      const ok = await this.refresh();
+      if (ok && this.accessToken) {
+        await this.fetchUserInfo(this.accessToken);
+        return this.user;
+      }
+      await this.signOut();
+      return null;
+    }
+
+    if (!this.user && this.accessToken) await this.fetchUserInfo(this.accessToken);
+    return this.user;
+  }
+
+  async signIn() {
+    const redirectUri = Capacitor.isNativePlatform()
+      ? 'com.efek0349.mesaitakip:/oauth2redirect'
+      : window.location.origin + window.location.pathname;
+
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      redirect_uri: redirectUri,
+      scope: SCOPES,
+    });
+
+    if (Capacitor.isNativePlatform()) {
+      // ANDROID: Code Flow + PKCE (Secret gerekmez, Refresh Token verir)
+      const verifier = this.randomString(64);
+      const challenge = await this.sha256(verifier);
+      await Preferences.set({ key: CODE_VERIFIER_KEY, value: verifier });
+
+      params.set('response_type', 'code');
+      params.set('access_type', 'offline');
+      params.set('prompt', 'consent select_account');
+      params.set('code_challenge', challenge);
+      params.set('code_challenge_method', 'S256');
+    } else {
+      // WEB: Token Flow (Secret gerekmez, Refresh Token VERMEZ ama çalışır)
+      params.set('response_type', 'token');
+      params.set('prompt', 'select_account');
+    }
+
+    window.location.href = `${AUTH_URL}?${params.toString()}`;
   }
 
   private async fetchUserInfo(token: string) {
@@ -224,111 +269,14 @@ class GoogleDriveService {
         await Preferences.set({ key: USER_KEY, value: JSON.stringify(this.user) });
       }
     } catch (e) {
-      console.error('User info fetch error', e);
+      console.error('User info error', e);
     }
-  }
-
-  async init(): Promise<GoogleUser | null> {
-    const { value: token } = await Preferences.get({ key: STORAGE_KEY });
-    const { value: userStr } = await Preferences.get({ key: USER_KEY });
-    const { value: refreshToken } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
-    const { value: expiresAtStr } = await Preferences.get({ key: EXPIRES_AT_KEY });
-    
-    if (expiresAtStr) this.expiresAt = parseInt(expiresAtStr);
-
-    if (token && userStr) {
-      this.accessToken = token;
-      this.user = JSON.parse(userStr);
-      
-      // Süre dolmuş mu kontrol et (vakti gelmeden 1 dk önce dolmuş sayalım)
-      const isExpired = !this.expiresAt || (Date.now() > this.expiresAt - 60000);
-
-      if (isExpired) {
-        console.warn('Google Drive token expired, attempting refresh...');
-        const refreshed = await this.refreshAccessToken();
-        if (refreshed && this.accessToken) {
-          await this.fetchUserInfo(this.accessToken);
-          return this.user;
-        }
-        await this.signOut();
-        return null;
-      }
-
-      // Token hala geçerli görünüyor ama yine de network kontrolü yapalım
-      try {
-        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (!res.ok) {
-          const refreshed = await this.refreshAccessToken();
-          if (refreshed && this.accessToken) {
-            await this.fetchUserInfo(this.accessToken);
-            return this.user;
-          }
-          await this.signOut();
-          return null;
-        }
-      } catch (e) {
-        console.warn('Network error during Google Drive init, using cached user info');
-      }
-      
-      return this.user;
-    } else if (refreshToken) {
-      const refreshed = await this.refreshAccessToken();
-      if (refreshed && this.accessToken) {
-        await this.fetchUserInfo(this.accessToken);
-        return this.user;
-      }
-    }
-    
-    return null;
-  }
-
-  async signIn() {
-    // Sadece gerçek bir Android/iOS cihazda isek ve localhost'ta değilsek PKCE kullan
-    const isNative = Capacitor.isNativePlatform() && !isLocalhost;
-    
-    // APK'da (Android) https://localhost/ engellendiği için custom scheme kullanıyoruz
-    const redirectUri = isNative 
-      ? 'com.efek0349.mesaitakip:/oauth2redirect' 
-      : window.location.origin + window.location.pathname;
-
-    const params = new URLSearchParams({
-      client_id: CLIENT_ID,
-      redirect_uri: redirectUri,
-      scope: SCOPES,
-      include_granted_scopes: 'true',
-    });
-
-    if (isNative) {
-      // TELEFONDA (GERÇEK): Kalıcı oturum (Refresh Token) için Code Flow + PKCE
-      const codeVerifier = this.generateRandomString(64);
-      await Preferences.set({ key: CODE_VERIFIER_KEY, value: codeVerifier });
-      const codeChallenge = await this.generateCodeChallenge(codeVerifier);
-
-      params.set('response_type', 'code');
-      params.set('access_type', 'offline');
-      params.set('code_challenge', codeChallenge);
-      params.set('code_challenge_method', 'S256');
-      
-      // prompt=consent: Her seferinde refresh token almak için (APK'da bu daha garantidir)
-      // select_account: Kullanıcıya hangi hesapla gireceğini sorar
-      params.set('prompt', 'consent select_account');
-    } else {
-      // TARAYICIDA VEYA LOCALHOST TESTLERİNDE: Hata almamak için basit Token Flow
-      params.set('response_type', 'token');
-      params.set('prompt', 'select_account');
-    }
-
-    const url = `${AUTH_URL}?${params.toString()}`;
-    window.location.href = url;
   }
 
   async signOut() {
     this.accessToken = null;
     this.user = null;
-    this.expiresAt = null;
+    this.expiresAt = 0;
     await Preferences.remove({ key: STORAGE_KEY });
     await Preferences.remove({ key: REFRESH_TOKEN_KEY });
     await Preferences.remove({ key: USER_KEY });
@@ -336,11 +284,10 @@ class GoogleDriveService {
     await Preferences.remove({ key: EXPIRES_AT_KEY });
   }
 
-  // API isteklerini otomatik refresh ile yapan yardımcı metod
   private async apiRequest(url: string, options: any = {}): Promise<Response> {
-    if (!this.accessToken) {
-      const refreshed = await this.refreshAccessToken();
-      if (!refreshed) {
+    if (!this.accessToken || Date.now() > this.expiresAt - 60000) {
+      const ok = await this.refresh();
+      if (!ok) {
         await this.signOut();
         throw new Error('Oturum kapalı');
       }
@@ -348,29 +295,21 @@ class GoogleDriveService {
 
     let res = await fetch(url, {
       ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${this.accessToken}`
-      }
+      headers: { ...options.headers, Authorization: `Bearer ${this.accessToken}` }
     });
 
     if (res.status === 401) {
-      console.warn('API returned 401, attempting token refresh...');
-      const refreshed = await this.refreshAccessToken();
-      if (refreshed) {
+      const ok = await this.refresh();
+      if (ok) {
         res = await fetch(url, {
           ...options,
-          headers: {
-            ...options.headers,
-            Authorization: `Bearer ${this.accessToken}`
-          }
+          headers: { ...options.headers, Authorization: `Bearer ${this.accessToken}` }
         });
       } else {
         await this.signOut();
         throw new Error('Oturum süresi doldu');
       }
     }
-
     return res;
   }
 
@@ -378,57 +317,36 @@ class GoogleDriveService {
     try {
       const q = encodeURIComponent("trashed = false");
       const url = `${DRIVE_API}?spaces=appDataFolder&q=${q}&fields=files(id, name, createdTime)&orderBy=createdTime desc`;
-      
       const res = await this.apiRequest(url);
       const data = await res.json();
       return data.files || [];
-    } catch (error) {
-      return [];
-    }
+    } catch (error) { return []; }
   }
 
   async uploadBackup(jsonData: string): Promise<boolean> {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-      const metadata = {
-        name: `backup_${timestamp}.json`,
-        mimeType: 'application/json',
-        parents: ['appDataFolder']
-      };
-
+      const metadata = { name: `backup_${timestamp}.json`, mimeType: 'application/json', parents: ['appDataFolder'] };
       const formData = new FormData();
       formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
       formData.append('file', new Blob([jsonData], { type: 'application/json' }));
-
-      const res = await this.apiRequest(`${DRIVE_UPLOAD_API}?uploadType=multipart`, {
-        method: 'POST',
-        body: formData
-      });
-      
+      const res = await this.apiRequest(`${DRIVE_UPLOAD_API}?uploadType=multipart`, { method: 'POST', body: formData });
       return res.ok;
-    } catch (error) {
-      return false;
-    }
+    } catch (error) { return false; }
   }
 
   async downloadBackup(fileId: string): Promise<string | null> {
     try {
       const res = await this.apiRequest(`${DRIVE_API}/${fileId}?alt=media`);
       return res.ok ? await res.text() : null;
-    } catch (error) {
-      return null;
-    }
+    } catch (error) { return null; }
   }
 
   async deleteBackup(fileId: string): Promise<boolean> {
     try {
-      const res = await this.apiRequest(`${DRIVE_API}/${fileId}`, {
-        method: 'DELETE'
-      });
+      const res = await this.apiRequest(`${DRIVE_API}/${fileId}`, { method: 'DELETE' });
       return res.ok;
-    } catch (error) {
-      return false;
-    }
+    } catch (error) { return false; }
   }
 
   getUser() { return this.user; }

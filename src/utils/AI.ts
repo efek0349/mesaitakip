@@ -69,21 +69,22 @@ export class AI {
       const scores: { [key: number]: number[] } = { 2: [], 4: [] };
 
       for (const value in scores) {
-        for (let i in cells) {
-          scores[value].push(0);
+        const valNum = parseInt(value, 10);
+        for (let i = 0; i < cells.length; i++) {
           const cell = cells[i];
-          const tile = new Tile(cell, parseInt(value, 10));
+          const tile = new Tile(cell, valNum);
           this.grid.insertTile(tile);
-          scores[value][i] = -this.grid.smoothness() + this.grid.islands();
+          scores[valNum].push(-this.grid.smoothness() + this.grid.islands());
           this.grid.removeTile(cell);
         }
       }
 
       const maxScore = Math.max.apply(null, scores[2].concat(scores[4]));
       for (const value in scores) {
-        for (let i = 0; i < scores[value].length; i++) {
-          if (scores[value][i] === maxScore) {
-            candidates.push({ position: cells[i], value: parseInt(value, 10) });
+        const valNum = parseInt(value, 10);
+        for (let i = 0; i < scores[valNum].length; i++) {
+          if (scores[valNum][i] === maxScore) {
+            candidates.push({ position: cells[i], value: valNum });
           }
         }
       }
@@ -135,11 +136,11 @@ export class AI {
   }
 
   translate(move: number) {
-    return {
+    return ({
       0: 'up',
       1: 'right',
       2: 'down',
       3: 'left'
-    }[move];
+    } as { [key: number]: string })[move];
   }
 }

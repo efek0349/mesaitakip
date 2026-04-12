@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Info, Github, Code, Check } from 'lucide-react';
+import Game2048 from './Game2048';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -19,14 +20,14 @@ const FeatureItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </li>
 );
 
-export const APP_VERSION = '1.0.9';
+export const APP_VERSION = '1.1.0';
 
 export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 h-screen-dynamic">
-      <div className="bg-white dark:bg-dark-bg rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-full">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-full">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
@@ -42,27 +43,22 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* App Info */}
           <div className="text-center space-y-4">
-            {/* Logo, Geliştirici ve Kaynak Kodu */}
             <div className="flex justify-between items-center px-4">
-              {/* Geliştirici */}
               <a href="https://github.com/efek0349" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                 <Github className="w-6 h-6" />
                 <span className="text-xs font-medium mt-1">efek0349</span>
               </a>
               
-              {/* Logo */}
               <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto shadow-md overflow-hidden">
                 <img src={import.meta.env.BASE_URL + 'app_icon.png'} alt="Mesai Takip App Icon" className="w-full h-full object-cover" />
               </div>
 
-              {/* Kaynak Kodu */}
               <a href="https://github.com/efek0349/mesaitakip" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                 <Code className="w-6 h-6" />
                 <span className="text-xs font-medium mt-1">Kaynak Kodu</span>
               </a>
             </div>
 
-            {/* Başlık ve Sürüm/Lisans */}
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">Mesai Takip</h3>
               <div className="flex justify-center items-center gap-8 mt-2 text-sm">
@@ -97,6 +93,14 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <FeatureItem>Her mesaiye özel not ekleme</FeatureItem>
               <FeatureItem>Mobil uyumlu ve modern tasarım</FeatureItem>
             </ul>
+          </div>
+
+          {/* Game Section */}
+          <div>
+            <SectionTitle>Biraz da Eğlence: 2048</SectionTitle>
+            <div className="mt-4">
+              <Game2048 />
+            </div>
           </div>
         </div>
 
