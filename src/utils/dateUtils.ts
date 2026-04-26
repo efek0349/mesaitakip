@@ -85,6 +85,13 @@ export const getCalendarDays = (year: number, month: number): Date[] => {
   return days;
 };
 
+export const parseDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Ay 0-tabanlı olduğu için month - 1 yapıyoruz. 
+  // Bu yöntem tarih nesnesini cihazın yerel saatine göre "gece yarısı" olarak oluşturur.
+  return new Date(year, month - 1, day);
+};
+
 export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boolean, isSaturday: boolean, isSunday: boolean, isHoliday: boolean, isSaturdayWork: boolean): number => {
   if (!deductBreakTime) {
     return totalHours;
@@ -94,9 +101,13 @@ export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boo
 
   if (shouldDeduct) {
     if (totalHours > 7.5) {
-      return Math.max(0, totalHours - 1); // 7.5 saat üzeri: 1 saat mola
+      // 7.5 saat üzeri: 1 saat mola. 
+      // Math.max(7.0, ...) sayesinde 7.6 saat çalışan, 7.5 saat çalışandan (7.0 net) daha az almaz.
+      return Math.max(7.0, totalHours - 1);
     } else if (totalHours >= 4) {
-      return Math.max(0, totalHours - 0.5); // 4-7.5 saat arası: 30 dakika mola
+      // 4-7.5 saat arası: 30 dakika mola.
+      // Math.max(3.5, ...) sayesinde 4.1 saat çalışan, 4.0 saat çalışandan (3.5 net) daha az almaz.
+      return Math.max(3.5, totalHours - 0.5);
     }
   }
   

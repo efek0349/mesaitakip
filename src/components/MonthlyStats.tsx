@@ -3,7 +3,7 @@ import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle } from 'l
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey } from '../utils/dateUtils';
+import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey, parseDate } from '../utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent } from '../utils/fileUtils';
 import { showToast } from '../utils/toastUtils';
 
@@ -22,6 +22,9 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
+  const monthSalary = getSalaryForDate(currentDate);
+  const isSaturdayWork = monthSalary.isSaturdayWork ?? settings.isSaturdayWork;
+
   // Veri değişimlerini izlemek için monthlyData'yı (monthlyDataMemo) dependency olarak ekliyoruz
   const monthlyTotal = useMemo(() => getMonthlyTotal(year, month, settings.deductBreakTime), [year, month, settings.deductBreakTime, getMonthlyTotal, monthlyData]);
   const yearlyTotal = useMemo(() => getYearlyTotal(year, settings.deductBreakTime), [year, settings.deductBreakTime, getYearlyTotal, monthlyData]);
@@ -44,7 +47,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     };
 
     monthlyEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
+      const entryDate = parseDate(entry.date);
       const holiday = getHoliday(entryDate);
       const isHolidayDate = holiday !== undefined;
       const dayOfWeek = entryDate.getDay();
@@ -54,7 +57,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
       if (entry.type === 'leave') {
         let deduction = 0;
         if (entry.isFullDay) {
-          const dailyHours = settings.isSaturdayWork ? 7.5 : 9;
+          const dailyHours = isSaturdayWork ? 7.5 : 9;
           const hourlyRate = getHourlyRate(entryDate);
           deduction = dailyHours * hourlyRate;
           stats.leave.hours += dailyHours;
@@ -66,7 +69,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
         }
         stats.leave.deduction += deduction;
       } else {
-        const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, settings.isSaturdayWork);
+        const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
         const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
         const payment = effectiveHours * (overtimeRate || 0);
 
@@ -87,7 +90,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     });
 
     return stats;
-  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, settings.isSaturdayWork, monthlyData]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData]);
 
   // AKILLI YEMEK/YOL HESAPLAMA
   const allowanceData = useMemo(() => {
@@ -113,7 +116,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
       const isFullDayLeave = dayEntries.some(e => e.type === 'leave' && e.isFullDay);
       
       // Standart iş günü mü? (Cumartesi ayarına göre)
-      const isStandardWorkDay = settings.isSaturdayWork 
+      const isStandardWorkDay = isSaturdayWork 
         ? (dayOfWeek !== 0) // Pazar hariç hepsi
         : (dayOfWeek !== 0 && dayOfWeek !== 6); // Hafta sonu hariç hepsi
 
@@ -130,7 +133,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     }
 
     return { total: totalAllowance, days: earnedDays };
-  }, [year, month, monthlyEntries, getHoliday, settings.isSaturdayWork, settings.dailyMealAllowance, settings.dailyTravelAllowance, settings.allowanceHistory, monthlyData]);
+  }, [year, month, monthlyEntries, getHoliday, isSaturdayWork, settings.dailyMealAllowance, settings.dailyTravelAllowance, settings.allowanceHistory, monthlyData]);
 
   if (isLoading) {
     return (
@@ -172,7 +175,6 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     }
   };
 
-  const monthSalary = getSalaryForDate(currentDate);
   const monthlyGrossSalary = Number(monthSalary.monthlyGrossSalary) || 0;
   const bonus = Number(monthSalary.bonus) || 0;
   const salarySum = (monthlyGrossSalary + bonus) - overtimeStats.leave.deduction;

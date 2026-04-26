@@ -16,6 +16,9 @@ export interface MonthlyData {
 export interface MonthlySalary {
   monthlyGrossSalary: number;
   bonus: number;
+  isSaturdayWork?: boolean;
+  shiftSystemEnabled?: boolean;
+  shiftSystemType?: '2-shift' | '3-shift';
 }
 
 export interface SalarySettings {

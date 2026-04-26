@@ -121,16 +121,50 @@ export const useSalarySettings = () => {
   }, [forceUpdate, isLoaded]);
 
   const getSalaryForDate = React.useCallback((date: Date): MonthlySalary => {
-    if (!isSalaryLoaded) return { monthlyGrossSalary: globalSettings.monthlyGrossSalary, bonus: globalSettings.bonus };
+    if (!isSalaryLoaded) {
+      return { 
+        monthlyGrossSalary: globalSettings.monthlyGrossSalary, 
+        bonus: globalSettings.bonus,
+        isSaturdayWork: globalSettings.isSaturdayWork,
+        shiftSystemEnabled: globalSettings.shiftSystemEnabled,
+        shiftSystemType: globalSettings.shiftSystemType
+      };
+    }
     
     const monthKey = getMonthKey(date);
+    
+    // Eğer o ay için tam eşleşme varsa onu döndür
     if (globalSettings.salaryHistory && globalSettings.salaryHistory[monthKey]) {
-      return globalSettings.salaryHistory[monthKey];
+      return {
+        ...globalSettings.salaryHistory[monthKey],
+        // Eğer geçmiş kayıtta bu alanlar yoksa (eski kayıtlar), global ayarlardan al
+        isSaturdayWork: globalSettings.salaryHistory[monthKey].isSaturdayWork ?? globalSettings.isSaturdayWork,
+        shiftSystemEnabled: globalSettings.salaryHistory[monthKey].shiftSystemEnabled ?? globalSettings.shiftSystemEnabled,
+        shiftSystemType: globalSettings.salaryHistory[monthKey].shiftSystemType ?? globalSettings.shiftSystemType
+      };
+    }
+    
+    // Eğer o ay için kayıt yoksa, geçmişe doğru giderek en yakın kaydı bul (Most Recent Lookup)
+    if (globalSettings.salaryHistory) {
+      const historyKeys = Object.keys(globalSettings.salaryHistory).sort().reverse();
+      const mostRecentKey = historyKeys.find(key => key <= monthKey);
+      
+      if (mostRecentKey) {
+        return {
+          ...globalSettings.salaryHistory[mostRecentKey],
+          isSaturdayWork: globalSettings.salaryHistory[mostRecentKey].isSaturdayWork ?? globalSettings.isSaturdayWork,
+          shiftSystemEnabled: globalSettings.salaryHistory[mostRecentKey].shiftSystemEnabled ?? globalSettings.shiftSystemEnabled,
+          shiftSystemType: globalSettings.salaryHistory[mostRecentKey].shiftSystemType ?? globalSettings.shiftSystemType
+        };
+      }
     }
     
     return {
       monthlyGrossSalary: globalSettings.monthlyGrossSalary,
-      bonus: globalSettings.bonus
+      bonus: globalSettings.bonus,
+      isSaturdayWork: globalSettings.isSaturdayWork,
+      shiftSystemEnabled: globalSettings.shiftSystemEnabled,
+      shiftSystemType: globalSettings.shiftSystemType
     };
   }, [isLoaded, settingsMemo]);
 
@@ -170,7 +204,10 @@ export const useSalarySettings = () => {
       }
       globalSettings.salaryHistory[monthKey] = {
         monthlyGrossSalary: Number(newSettings.monthlyGrossSalary),
-        bonus: Number(newSettings.bonus)
+        bonus: Number(newSettings.bonus),
+        isSaturdayWork: newSettings.isSaturdayWork,
+        shiftSystemEnabled: newSettings.shiftSystemEnabled,
+        shiftSystemType: newSettings.shiftSystemType
       };
     }
     

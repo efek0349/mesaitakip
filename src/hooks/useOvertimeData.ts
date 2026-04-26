@@ -1,6 +1,6 @@
 import React from 'react';
 import { OvertimeEntry, MonthlyData } from '../types/overtime';
-import { getMonthKey, getDateKey, calculateEffectiveHours } from '../utils/dateUtils';
+import { getMonthKey, getDateKey, calculateEffectiveHours, parseDate } from '../utils/dateUtils';
 import { useSalarySettings } from './useSalarySettings';
 import { useHolidays } from './useHolidays';
 
@@ -60,30 +60,63 @@ const clearAllLegacyData = () => {
   }
 };
 
-// Load data from localStorage (sadece ana anahtar)
+// Load data from localStorage (ay bazlı yeni sistem)
 const loadGlobalData = () => {
   if (isDataLoaded) return;
   
   try {
-    // İlk açılışta tüm eski verileri temizle
     const isFirstRun = !localStorage.getItem('mesai-app-initialized');
     if (isFirstRun) {
       clearAllLegacyData();
       localStorage.setItem('mesai-app-initialized', 'true');
       globalData = {};
     } else {
-      // Sadece ana veriyi yükle
-      const savedData = localStorage.getItem('mesai-data');
-      if (savedData) {
+      // 1. ESKİ SİSTEMDEN GÖÇ (MIGRATION)
+      const legacyData = localStorage.getItem('mesai-data');
+      if (legacyData) {
         try {
-          const loadedData = JSON.parse(savedData);
-          globalData = validateAndCleanData(loadedData);
-        } catch (parseError) {
-          globalData = {};
+          const parsedLegacy = JSON.parse(legacyData);
+          const validatedLegacy = validateAndCleanData(parsedLegacy);
+          
+          // Her ayı kendi anahtarına kaydet
+          Object.keys(validatedLegacy).forEach(monthKey => {
+            localStorage.setItem(`mesai-data-${monthKey}`, JSON.stringify(validatedLegacy[monthKey]));
+          });
+          
+          // Eski anahtarı sil
+          localStorage.removeItem('mesai-data');
+          globalData = validatedLegacy;
+        } catch (e) {
+          console.error('Migration hatası:', e);
         }
-      } else {
-        globalData = {};
       }
+
+      // 2. YENİ SİSTEM: Tüm mesai-data- anahtarlarını yükle
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mesai-data-')) {
+          allKeys.push(key);
+        }
+      }
+
+      allKeys.forEach(key => {
+        const monthKey = key.replace('mesai-data-', '');
+        const savedMonthData = localStorage.getItem(key);
+        if (savedMonthData) {
+          try {
+            const parsedMonthData = JSON.parse(savedMonthData);
+            if (Array.isArray(parsedMonthData)) {
+              globalData[monthKey] = parsedMonthData;
+            }
+          } catch (e) {
+            console.error(`Veri yükleme hatası (${key}):`, e);
+          }
+        }
+      });
+      
+      // Veriyi bir kez doğrula
+      globalData = validateAndCleanData(globalData);
     }
     
   } catch (error) {
@@ -128,11 +161,29 @@ const validateAndCleanData = (data: any): MonthlyData => {
   return cleanData;
 };
 
-// Basit save (sadece ana veri)
-const saveGlobalData = () => {
+// Basit save (ay bazlı saklama)
+const saveGlobalData = (specificMonthKey?: string) => {
   try {
-    const dataString = JSON.stringify(globalData);
-    localStorage.setItem('mesai-data', dataString);
+    if (specificMonthKey) {
+      // Sadece belirli bir ayı kaydet (Performans için ideal)
+      const data = globalData[specificMonthKey];
+      if (data && data.length > 0) {
+        localStorage.setItem(`mesai-data-${specificMonthKey}`, JSON.stringify(data));
+      } else {
+        localStorage.removeItem(`mesai-data-${specificMonthKey}`);
+      }
+    } else {
+      // Tüm ayları döngüyle kaydet (Fallback veya toplu işlem)
+      Object.keys(globalData).forEach(monthKey => {
+        const data = globalData[monthKey];
+        if (data && data.length > 0) {
+          localStorage.setItem(`mesai-data-${monthKey}`, JSON.stringify(data));
+        } else {
+          localStorage.removeItem(`mesai-data-${monthKey}`);
+        }
+      });
+    }
+    
     dataCache.clear();
     dataEmitter.emit();
   } catch (error) {
@@ -140,21 +191,14 @@ const saveGlobalData = () => {
       // 1. Önce 2 yıldan eski verileri temizle
       cleanOldData();
       
-      // 2. Hala yer yoksa, en eski ayı sil (tekrarlı)
-      let attempt = 0;
-      while (attempt < 5) { // Sonsuz döngü koruması
-        try {
-          localStorage.setItem('mesai-data', JSON.stringify(globalData));
-          break; // Başarılıysa çık
-        } catch (retryError) {
-          const allMonthKeys = Object.keys(globalData).sort();
-          if (allMonthKeys.length > 0) {
-            delete globalData[allMonthKeys[0]]; // En eski ayı sil
-          } else {
-            break; // Silecek bir şey kalmadı
-          }
-        }
-        attempt++;
+      // 2. Hala yer yoksa, en eski ayı sil
+      const allMonthKeys = Object.keys(globalData).sort();
+      if (allMonthKeys.length > 0) {
+        const oldestKey = allMonthKeys[0];
+        delete globalData[oldestKey];
+        localStorage.removeItem(`mesai-data-${oldestKey}`);
+        // Tekrar dene
+        saveGlobalData(specificMonthKey);
       }
       dataCache.clear();
       dataEmitter.emit();
@@ -212,7 +256,7 @@ export const useOvertimeData = () => {
   const [updateCounter, setUpdateCounter] = React.useState(0);
   // Başlangıç değerini global state'den al (SSR ve ilk render için önemli)
   const [isLoaded, setIsLoaded] = React.useState(isDataLoaded);
-  const { settings, importSettings } = useSalarySettings();
+  const { settings, importSettings, getSalaryForDate } = useSalarySettings();
 
   // Memoized monthly data for performance - Triggered by updateCounter
   const monthlyDataMemo = React.useMemo(() => ({ ...globalData }), [updateCounter, isLoaded]);
@@ -284,7 +328,7 @@ export const useOvertimeData = () => {
     dataCache.clear();
     
     // Save and notify
-    saveGlobalData();
+    saveGlobalData(monthKey);
   }, []);
 
   const removeOvertimeEntry = React.useCallback((date: Date, type?: 'overtime' | 'leave') => {
@@ -310,7 +354,7 @@ export const useOvertimeData = () => {
     // Cache'i temizle
     dataCache.clear();
     
-    saveGlobalData();
+    saveGlobalData(monthKey);
   }, []);
 
   const clearMonthData = React.useCallback((year: number, month: number) => {
@@ -320,7 +364,7 @@ export const useOvertimeData = () => {
     
     delete globalData[monthKey];
     dataCache.clear();
-    saveGlobalData();
+    saveGlobalData(monthKey);
   }, []);
 
   const getOvertimeForDate = React.useCallback((date: Date, type?: 'overtime' | 'leave'): OvertimeEntry | undefined => {
@@ -354,15 +398,19 @@ export const useOvertimeData = () => {
     const monthKey = getMonthKey(new Date(year, month));
     if (!globalData[monthKey]) return 0;
 
+    // O ay için tarihsel ayarı çek
+    const monthSettings = getSalaryForDate(new Date(year, month));
+    const isSaturdayWork = monthSettings.isSaturdayWork ?? settings.isSaturdayWork;
+
     return globalData[monthKey].reduce((total, entry) => {
       if (entry.type === 'leave') return total;
-      const date = new Date(entry.date);
+      const date = parseDate(entry.date);
       const isSaturday = date.getDay() === 6;
       const isSunday = date.getDay() === 0;
       const isEntryHoliday = isHoliday(date);
-      return total + calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, settings.isSaturdayWork);
+      return total + calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, isSaturdayWork);
     }, 0);
-  }, [isLoaded, isHoliday, settings.isSaturdayWork, monthlyDataMemo]);
+  }, [isLoaded, isHoliday, settings.isSaturdayWork, monthlyDataMemo, getSalaryForDate]);
 
   const getMonthlyEntries = React.useCallback((year: number, month: number): OvertimeEntry[] => {
     if (!isDataLoaded) return [];
@@ -456,18 +504,23 @@ export const useOvertimeData = () => {
     let yearlyTotal = 0;
     Object.keys(globalData).forEach(monthKey => {
       if (monthKey.startsWith(year.toString())) {
+        // Her ay için o ayın tarihsel ayarını çek
+        const monthDate = new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1);
+        const monthSettings = getSalaryForDate(monthDate);
+        const isSaturdayWork = monthSettings.isSaturdayWork ?? settings.isSaturdayWork;
+
         globalData[monthKey].forEach(entry => {
           if (entry.type === 'leave') return;
-          const date = new Date(entry.date);
+          const date = parseDate(entry.date);
           const isSaturday = date.getDay() === 6;
           const isSunday = date.getDay() === 0;
           const isEntryHoliday = isHoliday(date);
-          yearlyTotal += calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, settings.isSaturdayWork);
+          yearlyTotal += calculateEffectiveHours(entry.totalHours, deductBreakTime, isSaturday, isSunday, isEntryHoliday, isSaturdayWork);
         });
       }
     });
     return yearlyTotal;
-  }, [isLoaded, isHoliday, settings.isSaturdayWork, monthlyDataMemo]);
+  }, [isLoaded, isHoliday, settings.isSaturdayWork, monthlyDataMemo, getSalaryForDate]);
 
   return {
     monthlyData: monthlyDataMemo,

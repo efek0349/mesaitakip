@@ -40,12 +40,6 @@ export const downloadTextFile = async (text: string, filename: string) => {
         dialogTitle: 'Yedekleme Dosyasını Kaydet/Paylaş',
       });
 
-      // Remove the temporary file after sharing
-      await Filesystem.deleteFile({
-        directory: Directory.Cache,
-        path: tempFilePath,
-      });
-
       alert(`${filename} başarıyla paylaşıldı/kaydedildi!`);
     } catch (error) {
       console.error('Dosya indirme/paylaşma hatası:', error);
@@ -146,32 +140,51 @@ export const saveBackupFile = async (data: string, filename: string): Promise<vo
 export const pickAndReadBackupFile = async (): Promise<string | null> => {
   if (Capacitor.isNativePlatform()) {
     try {
-      // Kullanıcının dosya seçmesini sağla
+      // 1. İzin kontrolü yap (Android 13+ ve altı için uyumluluk)
+      const permissions = await FilePicker.checkPermissions();
+      if (permissions.publicStorage !== 'granted') {
+        const request = await FilePicker.requestPermissions();
+        if (request.publicStorage !== 'granted') {
+          alert('Dosya seçebilmek için depolama izni vermeniz gerekmektedir.');
+          return null;
+        }
+      }
+
+      // 2. Kullanıcının dosya seçmesini sağla
       const result = await FilePicker.pickFiles({
-        types: ['application/json'], // Sadece JSON dosyalarını seç
+        types: ['application/json'], 
         multiple: false,
+        readData: true // Bazı durumlarda doğrudan veriyi okumak daha güvenlidir
       });
 
       if (result.files.length === 0) {
-        // Kullanıcı dosya seçmeyi iptal etti
-        alert('Dosya seçimi iptal edildi.');
         return null;
       }
 
       const file = result.files[0];
-      alert(`Seçilen dosya: ${file.name}, Yolu: ${file.path}`);
 
-      // Seçilen dosyanın içeriğini oku
-      const contents = await Filesystem.readFile({
-        path: file.path!,
-        encoding: Encoding.UTF8,
-      });
+      // 3. Veri doğrudan geldiyse onu kullan (Permission sorunlarını bypass eder)
+      if (file.data) {
+        // base64 gelmiş olabilir, kontrol et ve oku
+        return atob(file.data);
+      }
 
-      alert('Dosya içeriği başarıyla okundu.');
-      return contents.data as string; // İçeriği string olarak döndür
+      // 4. Veri gelmediyse dosya yolundan oku
+      if (file.path) {
+        const contents = await Filesystem.readFile({
+          path: file.path,
+          encoding: Encoding.UTF8,
+        });
+        return contents.data as string;
+      }
+
+      throw new Error('Dosya içeriğine ulaşılamadı.');
     } catch (error: any) {
       console.error('Dosya seçme veya okuma hatası:', error);
-      alert(`Yedekleme dosyası okunurken bir hata oluştu: ${error.message || error}`);
+      // Kullanıcı iptal ettiğinde hata gösterme
+      if (!error.message?.includes('pickFiles') && !error.message?.includes('canceled')) {
+        alert(`Yedekleme dosyası okunurken bir hata oluştu: ${error.message || error}`);
+      }
       return null;
     }
   } else {

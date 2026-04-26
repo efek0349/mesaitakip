@@ -21,7 +21,7 @@ import { googleDriveService } from './utils/googleDriveService';
 const App: React.FC = () => {
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
-  const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate } = useSalarySettings();
+  const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
   const { getHoliday } = useHolidays();
   useTheme(); // Tema yönetimini etkinleştir
   useAutoBackup(); // Otomatik yedekleme kontrolünü etkinleştir
@@ -61,10 +61,22 @@ const App: React.FC = () => {
   const handleShareMonthlyStats = useCallback(async () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const exportText = generateShareableSummaryText(year, month, monthlyData, settings, getHoliday);
+    
+    // O ay için tarihsel ayarları çek
+    const monthSalary = getSalaryForDate(currentDate);
+    const effectiveSettings = {
+      ...settings,
+      monthlyGrossSalary: monthSalary.monthlyGrossSalary,
+      bonus: monthSalary.bonus,
+      isSaturdayWork: monthSalary.isSaturdayWork ?? settings.isSaturdayWork,
+      shiftSystemEnabled: monthSalary.shiftSystemEnabled ?? settings.shiftSystemEnabled,
+      shiftSystemType: monthSalary.shiftSystemType ?? settings.shiftSystemType
+    };
+
+    const exportText = generateShareableSummaryText(year, month, monthlyData, effectiveSettings, getHoliday);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Özeti`;
     await shareText(exportText, title);
-  }, [currentDate, monthlyData, settings, getHoliday]);
+  }, [currentDate, monthlyData, settings, getHoliday, getSalaryForDate]);
 
   const handleClearMonthlyStats = useCallback(() => {
     const year = currentDate.getFullYear();
