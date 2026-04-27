@@ -14,8 +14,9 @@ interface OvertimeModalProps {
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen, onClose, selectedDate }) => {
   const { addOvertimeEntry, removeOvertimeEntry, getEntriesForDate } = useOvertimeData();
-  const { getOvertimeRate, settings } = useSalarySettings();
+  const { getOvertimeRate, settings, getHourlyRate } = useSalarySettings();
   const { getHoliday } = useHolidays();
+  
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [type, setType] = useState<'overtime' | 'leave'>('overtime');
@@ -89,17 +90,18 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
     setMinutes(newMinutes);
   };
 
-  if (!isOpen || !selectedDate) {
-    return null;
-  }
+  if (!isOpen || !selectedDate) return null;
 
-  const totalHours = (isFullDay && type === 'leave') ? (settings.isSaturdayWork ? 7.5 : 9) : (hours + minutes / 60);
-  const formattedDate = formatTurkishDate(selectedDate);
   const holiday = getHoliday(selectedDate);
+  const formattedDate = formatTurkishDate(selectedDate);
+  const isSaturday = selectedDate.getDay() === 6;
+  const isSunday = selectedDate.getDay() === 0;
+
+  const totalHours = (isFullDay && type === 'leave') ? settings.dailyWorkingHours : (hours + minutes / 60);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday);
-  const hourlyRate = settings.monthlyGrossSalary / settings.monthlyWorkingHours;
+  const hourlyRate = getHourlyRate(selectedDate);
   
-  const paymentHours = type === 'overtime' ? calculateEffectiveHours(totalHours, settings.deductBreakTime) : totalHours;
+  const paymentHours = type === 'overtime' ? calculateEffectiveHours(totalHours, settings.deductBreakTime, isSaturday, isSunday, !!holiday, settings.isSaturdayWork) : totalHours;
   const totalPayment = type === 'overtime' ? paymentHours * overtimeRate : paymentHours * hourlyRate;
 
   return (
@@ -166,7 +168,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
             <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-100 dark:border-orange-800/30">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-orange-800 dark:text-orange-200">Tam Gün İzinli</span>
-                <span className="text-xs text-orange-600 dark:text-orange-400">1 günlük ({settings.isSaturdayWork ? '7.5' : '9'} saat) yevmiye kesilir</span>
+                <span className="text-xs text-orange-600 dark:text-orange-400">1 günlük ({settings.dailyWorkingHours} saat) kesilir</span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -176,7 +178,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
                   onChange={(e) => {
                     setIsFullDay(e.target.checked);
                     if (e.target.checked) {
-                      const dailyHours = settings.isSaturdayWork ? 7.5 : 9;
+                      const dailyHours = settings.dailyWorkingHours;
                       setHours(Math.floor(dailyHours));
                       setMinutes((dailyHours % 1) * 60);
                     } else {

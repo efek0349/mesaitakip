@@ -34,6 +34,7 @@ export interface SalarySettings {
   deductBreakTime: boolean;
   showNextMonthDays: boolean;
   isSaturdayWork: boolean;
+  dailyWorkingHours: number;
   hasSalaryAttachment: boolean;
   salaryAttachmentRate: number;
   hasTES: boolean;

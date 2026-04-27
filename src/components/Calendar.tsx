@@ -52,6 +52,7 @@ const CalendarDay = React.memo(({
   onClick,
   deductBreakTime,
   isSaturdayWork,
+  dailyWorkingHours,
   shiftSettings
 }: { 
   date: Date;
@@ -65,6 +66,7 @@ const CalendarDay = React.memo(({
   onClick: (date: Date) => void;
   deductBreakTime: boolean;
   isSaturdayWork: boolean;
+  dailyWorkingHours: number;
   shiftSettings: {
     enabled: boolean;
     systemType: '2-shift' | '3-shift';
@@ -81,7 +83,7 @@ const CalendarDay = React.memo(({
     if (!entry) return 0;
     if (entry.type === 'leave') {
       if (entry.isFullDay) {
-        return isSaturdayWork ? 7.5 : 9;
+        return dailyWorkingHours;
       }
       return entry.totalHours;
     }
@@ -105,7 +107,7 @@ const CalendarDay = React.memo(({
           : 'text-gray-300 dark:text-gray-600 cursor-not-allowed border-transparent'
         }
         ${!isTodayDate && isHolidayDate && isInCurrentMonth
-          ? getHolidayColorClass(holiday) + ' dark:bg-opacity-30'
+          ? getHolidayColorClass(holiday!) + ' dark:bg-opacity-30'
           : !isTodayDate && !isHolidayDate && isSaturday && isInCurrentMonth
           ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-800/50'
           : !isTodayDate && !isHolidayDate && isSunday && isInCurrentMonth
@@ -214,8 +216,10 @@ const CalendarDay = React.memo(({
          prev.isSunday === next.isSunday &&
          prev.deductBreakTime === next.deductBreakTime &&
          prev.isSaturdayWork === next.isSaturdayWork &&
+         prev.dailyWorkingHours === next.dailyWorkingHours &&
          prev.date.getTime() === next.date.getTime() &&
          prev.overtimeEntries.length === next.overtimeEntries.length &&
+         prev.holiday?.name === next.holiday?.name &&
          JSON.stringify(prev.shiftSettings) === JSON.stringify(next.shiftSettings) &&
          // Deep check for overtime entries content
          prev.overtimeEntries.every((e, i) => 
@@ -433,6 +437,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
               onClick={handleDateClick}
               deductBreakTime={settings.deductBreakTime}
               isSaturdayWork={settings.isSaturdayWork}
+              dailyWorkingHours={settings.dailyWorkingHours}
               shiftSettings={{
                 enabled: settings.shiftSystemEnabled,
                 systemType: settings.shiftSystemType || '2-shift',

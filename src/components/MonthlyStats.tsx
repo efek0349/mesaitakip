@@ -3,7 +3,7 @@ import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle } from 'l
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey, parseDate } from '../utils/dateUtils';
+import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey, parseDate, calculateMonthlyAllowances } from '../utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent } from '../utils/fileUtils';
 import { showToast } from '../utils/toastUtils';
 
@@ -57,7 +57,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
       if (entry.type === 'leave') {
         let deduction = 0;
         if (entry.isFullDay) {
-          const dailyHours = isSaturdayWork ? 7.5 : 9;
+          const dailyHours = settings.dailyWorkingHours;
           const hourlyRate = getHourlyRate(entryDate);
           deduction = dailyHours * hourlyRate;
           stats.leave.hours += dailyHours;
@@ -92,48 +92,10 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     return stats;
   }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData]);
 
-  // AKILLI YEMEK/YOL HESAPLAMA
+  // AKILLI YEMEK/YOL HESAPLAMA - Merkezi fonksiyona taşındı
   const allowanceData = useMemo(() => {
-    let totalAllowance = 0;
-    let earnedDays = 0;
-
-    // Fiyat geçmişine göre o günkü fiyatı bul
-    const getRateForDate = (dateStr: string) => {
-      const history = [...(settings.allowanceHistory || [])].sort((a, b) => b.date.localeCompare(a.date));
-      const found = history.find(h => h.date <= dateStr);
-      return found || { meal: settings.dailyMealAllowance || 0, travel: settings.dailyTravelAllowance || 0 };
-    };
-
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
-      const dateStr = getDateKey(date);
-      const dayOfWeek = date.getDay();
-      const isDateHoliday = !!getHoliday(date);
-      const dayEntries = monthlyEntries.filter(e => e.date === dateStr);
-      
-      const hasOvertime = dayEntries.some(e => e.type === 'overtime' && (e.totalHours || 0) > 0);
-      const isFullDayLeave = dayEntries.some(e => e.type === 'leave' && e.isFullDay);
-      
-      // Standart iş günü mü? (Cumartesi ayarına göre)
-      const isStandardWorkDay = isSaturdayWork 
-        ? (dayOfWeek !== 0) // Pazar hariç hepsi
-        : (dayOfWeek !== 0 && dayOfWeek !== 6); // Hafta sonu hariç hepsi
-
-      // HAKEDİŞ MANTIĞI:
-      // 1. Eğer o gün herhangi bir mesai (overtime) varsa -> HAK EDER.
-      // 2. Eğer standart iş günü ise VE tatil değilse VE tam gün izinli değilse -> HAK EDER.
-      const shouldGetAllowance = hasOvertime || (isStandardWorkDay && !isDateHoliday && !isFullDayLeave);
-
-      if (shouldGetAllowance) {
-        const rate = getRateForDate(dateStr);
-        totalAllowance += (Number(rate.meal) + Number(rate.travel));
-        earnedDays++;
-      }
-    }
-
-    return { total: totalAllowance, days: earnedDays };
-  }, [year, month, monthlyEntries, getHoliday, isSaturdayWork, settings.dailyMealAllowance, settings.dailyTravelAllowance, settings.allowanceHistory, monthlyData]);
+    return calculateMonthlyAllowances(year, month, monthlyData, settings, getHoliday);
+  }, [year, month, monthlyData, settings, getHoliday]);
 
   if (isLoading) {
     return (

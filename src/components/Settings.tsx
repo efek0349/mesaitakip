@@ -88,7 +88,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
 
   const handleInputChange = (field: keyof SalarySettingsType, value: any) => {
     // Sayısal alanlar için özel kontrol
-    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field === 'tesRate' || field === 'salaryAttachmentRate' || field === 'dailyMealAllowance' || field === 'dailyTravelAllowance' || field.toString().includes('Multiplier')) {
+    if (field === 'monthlyGrossSalary' || field === 'bonus' || field === 'monthlyWorkingHours' || field === 'dailyWorkingHours' || field === 'tesRate' || field === 'salaryAttachmentRate' || field === 'dailyMealAllowance' || field === 'dailyTravelAllowance' || field.toString().includes('Multiplier')) {
       // Sadece rakam ve nokta/virgül izni ver, virgülü noktaya çevir
       let stringValue = String(value).replace(/[^0-9.,]/g, '').replace(',', '.');
       
@@ -101,6 +101,17 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
       setFormData(prev => ({ ...prev, [field]: stringValue as any }));
       return;
     }
+
+    if (field === 'isSaturdayWork') {
+      const isWorking = !!value;
+      setFormData(prev => ({ 
+        ...prev, 
+        isSaturdayWork: isWorking,
+        dailyWorkingHours: isWorking ? 7.5 : 9
+      }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -485,16 +496,29 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Çalışma Saati</label>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  value={formData.monthlyWorkingHours} 
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} 
-                  className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Aylık Çalışma Saati</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.monthlyWorkingHours} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Günlük Çalışma Saati</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={formData.dailyWorkingHours} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} 
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

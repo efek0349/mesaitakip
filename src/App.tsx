@@ -64,6 +64,8 @@ const App: React.FC = () => {
     
     // O ay için tarihsel ayarları çek
     const monthSalary = getSalaryForDate(currentDate);
+    
+    // effectiveSettings'i callback içinde oluşturarak en güncel halini almasını sağlıyoruz
     const effectiveSettings = {
       ...settings,
       monthlyGrossSalary: monthSalary.monthlyGrossSalary,
@@ -73,6 +75,7 @@ const App: React.FC = () => {
       shiftSystemType: monthSalary.shiftSystemType ?? settings.shiftSystemType
     };
 
+    // generateShareableSummaryText fonksiyonuna giden monthlyData'nın taze olduğundan eminiz
     const exportText = generateShareableSummaryText(year, month, monthlyData, effectiveSettings, getHoliday);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Özeti`;
     await shareText(exportText, title);
