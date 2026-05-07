@@ -1,15 +1,21 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { APP_VERSION } from '../components/AboutModal';
-import { showToast } from '../utils/toastUtils';
 
 const API_URL = 'https://api.github.com/repos/efek0349/mesaitakip/releases/latest';
-const REPO_URL = 'https://github.com/efek0349/mesaitakip/releases';
 
 export const useUpdateCheck = () => {
+  const [updateInfo, setUpdateInfo] = useState<{
+    hasUpdate: boolean;
+    latestVersion: string;
+  }>({
+    hasUpdate: false,
+    latestVersion: '',
+  });
+
   useEffect(() => {
     const checkUpdate = async () => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Biraz daha toleranslı bir timeout
 
       try {
         const response = await fetch(API_URL, { 
@@ -40,26 +46,23 @@ export const useUpdateCheck = () => {
         };
 
         if (latestVersion && compareVersions(latestVersion, APP_VERSION) === 1) {
-          showToast(
-            `Yeni bir güncelleme mevcut: v${latestVersion}`,
-            'update',
-            10000,
-            {
-              action: {
-                label: 'İndir',
-                onClick: () => window.open(REPO_URL, '_blank')
-              }
-            }
-          );
+          setUpdateInfo({
+            hasUpdate: true,
+            latestVersion
+          });
         }
       } catch (error) {
-        // Sessizce başarısız ol, kullanıcıyı rahatsız etme
-        console.warn('Update check failed (network error)');
+        // Sessizce başarısız ol, arka planda olduğu için kullanıcı hissetmez
+        console.warn('Background update check failed:', error);
       }
     };
 
-    // Uygulama başladıktan 3 saniye sonra kontrol et
+    // Uygulama başladıktan 3 saniye sonra sessizce kontrol et
     const timer = setTimeout(checkUpdate, 3000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, []);
+
+  return updateInfo;
 };

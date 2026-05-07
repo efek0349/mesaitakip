@@ -22,8 +22,14 @@ export const useTheme = () => {
     // Mevcut temaya göre <html> elementine class ekle/kaldır
     if (theme === 'dark') {
       root.classList.add('dark');
+      // Meta etiketlerini güncelle
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#000000');
+      document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', 'dark');
     } else {
       root.classList.remove('dark');
+      // Meta etiketlerini güncelle
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#3B82F6');
+      document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', 'light');
     }
 
     // Tema değişikliğini localStorage'a kaydet

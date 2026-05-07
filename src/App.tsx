@@ -5,6 +5,7 @@ import { OvertimeModal } from './components/OvertimeModal';
 import { Settings } from './components/Settings';
 import { AboutModal } from './components/AboutModal';
 import { DataBackupModal } from './components/DataBackupModal';
+import { UpdateModal } from './components/UpdateModal';
 import { Toast } from './components/Toast';
 import { ActionIcons } from './components/ActionIcons';
 import { useOvertimeData } from './hooks/useOvertimeData';
@@ -23,9 +24,9 @@ const App: React.FC = () => {
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
   const { getHoliday } = useHolidays();
+  const updateInfo = useUpdateCheck();
   useTheme(); // Tema yönetimini etkinleştir
   useAutoBackup(); // Otomatik yedekleme kontrolünü etkinleştir
-  useUpdateCheck(); // Güncelleme kontrolünü etkinleştir
 
   // Google Drive session recovery on start
   React.useEffect(() => {
@@ -38,6 +39,14 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isDataBackupOpen, setIsDataBackupOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+
+  // Update modal auto-show
+  React.useEffect(() => {
+    if (updateInfo.hasUpdate) {
+      setIsUpdateModalOpen(true);
+    }
+  }, [updateInfo.hasUpdate]);
   
   // Memoized callbacks for better performance
   const handleDateClick = useCallback((date: Date) => {
@@ -177,6 +186,12 @@ const App: React.FC = () => {
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentDate={currentDate} />
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
       <DataBackupModal isOpen={isDataBackupOpen} onClose={() => setIsDataBackupOpen(false)} />
+      <UpdateModal 
+        isOpen={isUpdateModalOpen} 
+        onClose={() => setIsUpdateModalOpen(false)} 
+        version={updateInfo.latestVersion}
+        onDownload={() => window.open('https://github.com/efek0349/mesaitakip/releases', '_blank')}
+      />
       <Toast />
     </div>
   );
