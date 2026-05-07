@@ -9,6 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="theme-color" content="#3B82F6" />
+    <meta name="color-scheme" content="light dark" />
 
     <!-- Android için özel meta etiketleri -->
     <meta name="android-app-capable" content="yes" />
@@ -22,13 +23,16 @@
         try {
           var savedTheme = localStorage.getItem('theme');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+          var theme = savedTheme || (prefersDark ? 'dark' : 'light');
+          
+          if (theme === 'dark') {
             document.documentElement.classList.add('dark');
-            // Theme color for dark mode (corresponds to dark-bg / gray-900)
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#000000');
+            document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'dark');
           } else {
             document.documentElement.classList.remove('dark');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#3B82F6');
+            document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'light');
           }
         } catch (e) {}
       })();
@@ -56,8 +60,8 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="/mesaitakip/assets/index-B8jPGahN.js"></script>
-    <link rel="stylesheet" crossorigin href="/mesaitakip/assets/index-8iQtEIOq.css">
+    <script type="module" crossorigin src="/mesaitakip/assets/index-D0zvPp_6.js"></script>
+    <link rel="stylesheet" crossorigin href="/mesaitakip/assets/index-BBoKcZ-4.css">
   </head>
   <body>
     <div id="root"></div>
