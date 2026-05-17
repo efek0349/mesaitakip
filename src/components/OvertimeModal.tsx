@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Clock, Edit3 } from 'lucide-react';
+import { X, Plus, Minus, Clock, Edit3, Info, Sun, Moon } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatTurkishDate, calculateEffectiveHours } from '../utils/dateUtils';
+import { formatTurkishDate, calculateEffectiveHours, getShiftType, getNormalizedShiftStartDate, getWeekWorkDays, getDateKey, getMonthKey } from '../utils/dateUtils';
 import { getHolidayColorClass } from '../utils/holidayUtils';
 
 interface OvertimeModalProps {
@@ -13,7 +13,8 @@ interface OvertimeModalProps {
 }
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen, onClose, selectedDate }) => {
-  const { addOvertimeEntry, removeOvertimeEntry, getEntriesForDate } = useOvertimeData();
+  // 1. Tüm Hook'lar (Her zaman aynı sırada çağrılmalı)
+  const { addOvertimeEntry, removeOvertimeEntry, getEntriesForDate, monthlyData } = useOvertimeData();
   const { getOvertimeRate, settings, getHourlyRate } = useSalarySettings();
   const { getHoliday } = useHolidays();
   
@@ -25,9 +26,59 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const [showNoteSection, setShowNoteSection] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const existingEntries = selectedDate ? getEntriesForDate(selectedDate) : [];
+  // Mevcut kayıtları bul (selectedDate null olsa bile hook kuralları gereği burada)
+  const existingEntries = React.useMemo(() => 
+    selectedDate ? getEntriesForDate(selectedDate) : [], 
+    [selectedDate, getEntriesForDate]
+  );
   const existingEntryForCurrentType = existingEntries.find(e => e.type === type);
 
+  // Vardiya Bilgisi
+  const shiftType = React.useMemo(() => {
+    if (!selectedDate || !settings.shiftSystemEnabled || !settings.shiftStartDate) return null;
+    const normalized = getNormalizedShiftStartDate(settings.shiftStartDate);
+    return getShiftType(selectedDate, normalized, settings.shiftInitialType, settings.shiftSystemType);
+  }, [selectedDate, settings]);
+
+  // Haftalık saat hesaplama (Pazar için katsayı belirlemek üzere)
+  const weeklyHours = React.useMemo(() => {
+    if (!selectedDate || selectedDate.getDay() !== 0) return undefined;
+
+    const weekDays = getWeekWorkDays(selectedDate);
+    let total = 0;
+
+    weekDays.forEach(day => {
+      const dayKey = getDateKey(day);
+      const dayMonthKey = getMonthKey(day);
+      const dayEntries = (monthlyData[dayMonthKey] || []).filter((e: any) => e.date === dayKey);
+      
+      const overtimeEntry = dayEntries.find((e: any) => e.type === 'overtime');
+      const leaveEntry = dayEntries.find((e: any) => e.type === 'leave');
+
+      const dayIsSaturday = day.getDay() === 6;
+      const isStandardWorkDay = settings.isSaturdayWork ? true : !dayIsSaturday;
+
+      let dayWorkedHours = 0;
+      if (isStandardWorkDay) {
+        dayWorkedHours = settings.dailyWorkingHours;
+        if (leaveEntry?.isFullDay) {
+          dayWorkedHours = 0;
+        } else if (leaveEntry) {
+          dayWorkedHours = Math.max(0, dayWorkedHours - (leaveEntry.totalHours || 0));
+        }
+      }
+
+      if (overtimeEntry) {
+        dayWorkedHours += (overtimeEntry.totalHours || 0);
+      }
+
+      total += dayWorkedHours;
+    });
+
+    return total;
+  }, [selectedDate, monthlyData, settings.isSaturdayWork, settings.dailyWorkingHours]);
+
+  // Form verilerini senkronize et
   useEffect(() => {
     if (isOpen) {
       if (existingEntryForCurrentType) {
@@ -47,6 +98,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
     }
   }, [isOpen, type, existingEntryForCurrentType]);
 
+  // Not bölümü odaklanması
   useEffect(() => {
     if (showNoteSection) {
       const timer = setTimeout(() => {
@@ -56,6 +108,22 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
       return () => clearTimeout(timer);
     }
   }, [showNoteSection]);
+
+  // 2. Erken Return (Tüm hooklardan sonra olmalı!)
+  if (!isOpen || !selectedDate) return null;
+
+  // 3. Hesaplamalar ve İşleyiciler
+  const holiday = getHoliday(selectedDate);
+  const formattedDate = formatTurkishDate(selectedDate);
+  const isSaturday = selectedDate.getDay() === 6;
+  const isSunday = selectedDate.getDay() === 0;
+
+  const totalHours = (isFullDay && type === 'leave') ? settings.dailyWorkingHours : (hours + minutes / 60);
+  const overtimeRate = getOvertimeRate(selectedDate, !!holiday, weeklyHours);
+  const hourlyRate = getHourlyRate(selectedDate);
+  
+  const paymentHours = type === 'overtime' ? calculateEffectiveHours(totalHours, settings.deductBreakTime, isSaturday, isSunday, !!holiday, settings.isSaturdayWork) : totalHours;
+  const totalPayment = type === 'overtime' ? paymentHours * overtimeRate : paymentHours * hourlyRate;
 
   const handleSave = () => {
     if (selectedDate) {
@@ -90,19 +158,70 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
     setMinutes(newMinutes);
   };
 
-  if (!isOpen || !selectedDate) return null;
+  // Arife Bilgi Paneli İçeriği
+  const renderHalfDayInfo = () => {
+    if (!holiday?.isHalfDay) return null;
 
-  const holiday = getHoliday(selectedDate);
-  const formattedDate = formatTurkishDate(selectedDate);
-  const isSaturday = selectedDate.getDay() === 6;
-  const isSunday = selectedDate.getDay() === 0;
+    let message = "Resmi tatil bugün saat 13:00'te başlamaktadır.";
+    let subMessage = "Bu saatten sonraki çalışmalar bayram mesaisi sayılır.";
+    let icon = <Info className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
 
-  const totalHours = (isFullDay && type === 'leave') ? settings.dailyWorkingHours : (hours + minutes / 60);
-  const overtimeRate = getOvertimeRate(selectedDate, !!holiday);
-  const hourlyRate = getHourlyRate(selectedDate);
-  
-  const paymentHours = type === 'overtime' ? calculateEffectiveHours(totalHours, settings.deductBreakTime, isSaturday, isSunday, !!holiday, settings.isSaturdayWork) : totalHours;
-  const totalPayment = type === 'overtime' ? paymentHours * overtimeRate : paymentHours * hourlyRate;
+    if (shiftType) {
+      if (shiftType === 'night') {
+        message = "Gece vardiyası 13:00'ten sonra başladığı için tamamı bayram sayılır.";
+        subMessage = "Bu geceki çalışmanızın tamamı resmi tatil mesaisi (katsayılı) olarak hesaplanmalıdır.";
+        icon = <Moon className="w-5 h-5 text-indigo-500" />;
+      } else if (shiftType === 'afternoon') {
+        message = "Öğle vardiyası 13:00'ten sonra başladığı için tamamı bayram sayılır.";
+        subMessage = "Vardiya başlangıcınız tatil saatine denk geldiği için mesainiz bayram statüsündedir.";
+        icon = <Sun className="w-5 h-5 text-yellow-500" />;
+      } else if (shiftType === 'morning' || shiftType === 'day') {
+        message = "Sabah vardiyası için tatil 13:00'te başlar.";
+        subMessage = "13:00'e kadar normal, 13:00'ten sonraki saatleriniz bayram mesaisi sayılır.";
+        icon = <Sun className="w-5 h-5 text-orange-500" />;
+      }
+    }
+
+    return (
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-3 flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="mt-0.5">{icon}</div>
+        <div className="flex-1">
+          <p className="text-xs font-bold text-amber-900 dark:text-amber-200">{message}</p>
+          <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">{subMessage}</p>
+        </div>
+      </div>
+    );
+  };
+
+  // Pazar Mesaisi Bilgi Paneli
+  const renderSundayInfo = () => {
+    if (!isSunday || !!holiday) return null;
+
+    const isQualified = weeklyHours !== undefined && weeklyHours >= 45;
+    
+    return (
+      <div className={`border rounded-xl p-3 flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-300 ${
+        isQualified 
+          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40' 
+          : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40'
+      }`}>
+        <div className="mt-0.5">
+          <Info className={`w-5 h-5 ${isQualified ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`} />
+        </div>
+        <div className="flex-1">
+          <p className={`text-xs font-bold ${isQualified ? 'text-green-900 dark:text-green-200' : 'text-blue-900 dark:text-blue-200'}`}>
+            Pazar Mesaisi Katsayısı: {isQualified ? '2.5x' : '2.0x'}
+          </p>
+          <p className={`text-[10px] mt-0.5 ${isQualified ? 'text-green-700 dark:text-green-400' : 'text-blue-700 dark:text-blue-400'}`}>
+            Haftalık çalışma süreniz: <span className="font-bold">{weeklyHours?.toFixed(1)} sa</span>. 
+            {isQualified 
+              ? ' 45 saati aştığınız için 2.5 katı uygulanıyor.' 
+              : ' 45 saatin altında kaldığınız için 2.0 katı uygulanıyor.'}
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 h-screen-dynamic hardware-accelerated">
@@ -119,6 +238,10 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Bilgi Panelleri */}
+          {renderHalfDayInfo()}
+          {renderSundayInfo()}
+
           {/* Type Toggle */}
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
             <button

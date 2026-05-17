@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, FileText, Sun, Moon } from 'lucide-react';
-import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours, calculateEffectiveHours } from '../utils/dateUtils';
+import { TURKISH_MONTHS, TURKISH_DAYS, getCalendarDays, formatHours, calculateEffectiveHours, getShiftType, getNormalizedShiftStartDate } from '../utils/dateUtils';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useHolidays } from '../hooks/useHolidays';
 import { useSalarySettings } from '../hooks/useSalarySettings';
@@ -12,32 +12,6 @@ interface CalendarProps {
   onDateChange: (date: Date) => void;
   onDateClick: (date: Date) => void;
 }
-
-// Vardiya hesaplama fonksiyonu - Optimize edildi (Parse işlemi dışarıda yapılmalı)
-const getShiftType = (date: Date, normalizedStartDate: Date, initialType: 'day' | 'night' | 'morning' | 'afternoon', systemType: '2-shift' | '3-shift' = '2-shift') => {
-  const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  
-  const diffInTime = dateObj.getTime() - normalizedStartDate.getTime();
-  const diffInDays = Math.round(diffInTime / (1000 * 3600 * 24)); // Round daha güvenli
-  const diffInWeeks = Math.floor(diffInDays / 7);
-  
-  if (systemType === '3-shift') {
-    const sequence: ('morning' | 'afternoon' | 'night')[] = ['morning', 'afternoon', 'night'];
-    let startIndex = 0;
-    if (initialType === 'afternoon') startIndex = 1;
-    if (initialType === 'night') startIndex = 2;
-    
-    const currentIndex = (startIndex + (diffInWeeks % 3) + 3) % 3;
-    return sequence[currentIndex];
-  } else {
-    const isOpposite = Math.abs(diffInWeeks) % 2 === 1;
-    if (initialType === 'day' || initialType === 'morning') {
-      return isOpposite ? 'night' : 'day';
-    } else {
-      return isOpposite ? 'day' : 'night';
-    }
-  }
-};
 
 // Memoized CalendarDay component for better performance
 const CalendarDay = React.memo(({ 
@@ -150,14 +124,16 @@ const CalendarDay = React.memo(({
 
       {/* Tatil etiketi */}
       {holiday && isInCurrentMonth && (
-        <div className={`absolute top-0 left-0 text-xs px-1 rounded-br font-medium ${
+        <div className={`absolute top-0 left-0 text-[10px] sm:text-xs px-1 rounded-br font-bold shadow-sm ${
           isTodayDate 
             ? 'bg-white/90 text-blue-600' 
+            : holiday.isHalfDay
+            ? 'bg-amber-500 text-white'
             : holiday.type === 'religious'
             ? 'bg-white/90 text-green-700'
             : 'bg-white/90 text-red-700'
         }`}>
-          {holiday.shortName}
+          {holiday.shortName}{holiday.isHalfDay ? ' ½' : ''}
         </div>
       )}
       
@@ -287,13 +263,7 @@ export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDa
   // Vardiya başlangıç tarihini bir kez hesapla (O(1) vs O(42))
   const normalizedShiftStartDate = React.useMemo(() => {
     if (!settings.shiftSystemEnabled || !settings.shiftStartDate) return null;
-    const startParts = settings.shiftStartDate.split('-').map(Number);
-    const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-    const startDay = startDate.getDay();
-    const diffToMonday = startDay === 0 ? -6 : 1 - startDay;
-    const normalized = new Date(startDate);
-    normalized.setDate(startDate.getDate() + diffToMonday);
-    return normalized;
+    return getNormalizedShiftStartDate(settings.shiftStartDate);
   }, [settings.shiftSystemEnabled, settings.shiftStartDate]);
 
   // Memoize calendar days calculation with proper dependency tracking

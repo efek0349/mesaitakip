@@ -3,7 +3,7 @@ import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle } from 'l
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
-import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey, parseDate, calculateMonthlyAllowances } from '../utils/dateUtils';
+import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, getDateKey, parseDate, calculateMonthlyAllowances, getWeekWorkDays, getMonthKey } from '../utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent } from '../utils/fileUtils';
 import { showToast } from '../utils/toastUtils';
 
@@ -14,6 +14,7 @@ interface MonthlyStatsProps {
 }
 
 export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenSettings, onOpenDataBackup }) => {
+  const [showLimitInfo, setShowLimitInfo] = React.useState(false);
   // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getYearlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, getHourlyRate, getSalaryForDate, settings, isLoaded: salaryLoaded } = useSalarySettings();
@@ -35,6 +36,42 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
 
   // Loading flag
   const isLoading = !dataLoaded || !salaryLoaded;
+
+  // Haftalık saat hesaplama yardımcısı
+  const calculateWeeklyHoursForSunday = useMemo(() => (sundayDate: Date) => {
+    const weekDays = getWeekWorkDays(sundayDate);
+    let totalWeeklyHours = 0;
+
+    weekDays.forEach(day => {
+      const dayKey = getDateKey(day);
+      const dayMonthKey = getMonthKey(day);
+      const dayEntries = (monthlyData[dayMonthKey] || []).filter((e: any) => e.date === dayKey);
+      
+      const overtimeEntry = dayEntries.find((e: any) => e.type === 'overtime');
+      const leaveEntry = dayEntries.find((e: any) => e.type === 'leave');
+
+      const isSaturday = day.getDay() === 6;
+      const isStandardWorkDay = isSaturdayWork ? true : !isSaturday;
+
+      let dayWorkedHours = 0;
+      if (isStandardWorkDay) {
+        dayWorkedHours = settings.dailyWorkingHours;
+        if (leaveEntry?.isFullDay) {
+          dayWorkedHours = 0;
+        } else if (leaveEntry) {
+          dayWorkedHours = Math.max(0, dayWorkedHours - leaveEntry.totalHours);
+        }
+      }
+
+      if (overtimeEntry) {
+        dayWorkedHours += overtimeEntry.totalHours;
+      }
+
+      totalWeeklyHours += dayWorkedHours;
+    });
+
+    return totalWeeklyHours;
+  }, [monthlyData, isSaturdayWork, settings.dailyWorkingHours]);
 
   // Memoize overtime stats calculation - Veri değişimini (monthlyData) buraya da ekledik
   const overtimeStats = useMemo(() => {
@@ -70,7 +107,13 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
         stats.leave.deduction += deduction;
       } else {
         const effectiveHours = calculateEffectiveHours(entry.totalHours || 0, settings.deductBreakTime, isSaturday, isSunday, isHolidayDate, isSaturdayWork);
-        const overtimeRate = getOvertimeRate(entryDate, isHolidayDate);
+        
+        let weeklyHours = undefined;
+        if (isSunday && !isHolidayDate) {
+          weeklyHours = calculateWeeklyHoursForSunday(entryDate);
+        }
+
+        const overtimeRate = getOvertimeRate(entryDate, isHolidayDate, weeklyHours);
         const payment = effectiveHours * (overtimeRate || 0);
 
         if (isHolidayDate) {
@@ -90,7 +133,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
     });
 
     return stats;
-  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData, calculateWeeklyHoursForSunday, settings.dailyWorkingHours]);
 
   // AKILLI YEMEK/YOL HESAPLAMA - Merkezi fonksiyona taşındı
   const allowanceData = useMemo(() => {
@@ -172,7 +215,10 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
               </div>
 
               <div className="space-y-1.5 sm:space-y-2">
-                <div className={`flex flex-col gap-1 p-2 sm:p-3 rounded-xl border transition-colors ${isOverLimit ? 'bg-red-500/20 border-red-400/40' : 'bg-white/10 border-white/10'}`}>
+                <div 
+                  onClick={() => setShowLimitInfo(true)}
+                  className={`flex flex-col gap-1 p-2 sm:p-3 rounded-xl border transition-all cursor-pointer active:scale-95 ${isOverLimit ? 'bg-red-500/20 border-red-400/40' : 'bg-white/10 border-white/10 hover:bg-white/20'}`}
+                >
                   <div className="flex items-center gap-2">
                     <Shield className={`w-3.5 h-3.5 ${isOverLimit ? 'text-red-300 animate-pulse' : 'text-indigo-200'}`} />
                     <div className="flex flex-col">
@@ -333,6 +379,30 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
             </div>
           )}
         </div>
+
+        {/* 270 Saat Bilgi Modalı */}
+        {showLimitInfo && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xs shadow-2xl p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                  <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Yasal Sınır Bilgisi</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  İş Kanunu'nun 41'nci maddesinde, yıllık fazla çalışma süresinin bir yılda <span className="font-bold text-blue-600 dark:text-blue-400">270 saati aşamayacağı</span> belirtilmiştir!
+                </p>
+                <button
+                  onClick={() => setShowLimitInfo(false)}
+                  className="mt-6 w-full py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-bold active:scale-95 transition-transform"
+                >
+                  Anladım
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
 };

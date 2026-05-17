@@ -58,4 +58,5 @@ export interface Holiday {
   name: string;
   type: 'religious' | 'official';
   shortName: string;
+  isHalfDay?: boolean; // Yarım gün (Arife) mi?
 }

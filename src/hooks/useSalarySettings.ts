@@ -189,13 +189,25 @@ export const useSalarySettings = () => {
     return Number(salary.monthlyGrossSalary) / workingHours;
   }, [settingsMemo, getSalaryForDate]);
 
-  const getOvertimeRate = React.useCallback((date: Date, isHoliday: boolean = false) => {
+  const getOvertimeRate = React.useCallback((date: Date, isHoliday: boolean = false, weeklyHours?: number) => {
     const grossHourlyRate = getHourlyRate(date);
     if (grossHourlyRate === 0) return 0;
+    
     let multiplier = globalSettings.weekdayMultiplier;
-    if (isHoliday) multiplier = globalSettings.holidayMultiplier;
-    else if (date.getDay() === 0) multiplier = globalSettings.sundayMultiplier;
-    else if (date.getDay() === 6) multiplier = globalSettings.saturdayMultiplier;
+    
+    if (isHoliday) {
+      multiplier = globalSettings.holidayMultiplier;
+    } else if (date.getDay() === 0) {
+      // Pazar günü için dinamik katsayı: 45 saat altı ise 2.0, değilse ayarlı katsayı (2.5)
+      if (weeklyHours !== undefined && weeklyHours < 45) {
+        multiplier = 2.0;
+      } else {
+        multiplier = globalSettings.sundayMultiplier;
+      }
+    } else if (date.getDay() === 6) {
+      multiplier = globalSettings.saturdayMultiplier;
+    }
+    
     return Math.max(0, grossHourlyRate * multiplier);
   }, [getHourlyRate, settingsMemo]);
 

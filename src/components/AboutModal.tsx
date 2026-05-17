@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Info, Github, Code, Check } from 'lucide-react';
 import Game2048 from './Game2048';
+import SudokuGame from './SudokuGame';
+import WordSearchGame from './WordSearchGame';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -20,9 +22,11 @@ const FeatureItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </li>
 );
 
-export const APP_VERSION = '1.1.4';
+export const APP_VERSION = '1.1.5';
 
 export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
+  const [activeGame, setActiveGame] = useState<'2048' | 'sudoku' | 'wordsearch'>('2048');
+
   if (!isOpen) return null;
 
   return (
@@ -97,9 +101,35 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
 
           {/* Game Section */}
           <div>
-            <SectionTitle>Biraz da Eğlence: 2048</SectionTitle>
+            <div className="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-white">
+                Biraz da Eğlence
+              </h3>
+              <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                <button
+                  onClick={() => setActiveGame('2048')}
+                  className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${activeGame === '2048' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  2048
+                </button>
+                <button
+                  onClick={() => setActiveGame('sudoku')}
+                  className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${activeGame === 'sudoku' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  Sudoku
+                </button>
+                <button
+                  onClick={() => setActiveGame('wordsearch')}
+                  className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${activeGame === 'wordsearch' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  Kelime
+                </button>
+              </div>
+            </div>
             <div className="mt-4">
-              <Game2048 />
+              {activeGame === '2048' && <Game2048 />}
+              {activeGame === 'sudoku' && <SudokuGame />}
+              {activeGame === 'wordsearch' && <WordSearchGame />}
             </div>
           </div>
         </div>

@@ -636,13 +636,18 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Pazar</label>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Pazar (45s Üstü)</label>
                     <input 
-                      type="number" 
+                      type="text"
+                      inputMode="decimal"
                       value={formData.sundayMultiplier} 
-                      onChange={(e) => handleInputChange('sundayMultiplier', Number(e.target.value))} 
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => handleInputChange('sundayMultiplier', e.target.value)} 
                       className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white" 
                     />
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1 italic leading-tight">
+                      * 45 saati aşan haftalarda bu katsayı, aşmayanlarda ise yasal 2.0 katsayısı uygulanır.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Resmi Tatil</label>

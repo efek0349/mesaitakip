@@ -5,32 +5,39 @@ export interface Holiday {
   name: string;
   type: 'religious' | 'official';
   shortName: string;
+  isHalfDay?: boolean; // Yarım gün (Arife) mi?
 }
 
 // Sabit dini tatil tarihleri (2025-2035)
 const RELIGIOUS_HOLIDAYS_DATA: Holiday[] = [
   // 2025
+  { date: '2025-03-29', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2025-03-30', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2025-03-31', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2025-04-01', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2025-06-05', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2025-06-06', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2025-06-07', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2025-06-08', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2025-06-09', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2026
+  { date: '2026-03-19', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2026-03-20', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2026-03-21', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2026-03-22', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2026-05-26', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2026-05-27', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2026-05-28', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2026-05-29', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2026-05-30', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2027
+  { date: '2027-03-08', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2027-03-09', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2027-03-10', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2027-03-11', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2027-05-15', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2027-05-16', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2027-05-17', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2027-05-18', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
@@ -155,6 +162,13 @@ export function getOfficialHolidays(year: number): Holiday[] {
       shortName: "30 Ağustos"
     },
     {
+      date: `${year}-10-28`,
+      name: "Cumhuriyet Bayramı Arifesi",
+      type: "official",
+      shortName: "28 Eki",
+      isHalfDay: true
+    },
+    {
       date: `${year}-10-29`,
       name: "29 Ekim Cumhuriyet Bayramı",
       type: "official",
@@ -194,9 +208,12 @@ export function isHoliday(date: Date): Holiday | null {
 
 // Tatil tipine göre renk sınıfı döndür
 export function getHolidayColorClass(holiday: Holiday): string {
+  if (holiday.isHalfDay) {
+    return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800/50';
+  }
   if (holiday.type === 'religious') {
-    return 'bg-green-100 text-green-700'; // Dini tatiller yeşil
+    return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300';
   } else {
-    return 'bg-red-100 text-red-700'; // Resmi tatiller kırmızı
+    return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
   }
 }

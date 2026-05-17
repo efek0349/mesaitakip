@@ -131,6 +131,60 @@ export const formatHours = (totalHours: number): string => {
   }
 };
 
+// Vardiya hesaplama fonksiyonu
+export const getShiftType = (date: Date, normalizedStartDate: Date, initialType: 'day' | 'night' | 'morning' | 'afternoon', systemType: '2-shift' | '3-shift' = '2-shift') => {
+  const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  const diffInTime = dateObj.getTime() - normalizedStartDate.getTime();
+  const diffInDays = Math.round(diffInTime / (1000 * 3600 * 24));
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  
+  if (systemType === '3-shift') {
+    const sequence: ('morning' | 'afternoon' | 'night')[] = ['morning', 'afternoon', 'night'];
+    let startIndex = 0;
+    if (initialType === 'afternoon') startIndex = 1;
+    if (initialType === 'night') startIndex = 2;
+    
+    const currentIndex = (startIndex + (diffInWeeks % 3) + 3) % 3;
+    return sequence[currentIndex];
+  } else {
+    const isOpposite = Math.abs(diffInWeeks) % 2 === 1;
+    if (initialType === 'day' || initialType === 'morning') {
+      return isOpposite ? 'night' : 'day';
+    } else {
+      return isOpposite ? 'day' : 'night';
+    }
+  }
+};
+
+export const getNormalizedShiftStartDate = (shiftStartDate: string) => {
+  const startParts = shiftStartDate.split('-').map(Number);
+  const startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+  const startDay = startDate.getDay();
+  const diffToMonday = startDay === 0 ? -6 : 1 - startDay;
+  const normalized = new Date(startDate);
+  normalized.setDate(startDate.getDate() + diffToMonday);
+  return normalized;
+};
+
+// Bir tarihin ait olduğu haftanın günlerini getir (Pazartesi - Cumartesi)
+export const getWeekWorkDays = (targetDate: Date): Date[] => {
+  const date = new Date(targetDate);
+  const day = date.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  
+  const weekDays: Date[] = [];
+  for (let i = 0; i < 6; i++) { // Pazartesi'den Cumartesi'ye (6 gün)
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekDays.push(d);
+  }
+  return weekDays;
+};
+
 import { APP_VERSION } from '../components/AboutModal';
 
 // Basit bir hash fonksiyonu (LOG_HASH için)
@@ -208,22 +262,22 @@ export const generateExportText = (monthlyData: any, year: number, month: number
 
   const appVersion = APP_VERSION;
 
-  let text = `>>> MESAI_TAKIP_SYSTEM v${appVersion}\n`;
+  let text = `>>> MESAI_TAKIP_SISTEMI v${appVersion}\n`;
   const separator = '_'.repeat(31) + '\n';
   
   text += separator;
-  text += '[SYSTEM_LOG]\n';
+  text += '[KULLANICI_BILGILERI]\n';
   
   if (firstName.trim() || lastName.trim()) {
-    text += `[+] TARGET : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
+    text += `[+] ISIM : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
   }
   
-  text += `[+] PERIOD : ${TURKISH_MONTHS[month]} ${year}\n`;
+  text += `[+] TARIH : ${TURKISH_MONTHS[month]} ${year}\n`;
   if (deductBreakTime) {
-    text += '[!] MODULE : 4857_PROTOCOL\n';
+    text += '[!] IS_KANUNU : 4857_PROTOCOL\n';
   }
   text += separator;
-  text += '[DATA_ENTRIES]\n';
+  text += '[MESAILER]\n';
 
   let totalNetHours = 0;
   let totalGrossHours = 0;
@@ -302,7 +356,7 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   const allowanceData = calculateMonthlyAllowances(year, month, monthlyData, settings, getHoliday);
 
   text += separator;
-  text += '[STATISTICS_ANALYSIS]\n';
+  text += '[MESAI_SAATLERI]\n';
   
   if (deductBreakTime) {
     text += `[*] TOPLAM_BRUT_MESAI : ${formatSaat(totalGrossHours)}\n`;
@@ -320,7 +374,7 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
   
   text += separator;
-  text += '[LOAD_DISTRIBUTION]\n';
+  text += '[MESAI_KATSAYILARI]\n';
   
   let displayNormalHours = normalHours;
   if (!isSaturdayWork && saturdayHours > 0) {
@@ -328,16 +382,16 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   }
 
   if (displayNormalHours > 0) {
-    text += `- HAFTAICI_PAYLOAD    : ${formatSaat(displayNormalHours)}\n`;
+    text += `- HAFTAICI    : ${formatSaat(displayNormalHours)}\n`;
   }
   if (sundayHours > 0) {
-    text += `- PAZAR_GUNU_PAYLOAD  : ${formatSaat(sundayHours)}\n`;
+    text += `- PAZAR_GUNU  : ${formatSaat(sundayHours)}\n`;
   }
   if (religiousHolidayHours > 0) {
-    text += `- DINI_BAYRAM_PAYLOAD : ${formatSaat(religiousHolidayHours)}\n`;
+    text += `- DINI_BAYRAM : ${formatSaat(religiousHolidayHours)}\n`;
   }
   if (officialHolidayHours > 0) {
-    text += `- RESMI_TATIL_PAYLOAD : ${formatSaat(officialHolidayHours)}\n`;
+    text += `- RESMI_TATIL : ${formatSaat(officialHolidayHours)}\n`;
   }
   
   text += separator;
