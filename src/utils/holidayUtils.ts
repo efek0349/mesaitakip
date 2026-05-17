@@ -44,72 +44,88 @@ const RELIGIOUS_HOLIDAYS_DATA: Holiday[] = [
   { date: '2027-05-19', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2028
+  { date: '2028-02-25', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2028-02-26', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2028-02-27', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2028-02-28', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2028-05-04', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2028-05-05', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2028-05-06', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2028-05-07', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2028-05-08', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2029
+  { date: '2029-02-13', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2029-02-14', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2029-02-15', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2029-02-16', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2029-04-23', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2029-04-24', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2029-04-25', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2029-04-26', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2029-04-27', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2030
+  { date: '2030-02-03', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2030-02-04', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2030-02-05', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2030-02-06', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2030-04-12', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2030-04-13', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2030-04-14', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2030-04-15', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2030-04-16', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2031
+  { date: '2031-01-23', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2031-01-24', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2031-01-25', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2031-01-26', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2031-04-01', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2031-04-02', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2031-04-03', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2031-04-04', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2031-04-05', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2032
+  { date: '2032-01-13', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2032-01-14', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2032-01-15', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2032-01-16', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2032-03-21', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2032-03-22', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2032-03-23', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2032-03-24', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2032-03-25', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2033
+  { date: '2033-01-01', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2033-01-02', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2033-01-03', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2033-01-04', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2033-03-10', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2033-03-11', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2033-03-12', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2033-03-13', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2033-03-14', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2034
+  { date: '2034-12-11', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2034-12-12', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2034-12-13', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2034-12-14', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2034-02-28', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2034-03-01', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2034-03-02', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2034-03-03', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2034-03-04', name: 'Kurban Bayramı 4. Gün', type: 'religious', shortName: 'Kurban' },
 
   // 2035
+  { date: '2035-11-30', name: 'Ramazan Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2035-12-01', name: 'Ramazan Bayramı 1. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2035-12-02', name: 'Ramazan Bayramı 2. Gün', type: 'religious', shortName: 'Ramazn' },
   { date: '2035-12-03', name: 'Ramazan Bayramı 3. Gün', type: 'religious', shortName: 'Ramazn' },
+  { date: '2035-02-17', name: 'Kurban Bayramı Arifesi', type: 'religious', shortName: 'Arife', isHalfDay: true },
   { date: '2035-02-18', name: 'Kurban Bayramı 1. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2035-02-19', name: 'Kurban Bayramı 2. Gün', type: 'religious', shortName: 'Kurban' },
   { date: '2035-02-20', name: 'Kurban Bayramı 3. Gün', type: 'religious', shortName: 'Kurban' },

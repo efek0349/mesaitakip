@@ -269,10 +269,10 @@ export const generateExportText = (monthlyData: any, year: number, month: number
   text += '[KULLANICI_BILGILERI]\n';
   
   if (firstName.trim() || lastName.trim()) {
-    text += `[+] ISIM : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
+    text += `[+] ISIM      : ${firstName.trim().toUpperCase()} ${lastName.trim().toUpperCase()}\n`;
   }
   
-  text += `[+] TARIH : ${TURKISH_MONTHS[month]} ${year}\n`;
+  text += `[+] TARIH     : ${TURKISH_MONTHS[month]} ${year}\n`;
   if (deductBreakTime) {
     text += '[!] IS_KANUNU : 4857_PROTOCOL\n';
   }
