@@ -209,7 +209,7 @@ CalendarDay.displayName = 'CalendarDay';
 
 export const Calendar: React.FC<CalendarProps> = React.memo(({ currentDate, onDateChange, onDateClick }) => {
   const { getEntriesForDate, isLoaded } = useOvertimeData();
-  const { getHoliday } = useHolidays();
+  const { getHoliday } = useHolidays(currentDate.getFullYear());
   const { settings } = useSalarySettings(); // Get settings
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();

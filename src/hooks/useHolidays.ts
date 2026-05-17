@@ -6,8 +6,15 @@ import { getAllHolidays } from '../utils/holidayUtils';
 let cachedYear: number | null = null;
 let cachedHolidays: Holiday[] = [];
 
-export const useHolidays = () => {
-  const [currentYear, setCurrentYear] = React.useState(new Date().getFullYear());
+export const useHolidays = (initialYear?: number) => {
+  const [currentYear, setCurrentYear] = React.useState(initialYear || new Date().getFullYear());
+
+  // Yıl dışarıdan değişirse state'i güncelle
+  React.useEffect(() => {
+    if (initialYear !== undefined && initialYear !== currentYear) {
+      setCurrentYear(initialYear);
+    }
+  }, [initialYear, currentYear]);
 
   // Tatilleri hesapla ve cache'le
   const holidays = React.useMemo(() => {
@@ -28,14 +35,6 @@ export const useHolidays = () => {
     cachedHolidays = allHolidays;
     
     return allHolidays;
-  }, [currentYear]);
-
-  // Yıl değiştiğinde cache'i güncelle
-  React.useEffect(() => {
-    const year = new Date().getFullYear();
-    if (year !== currentYear) {
-      setCurrentYear(year);
-    }
   }, [currentYear]);
 
   // Tatilleri bir Map olarak sakla (Hızlı erişim için)

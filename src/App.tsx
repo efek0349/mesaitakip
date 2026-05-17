@@ -20,10 +20,12 @@ import { Clock, Info } from 'lucide-react';
 import { googleDriveService } from './utils/googleDriveService';
 
 const App: React.FC = () => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   // Ana hook'ları burada çağırarak tüm uygulamada state'lerin güncel kalmasını sağlıyoruz
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
-  const { getHoliday } = useHolidays();
+  const { getHoliday } = useHolidays(currentDate.getFullYear());
   const updateInfo = useUpdateCheck();
   useTheme(); // Tema yönetimini etkinleştir
   useAutoBackup(); // Otomatik yedekleme kontrolünü etkinleştir
@@ -33,7 +35,6 @@ const App: React.FC = () => {
     googleDriveService.init().catch(console.error);
   }, []);
   
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
