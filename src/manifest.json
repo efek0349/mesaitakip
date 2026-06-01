@@ -1,0 +1,30 @@
+{
+  "name": "Mesai Takip",
+  "short_name": "Mesai Takip",
+  "description": "Mesai saatlerinizi takip edin ve aylık raporlarınızı alın",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#3B82F6",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "lang": "tr",
+  "scope": "/",
+  "developer": {
+    "name": "efek0349",
+    "url": "https://github.com/efek0349",
+    "email": "kndmrefe@gmail.com"
+  }
+}

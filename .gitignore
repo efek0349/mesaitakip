@@ -1,0 +1,6 @@
+node_modules/
+.env
+tags.temp
+dist/
+ios/App/App/public/
+android/app/src/main/assets/public/
