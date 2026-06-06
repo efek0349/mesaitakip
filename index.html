@@ -16,7 +16,7 @@
     <meta name="android-statusbar-color" content="#3B82F6" />
 
     <meta name="description" content="Mesai Takip - Fazla mesai saatlerinizi, izinlerinizi ve maaşınızı kolayca takip edin. Verilerinizi Google Drive ile güvenle yedekleyin." />
-    <title>Mesai Takip Uygulaması</title>
+    <title>Mesai Takip</title>
 
     <!-- Dark Mode Initial State Script -->
     <script>
@@ -39,47 +39,52 @@
       })();
     </script>
 
-    <!-- Android navigasyon çubuğu için CSS değişkenleri -->
     <style>
-      :root {
-        --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-      }
-
-      /* Sayfa ilk açılışında arka plan rengini belirle (parlamayı önlemek için) */
-      html {
-        background-color: #f3f4f6; /* bg-gray-100 equivalent */
-      }
+      :root { --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px); }
+      html { background-color: #f3f4f6; }
+      html.dark { background-color: #000000; }
+      @supports (-webkit-touch-callout: none) { .ios-fix { height: -webkit-fill-available; } }
       
-      html.dark {
-        background-color: #000000; /* bg-black equivalent */
+      /* Google Botları için görünür ama kullanıcıyı rahatsız etmeyen açıklama */
+      .app-info-footer {
+        padding: 40px 20px;
+        font-family: sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        color: #6b7280;
+        font-size: 14px;
+        line-height: 1.6;
+        border-top: 1px solid #e5e7eb;
       }
-
-      /* iOS için viewport yüksekliği düzeltmesi */
-      @supports (-webkit-touch-callout: none) {
-        .ios-fix {
-          height: -webkit-fill-available;
-        }
-      }
+      .dark .app-info-footer { color: #9ca3af; border-top-color: #374151; }
     </style>
     <script type="module" crossorigin src="/mesaitakip/assets/index-DvASiMuM.js"></script>
     <link rel="stylesheet" crossorigin href="/mesaitakip/assets/index-CrOztYDk.css">
   </head>
   <body>
-    <div id="root">
-      <!-- Google Verification Content -->
-      <div style="padding: 20px; font-family: sans-serif; max-width: 800px; margin: 0 auto; display: none;">
-        <h1>Mesai Takip Uygulaması</h1>
-        <p>Mesai Takip, çalışanların günlük çalışma saatlerini, fazla mesailerini ve hak ettikleri ücretleri takip etmelerine yardımcı olan bir araçtır.</p>
-        <h2>Özellikler:</h2>
-        <ul>
-          <li>Günlük mesai girişi ve takibi</li>
-          <li>Aylık ve yıllık istatistik raporları</li>
-          <li>Maaş ve mesai ücreti hesaplama</li>
-          <li>Google Drive ile güvenli veri yedekleme</li>
-          <li>Dini ve resmi tatil takvimi</li>
-        </ul>
-        <p>Gizlilik Politikamıza <a href="/mesaitakip/Privacy-policy.html">buradan</a> ulaşabilirsiniz.</p>
-      </div>
-    </div>
+    <div id="root"></div>
+    
+    <!-- Google için Uygulama Amacı ve Açıklaması -->
+    <section class="app-info-footer">
+      <h1>Mesai Takip Uygulaması Hakkında</h1>
+      <p>
+        Mesai Takip, çalışanların iş hayatını kolaylaştırmak için tasarlanmış kapsamlı bir araçtır. 
+        Bu uygulama ile günlük çalışma saatlerinizi kaydedebilir, fazla mesailerinizi takip edebilir 
+        ve ay sonunda alacağınız toplam maaşı tüm kesintileriyle birlikte hesaplayabilirsiniz.
+      </p>
+      <h2>Temel Özellikler:</h2>
+      <ul>
+        <li><strong>Hızlı Takip:</strong> Tek dokunuşla mesai giriş ve çıkış saatlerini kaydetme.</li>
+        <li><strong>Otomatik Hesaplama:</strong> Fazla mesai ücretleri ve maaş verilerinin anlık hesaplanması.</li>
+        <li><strong>Bulut Yedekleme:</strong> Google Drive entegrasyonu ile verilerinizi cihazlar arasında güvenle senkronize etme.</li>
+        <li><strong>Raporlama:</strong> Aylık çalışma performansınızı detaylı grafiklerle inceleme.</li>
+        <li><strong>Resmi Tatiller:</strong> Türkiye'deki dini ve resmi tatillerin otomatik takibi.</li>
+      </ul>
+      <p>
+        Gizlilik Politikamız için <a href="/mesaitakip/Privacy-policy.html">tıklayınız</a>. 
+        İletişim: kndmrefe@gmail.com
+      </p>
+    </section>
+
   </body>
 </html>
