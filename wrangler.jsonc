@@ -1,0 +1,9 @@
+{
+  "name": "mesaitakip-oauth",
+  "compatibility_date": "2026-06-06",
+  "main": "worker.js",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://efek0349.github.io",
+    "GOOGLE_CLIENT_ID": "971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com"
+  }
+}

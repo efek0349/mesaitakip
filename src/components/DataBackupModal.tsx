@@ -441,41 +441,33 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                       </button>
                       
                       {/* Oto Yedekleme Toggle */}
-                      <div className={`p-4 bg-white dark:bg-gray-900 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 shadow-md ${isWeb ? 'opacity-60' : ''}`}>
+                      <div className="p-4 bg-white dark:bg-gray-900 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 shadow-md">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg transition-colors ${settings.autoBackupEnabled && !isWeb ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                              <RefreshCw size={18} className={settings.autoBackupEnabled && !isWeb ? 'animate-spin-slow' : ''} />
+                            <div className={`p-2 rounded-lg transition-colors ${settings.autoBackupEnabled ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                              <RefreshCw size={18} className={settings.autoBackupEnabled ? 'animate-spin-slow' : ''} />
                             </div>
                             <div>
                               <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Oto Yedekleme</span>
                               <span className="block text-[10px] text-gray-500 dark:text-gray-400 italic">Anlık bulut senkronizasyonu</span>
                             </div>
                           </div>
-                          <label className={`relative inline-flex items-center ${isWeb ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label className="relative inline-flex items-center cursor-pointer">
                             <input 
                               type="checkbox" 
                               className="sr-only peer" 
-                              checked={!isWeb && !!settings.autoBackupEnabled}
-                              disabled={isWeb}
+                              checked={!!settings.autoBackupEnabled}
                               onChange={(e) => updateSettings({ ...settings, autoBackupEnabled: e.target.checked })}
                             />
                             <div className="w-12 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500 shadow-inner"></div>
                           </label>
                         </div>
                         
-                        {isWeb ? (
-                          <div className="mt-3 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800/30 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter">
-                            <Info size={14} />
-                            <span>Web sürümünde güvenlik nedeniyle sadece manuel yedekleme kullanılabilir.</span>
+                        {!googleUser && settings.autoBackupEnabled && (
+                          <div className="mt-3 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800/30 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter animate-pulse">
+                            <AlertTriangle size={14} />
+                            <span>Google Drive bağlantısı kurulu değil!</span>
                           </div>
-                        ) : (
-                          !googleUser && settings.autoBackupEnabled && (
-                            <div className="mt-3 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800/30 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter animate-pulse">
-                              <AlertTriangle size={14} />
-                              <span>Google Drive bağlantısı kurulu değil!</span>
-                            </div>
-                          )
                         )}
                       </div>
                     </div>

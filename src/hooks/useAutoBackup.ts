@@ -9,7 +9,6 @@ export const useAutoBackup = () => {
   const { exportAllData, isLoaded: dataLoaded } = useOvertimeData();
 
   // Değerleri ref ile takip ederek performBackup callback'inin referansını sabit tutuyoruz.
-  // Bu, useEffect içindeki timer'ın sürekli resetlenmesini önler.
   const settingsRef = useRef(settings);
   const salaryLoadedRef = useRef(salaryLoaded);
   const dataLoadedRef = useRef(dataLoaded);
@@ -29,10 +28,10 @@ export const useAutoBackup = () => {
     if (!salaryLoadedRef.current || !dataLoadedRef.current || !currentSettings.autoBackupEnabled) return;
 
     try {
-      // Önce oturumu tazeleme/kontrol etme denemesi yap (Native'de refresh token kullanır)
+      // Önce oturumu tazeleme/kontrol etme denemesi yap
       await googleDriveService.init();
 
-      // Google Drive kullanıcısı yoksa (Web'de süresi dolmuş olabilir veya hiç giriş yapılmamış) çık
+      // Google Drive kullanıcısı yoksa çık
       const user = googleDriveService.getUser();
       if (!user) return;
 
@@ -54,6 +53,7 @@ export const useAutoBackup = () => {
             lastBackupDate: new Date().toISOString()
           }));
 
+          // En fazla 10 yedek sakla, eskileri temizle
           const allBackups = await googleDriveService.listBackups();
           if (allBackups.length > 10) {
             const backupsToDelete = allBackups.slice(10);
@@ -61,16 +61,16 @@ export const useAutoBackup = () => {
               backupsToDelete.map(file => googleDriveService.deleteBackup(file.id))
             );
           }
-          showToast('Bulut yedeklemesi başarıyla tamamlandı', 'success', 4000);
+          showToast('Otomatik bulut yedeklemesi başarıyla tamamlandı', 'success', 4000);
         }
       }
     } catch (error) {
       console.error('Otomatik yedekleme hatası:', error);
     }
-  }, []); // Bağımlılık yok, tamamen sabit referans
+  }, []);
 
   useEffect(() => {
-    // Uygulama açıldıktan kısa bir süre sonra (ve veriler yüklendiğinde) kontrol et
+    // Uygulama açıldıktan kısa bir süre sonra kontrol et
     if (salaryLoaded && dataLoaded) {
       const timer = setTimeout(performBackup, 15000);
       return () => clearTimeout(timer);
