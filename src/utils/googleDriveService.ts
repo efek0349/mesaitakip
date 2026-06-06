@@ -1,7 +1,7 @@
 /**
  *  Google Drive Yedekleme Servisi
- *  Android: Kalıcı Oturum (Refresh Token)
- *  Web: Geçici Oturum (Token Flow - Secret gerektirmez)
+ *  Android: Kalıcı Oturum (PKCE + Refresh Token)
+ *  Web: Geçici Oturum (Implicit Flow - 1 saat, refresh token yok)
  */
 
 /* global RequestInit */
@@ -43,10 +43,8 @@ class GoogleDriveService {
   private expiresAt: number = 0;
   private isProcessing = false;
   private listenersInitialized = false;
-
-  constructor() {
-    // Constructor purely for instance creation, initialization happens in init()
-  }
+  private initialized = false;
+  private initPromise: Promise<GoogleUser | null> | null = null;
 
   private randomString(length: number) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
@@ -87,15 +85,15 @@ class GoogleDriveService {
     if (Capacitor.isNativePlatform()) return;
 
     const url = new URL(window.location.href);
-    
-    // 1. URL'de 'code' varsa (Native veya Auth Code Flow kullanan Web)
+
+    // Auth Code Flow (native veya web)
     const code = url.searchParams.get('code');
     if (code) {
       await this.handleCode(code);
       return;
     }
 
-    // 2. URL hash'inde 'access_token' varsa (Web Implicit Flow)
+    // Web Implicit Flow — hash'te access_token
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=')) {
       const hashParams = new URLSearchParams(hash.substring(1));
@@ -103,13 +101,12 @@ class GoogleDriveService {
       const expiresIn = hashParams.get('expires_in');
 
       if (accessToken) {
-        await this.saveTokens({ 
-          access_token: accessToken, 
-          expires_in: parseInt(expiresIn || '3600') 
+        await this.saveTokens({
+          access_token: accessToken,
+          expires_in: parseInt(expiresIn || '3600')
+          // refresh_token yok — web implicit flow sınırı
         });
         await this.fetchUserInfo(accessToken);
-        
-        // URL'i temizle
         window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
       }
     }
@@ -121,7 +118,6 @@ class GoogleDriveService {
 
     try {
       const { value: verifier } = await Preferences.get({ key: CODE_VERIFIER_KEY });
-      // Verifier yoksa ve native değilsek, bu normal bir yönlendirme olmayabilir
       if (!verifier && !Capacitor.isNativePlatform()) {
         this.isProcessing = false;
         return;
@@ -131,10 +127,7 @@ class GoogleDriveService {
         ? 'com.efek0349.mesaitakip:/oauth2redirect'
         : window.location.origin + window.location.pathname;
 
-      // Google 'Web Application' tipi Client ID'ler için /token endpoint'inde 
-      // her zaman client_secret bekler. Bu yüzden Web'de Implicit Flow (token) kullanıyoruz.
-      // Eğer yine de buraya düştüysek ve secret yoksa hata alacaktır.
-      const bodyParams: any = {
+      const bodyParams: Record<string, string> = {
         client_id: CLIENT_ID,
         code,
         grant_type: 'authorization_code',
@@ -156,7 +149,7 @@ class GoogleDriveService {
         await this.saveTokens(data);
         await this.fetchUserInfo(data.access_token);
         await Preferences.remove({ key: CODE_VERIFIER_KEY });
-        
+
         if (Capacitor.isNativePlatform()) {
           await Dialog.alert({ title: 'Başarılı', message: 'Google Drive bağlantısı kuruldu!' });
           window.location.href = '/';
@@ -168,13 +161,8 @@ class GoogleDriveService {
       }
     } catch (e: any) {
       console.error('Login error', e);
-      // Web'de 400 hatası genellikle client_secret eksikliğidir, kullanıcıya daha anlamlı bilgi verelim
-      const errorMsg = e.message === 'client_secret is missing' 
-        ? 'Google Drive bağlantısı için Web üzerinden giriş desteklenmiyor veya yapılandırma eksik. Lütfen mobil uygulamayı kullanın.'
-        : e.message;
-        
       if (Capacitor.isNativePlatform()) {
-        await Dialog.alert({ title: 'Giriş Hatası', message: errorMsg });
+        await Dialog.alert({ title: 'Giriş Hatası', message: e.message });
       }
     } finally {
       this.isProcessing = false;
@@ -183,19 +171,25 @@ class GoogleDriveService {
 
   private async saveTokens(data: { access_token: string; expires_in: number; refresh_token?: string }) {
     if (!data.access_token) return;
-    
+
     this.accessToken = data.access_token;
     this.expiresAt = Date.now() + (Number(data.expires_in || 3600) * 1000);
-    
+
     await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
     await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
-    
+
+    // Refresh token sadece Android'de gelir (PKCE flow)
+    // Web implicit flow'da refresh token yoktur, mevcut olanı silme
     if (data.refresh_token) {
       await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
     }
   }
 
-  private async refresh() {
+  private async refresh(): Promise<boolean> {
+    // Web'de refresh token yok — implicit flow sınırı
+    // client_secret olmadan Google token endpoint'i refresh kabul etmez
+    if (!Capacitor.isNativePlatform()) return false;
+
     const { value: refresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
     if (!refresh) return false;
 
@@ -209,10 +203,15 @@ class GoogleDriveService {
           refresh_token: refresh
         })
       });
+
       if (!res.ok) {
-        if (res.status === 400 || res.status === 401) await this.signOut();
+        // 400/401: refresh token geçersiz veya iptal edilmiş
+        if (res.status === 400 || res.status === 401) {
+          await this.signOut();
+        }
         return false;
       }
+
       const data = await res.json();
       await this.saveTokens(data);
       return true;
@@ -221,11 +220,8 @@ class GoogleDriveService {
     }
   }
 
-  private initialized = false;
-  private initPromise: Promise<GoogleUser | null> | null = null;
-
   async init(): Promise<GoogleUser | null> {
-    if (this.initialized) return this.user;
+    // initialized flag'i kaldırıldı — her çağrıda token geçerliliği kontrol edilir
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
@@ -237,14 +233,17 @@ class GoogleDriveService {
         const { value: exp } = await Preferences.get({ key: EXPIRES_AT_KEY });
         const { value: userStr } = await Preferences.get({ key: USER_KEY });
 
+        // Token hiç yok
         if (!token || !exp) {
-          const { value: hasRefresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
-          if (hasRefresh) {
-            const ok = await this.refresh();
-            if (ok && this.accessToken) {
-              await this.fetchUserInfo(this.accessToken);
-              this.initialized = true;
-              return this.user;
+          // Android'de refresh token varsa sessizce yenile
+          if (Capacitor.isNativePlatform()) {
+            const { value: hasRefresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
+            if (hasRefresh) {
+              const ok = await this.refresh();
+              if (ok && this.accessToken) {
+                await this.fetchUserInfo(this.accessToken);
+                return this.user;
+              }
             }
           }
           return null;
@@ -254,20 +253,30 @@ class GoogleDriveService {
         this.expiresAt = parseInt(exp);
         if (userStr) this.user = JSON.parse(userStr);
 
+        // Token süresi dolmuş veya dolmak üzere (60sn eşik)
         if (Date.now() > this.expiresAt - 60000) {
-          const ok = await this.refresh();
-          if (ok && this.accessToken) {
-            await this.fetchUserInfo(this.accessToken);
-            this.initialized = true;
-            return this.user;
+          if (Capacitor.isNativePlatform()) {
+            // Android: refresh token ile yenile
+            const ok = await this.refresh();
+            if (ok && this.accessToken) {
+              await this.fetchUserInfo(this.accessToken);
+              return this.user;
+            }
+            // Refresh başarısız → oturumu kapat
+            await this.signOut();
+            return null;
+          } else {
+            // Web: refresh mümkün değil, oturumu kapat
+            await this.signOut();
+            return null;
           }
-          await this.signOut();
-          return null;
         }
 
-        if (!this.user && this.accessToken) await this.fetchUserInfo(this.accessToken);
-        
-        this.initialized = true;
+        // Token geçerli, user bilgisi yoksa çek
+        if (!this.user && this.accessToken) {
+          await this.fetchUserInfo(this.accessToken);
+        }
+
         return this.user;
       } finally {
         this.initPromise = null;
@@ -292,7 +301,7 @@ class GoogleDriveService {
     });
 
     if (isNative) {
-      // PKCE (Required for Native to get refresh token without secret)
+      // PKCE — Android'de client_secret olmadan refresh token almak için
       const verifier = this.randomString(64);
       const challenge = await this.sha256(verifier);
       await Preferences.set({ key: CODE_VERIFIER_KEY, value: verifier });
@@ -327,6 +336,7 @@ class GoogleDriveService {
     this.accessToken = null;
     this.user = null;
     this.expiresAt = 0;
+    this.initialized = false;
     await Preferences.remove({ key: STORAGE_KEY });
     await Preferences.remove({ key: REFRESH_TOKEN_KEY });
     await Preferences.remove({ key: USER_KEY });
@@ -335,47 +345,54 @@ class GoogleDriveService {
   }
 
   private async apiRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // Token süresi dolmuş veya dolmak üzere
     if (!this.accessToken || Date.now() > this.expiresAt - 60000) {
-      const ok = await this.refresh();
-      if (!ok) {
+      if (Capacitor.isNativePlatform()) {
+        const ok = await this.refresh();
+        if (!ok) {
+          await this.signOut();
+          throw new Error('Oturum kapalı');
+        }
+      } else {
+        // Web'de refresh mümkün değil
         await this.signOut();
-        throw new Error('Oturum kapalı');
+        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
       }
     }
 
     const headers = new Headers(options.headers);
     headers.set('Authorization', `Bearer ${this.accessToken}`);
 
-    let res = await fetch(url, {
-      ...options,
-      headers
-    });
+    let res = await fetch(url, { ...options, headers });
 
-    if (res.status === 401) {
+    // 401: token geçersiz, bir kez daha dene (sadece Android)
+    if (res.status === 401 && Capacitor.isNativePlatform()) {
       const ok = await this.refresh();
       if (ok) {
         headers.set('Authorization', `Bearer ${this.accessToken}`);
-        res = await fetch(url, {
-          ...options,
-          headers
-        });
+        res = await fetch(url, { ...options, headers });
       } else {
         await this.signOut();
         throw new Error('Oturum süresi doldu');
       }
+    } else if (res.status === 401) {
+      await this.signOut();
+      throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
     }
+
     return res;
   }
 
   async listBackups(): Promise<DriveFile[]> {
     try {
-      // Filter by name and app scope
       const q = encodeURIComponent("name contains 'backup_' and trashed = false");
       const url = `${DRIVE_API}?q=${q}&fields=files(id, name, createdTime)&orderBy=createdTime desc`;
       const res = await this.apiRequest(url);
       const data = await res.json();
       return data.files || [];
-    } catch (error) { return []; }
+    } catch (error) {
+      return [];
+    }
   }
 
   async uploadBackup(jsonData: string): Promise<boolean> {
@@ -387,24 +404,44 @@ class GoogleDriveService {
       formData.append('file', new Blob([jsonData], { type: 'application/json' }));
       const res = await this.apiRequest(`${DRIVE_UPLOAD_API}?uploadType=multipart`, { method: 'POST', body: formData });
       return res.ok;
-    } catch (error) { return false; }
+    } catch (error) {
+      return false;
+    }
   }
 
   async downloadBackup(fileId: string): Promise<string | null> {
     try {
       const res = await this.apiRequest(`${DRIVE_API}/${fileId}?alt=media`);
       return res.ok ? await res.text() : null;
-    } catch (error) { return null; }
+    } catch (error) {
+      return null;
+    }
   }
 
   async deleteBackup(fileId: string): Promise<boolean> {
     try {
       const res = await this.apiRequest(`${DRIVE_API}/${fileId}`, { method: 'DELETE' });
       return res.ok;
-    } catch (error) { return false; }
+    } catch (error) {
+      return false;
+    }
   }
 
   getUser() { return this.user; }
+
+  // Web'de oturumun ne kadar süre kaldığını döner (dakika)
+  getSessionRemainingMinutes(): number | null {
+    if (!this.accessToken || !this.expiresAt) return null;
+    const remaining = this.expiresAt - Date.now();
+    if (remaining <= 0) return 0;
+    return Math.floor(remaining / 60000);
+  }
+
+  // Web'de oturum süresi dolmuş mu?
+  isSessionExpired(): boolean {
+    if (!this.expiresAt) return true;
+    return Date.now() > this.expiresAt;
+  }
 }
 
 export const googleDriveService = new GoogleDriveService();

@@ -1,5 +1,10 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+// capacitor.config.ts build sırasında değil, doğrudan Node.js ile çalışır
+// Bu yüzden import.meta.env yerine process.env kullanıyoruz
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 const config: CapacitorConfig = {
   appId: 'com.efek0349.mesaitakip',
   appName: 'Mesai Takip',
@@ -21,7 +26,7 @@ const config: CapacitorConfig = {
     Share: {},
     GoogleAuth: {
       scopes: ["email", "profile", "openid", "https://www.googleapis.com/auth/drive.file"],
-      serverClientId: "971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com",
+      serverClientId: process.env.VITE_GOOGLE_WEB_CLIENT_ID,
       forceCodeForRefreshToken: true
     }
   },
