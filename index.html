@@ -45,47 +45,45 @@
       html.dark { background-color: #000000; }
       @supports (-webkit-touch-callout: none) { .ios-fix { height: -webkit-fill-available; } }
       
-      /* Google Botları için görünür ama kullanıcıyı rahatsız etmeyen açıklama */
-      .app-info-footer {
-        padding: 40px 20px;
-        font-family: sans-serif;
-        max-width: 800px;
-        margin: 0 auto;
-        color: #6b7280;
-        font-size: 14px;
-        line-height: 1.6;
-        border-top: 1px solid #e5e7eb;
+      /* Botlar için açıklama stili - Kullanıcıdan tamamen gizle ama DOM'da bırak */
+      .app-info-bot {
+        position: absolute;
+        left: -10000px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
       }
-      .dark .app-info-footer { color: #9ca3af; border-top-color: #374151; }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Google Botları için Uygulama Açıklaması -->
+      <!-- Bu içerik React yüklendiğinde otomatik olarak temizlenecektir -->
+      <section class="app-info-bot">
+        <h1>Mesai Takip Uygulaması Hakkında</h1>
+        <p>
+          Mesai Takip, çalışanların iş hayatını kolaylaştırmak için tasarlanmış kapsamlı bir araçtır. 
+          Bu uygulama ile günlük çalışma saatlerinizi kaydedebilir, fazla mesailerinizi takip edebilir 
+          ve ay sonunda alacağınız toplam maaşı tüm kesintileriyle birlikte hesaplayabilirsiniz.
+        </p>
+        <h2>Temel Özellikler:</h2>
+        <ul>
+          <li><strong>Hızlı Takip:</strong> Tek dokunuşla mesai giriş ve çıkış saatlerini kaydetme.</li>
+          <li><strong>Otomatik Hesaplama:</strong> Fazla mesai ücretleri ve maaş verilerinin anlık hesaplanması.</li>
+          <li><strong>Bulut Yedekleme:</strong> Google Drive entegrasyonu ile verilerinizi cihazlar arasında güvenle senkronize etme.</li>
+          <li><strong>Raporlama:</strong> Aylık çalışma performansınızı detaylı grafiklerle inceleme.</li>
+          <li><strong>Resmi Tatiller:</strong> Türkiye'deki dini ve resmi tatillerin otomatik takibi.</li>
+        </ul>
+        <p>
+          <a href="/mesaitakip/privacy.html">Gizlilik Politikası</a> | 
+          <a href="/mesaitakip/terms.html">Kullanım Şartları</a>
+          <br>
+          İletişim: kndmrefe@gmail.com
+        </p>
+      </section>
+    </div>
     
-    <!-- Google için Uygulama Amacı ve Açıklaması -->
-    <section class="app-info-footer">
-      <h1>Mesai Takip Uygulaması Hakkında</h1>
-      <p>
-        Mesai Takip, çalışanların iş hayatını kolaylaştırmak için tasarlanmış kapsamlı bir araçtır. 
-        Bu uygulama ile günlük çalışma saatlerinizi kaydedebilir, fazla mesailerinizi takip edebilir 
-        ve ay sonunda alacağınız toplam maaşı tüm kesintileriyle birlikte hesaplayabilirsiniz.
-      </p>
-      <h2>Temel Özellikler:</h2>
-      <ul>
-        <li><strong>Hızlı Takip:</strong> Tek dokunuşla mesai giriş ve çıkış saatlerini kaydetme.</li>
-        <li><strong>Otomatik Hesaplama:</strong> Fazla mesai ücretleri ve maaş verilerinin anlık hesaplanması.</li>
-        <li><strong>Bulut Yedekleme:</strong> Google Drive entegrasyonu ile verilerinizi cihazlar arasında güvenle senkronize etme.</li>
-        <li><strong>Raporlama:</strong> Aylık çalışma performansınızı detaylı grafiklerle inceleme.</li>
-        <li><strong>Resmi Tatiller:</strong> Türkiye'deki dini ve resmi tatillerin otomatik takibi.</li>
-      </ul>
-      <p>
-        <a href="/mesaitakip/privacy.html">Gizlilik Politikası</a> | 
-        <a href="/mesaitakip/terms.html">Kullanım Şartları</a>
-        <br>
-        İletişim: kndmrefe@gmail.com
-      </p>
-    </section>
-
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
