@@ -5,12 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesai Takip — Gizlilik Politikası</title>
   <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: white;
+      --text: #1e293b;
+      --sub-text: #475569;
+      --border: #e2e8f0;
+      --accent: #3b82f6;
+      --icon-bg: #eff6ff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000;
+        --card-bg: #111827;
+        --text: #f8fafc;
+        --sub-text: #94a3b8;
+        --border: #1f2937;
+        --accent: #60a5fa;
+        --icon-bg: #1e3a8a;
+      }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f8fafc;
-      color: #1e293b;
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.7;
+      transition: background 0.3s, color 0.3s;
     }
     header {
       background: linear-gradient(135deg, #3b82f6, #6366f1);
@@ -26,17 +49,17 @@
       padding: 0 24px 80px;
     }
     .card {
-      background: white;
+      background: var(--card-bg);
       border-radius: 16px;
       padding: 32px;
       margin-bottom: 20px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.04);
-      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--border);
     }
     h2 {
       font-size: 1.1rem;
       font-weight: 800;
-      color: #3b82f6;
+      color: var(--accent);
       margin-bottom: 14px;
       display: flex;
       align-items: center;
@@ -44,51 +67,51 @@
     }
     h2 .icon {
       width: 28px; height: 28px;
-      background: #eff6ff;
+      background: var(--icon-bg);
       border-radius: 8px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-size: 14px;
     }
-    p { color: #475569; margin-bottom: 10px; }
-    ul { padding-left: 20px; color: #475569; }
+    p { color: var(--sub-text); margin-bottom: 10px; }
+    ul { padding-left: 20px; color: var(--sub-text); }
     ul li { margin-bottom: 6px; }
     .badge {
       display: inline-block;
-      background: #eff6ff;
-      color: #3b82f6;
+      background: var(--icon-bg);
+      color: var(--accent);
       font-size: 0.75rem;
       font-weight: 700;
       padding: 3px 10px;
       border-radius: 99px;
-      border: 1px solid #bfdbfe;
+      border: 1px solid var(--border);
       margin-right: 6px;
       margin-bottom: 6px;
     }
     .highlight {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
       border-radius: 12px;
       padding: 16px 20px;
-      color: #166534;
+      color: #10b981;
       font-size: 0.9rem;
       margin-top: 12px;
     }
     .updated {
       text-align: center;
-      color: #94a3b8;
+      color: var(--sub-text);
       font-size: 0.8rem;
       margin-top: 40px;
     }
-    a { color: #3b82f6; text-decoration: none; }
+    a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     footer {
       text-align: center;
       padding: 24px;
-      color: #94a3b8;
+      color: var(--sub-text);
       font-size: 0.8rem;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
     }
   </style>
 </head>
@@ -220,6 +243,27 @@
   © 2026 efek0349 · Mesai Takip · Tüm hakları saklıdır
 </footer>
 
+<script>
+  // Ebeveyn pencerenin temasını izle (eğer iframe içindeyse)
+  function syncTheme() {
+    try {
+      const isDark = window.parent.document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.body.style.setProperty('--bg', '#000000');
+        document.body.style.setProperty('--card-bg', '#111827');
+        document.body.style.setProperty('--text', '#f8fafc');
+        document.body.style.setProperty('--sub-text', '#94a3b8');
+        document.body.style.setProperty('--border', '#1f2937');
+        document.body.style.setProperty('--accent', '#60a5fa');
+        document.body.style.setProperty('--icon-bg', '#1e3a8a');
+      }
+    } catch (e) {}
+  }
+  
+  syncTheme();
+  // Belirli aralıklarla kontrol et (basit çözüm)
+  setInterval(syncTheme, 1000);
+</script>
+
 </body>
 </html>
-
