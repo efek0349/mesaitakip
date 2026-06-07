@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MesaiTakip",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "identifier": "com.efek0349.mesaitakip",
   "build": {
     "frontendDist": "../dist",
@@ -16,7 +16,8 @@
         "width": 800,
         "height": 700,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "devtools": true
       }
     ],
     "security": {

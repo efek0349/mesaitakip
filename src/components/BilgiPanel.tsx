@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, AlertCircle, BookOpen, Clock } from 'lucide-react';
+import { RefreshCw, AlertCircle, BookOpen, Clock, Shield, FileText } from 'lucide-react';
 import { useBilgi } from '../hooks/useBilgi';
 
 // Basit markdown → JSX dönüştürücü (harici kütüphane gerektirmez)
@@ -163,6 +163,27 @@ export const BilgiPanel: React.FC = () => {
 
       {/* İçerik */}
       <div className="flex-1 overflow-y-auto px-4 py-3 custom-scrollbar">
+        {/* Yasal Politikalar Linkleri */}
+        <div className="mb-4 flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30">
+          <a 
+            href={`${import.meta.env.BASE_URL}privacy.html`}
+            target="_blank" 
+            className="flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span className="uppercase tracking-tight">Gizlilik Politikası</span>
+          </a>
+          
+          <a 
+            href={`${import.meta.env.BASE_URL}terms.html`}
+            target="_blank" 
+            className="flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            <span className="uppercase tracking-tight">Kullanım Şartları</span>
+            <FileText className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
         {loading && !content && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />

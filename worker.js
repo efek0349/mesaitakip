@@ -4,14 +4,15 @@
  * client_secret burada güvenli şekilde saklanır, frontend'e gönderilmez.
  *
  * Environment Variables (Cloudflare Dashboard > Settings > Variables):
- *   GOOGLE_CLIENT_ID     = Web Client ID
- *   GOOGLE_CLIENT_SECRET = Web Client Secret
- *   ALLOWED_ORIGIN       = https://efek0349.github.io
+ *   GOOGLE_CLIENT_ID              = Web Client ID
+ *   GOOGLE_CLIENT_SECRET          = Web Client Secret
+ *   GOOGLE_DESKTOP_CLIENT_ID      = Desktop Client ID
+ *   GOOGLE_DESKTOP_CLIENT_SECRET  = Desktop Client Secret (Secret olarak ekle)
+ *   ALLOWED_ORIGIN                = https://efek0349.github.io
  */
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-// Geliştirme ortamında localhost'a da izin ver
 const DEV_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:4173',
@@ -20,9 +21,7 @@ const DEV_ORIGINS = [
 
 function getAllowedOrigin(requestOrigin, envOrigin) {
   const prodOrigin = envOrigin || 'https://efek0349.github.io';
-  // Production origin
   if (requestOrigin && requestOrigin.startsWith(prodOrigin)) return prodOrigin;
-  // Development origins
   if (DEV_ORIGINS.includes(requestOrigin)) return requestOrigin;
   return null;
 }
@@ -35,6 +34,21 @@ function corsHeaders(origin) {
   };
 }
 
+// client_type'a göre doğru client_id ve client_secret seç
+function getClientCredentials(env, clientType) {
+  if (clientType === 'desktop') {
+    return {
+      client_id: env.GOOGLE_DESKTOP_CLIENT_ID,
+      client_secret: env.GOOGLE_DESKTOP_CLIENT_SECRET,
+    };
+  }
+  // default: web
+  return {
+    client_id: env.GOOGLE_CLIENT_ID,
+    client_secret: env.GOOGLE_CLIENT_SECRET,
+  };
+}
+
 export default {
   async fetch(request, env) {
     const requestOrigin = request.headers.get('Origin') || '';
@@ -42,21 +56,14 @@ export default {
 
     // CORS preflight
     if (request.method === 'OPTIONS') {
-      if (!allowedOrigin) {
-        return new Response('Forbidden', { status: 403 });
-      }
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders(allowedOrigin),
-      });
+      if (!allowedOrigin) return new Response('Forbidden', { status: 403 });
+      return new Response(null, { status: 204, headers: corsHeaders(allowedOrigin) });
     }
 
-    // Sadece POST kabul et
     if (request.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    // Origin kontrolü
     if (!allowedOrigin) {
       return new Response('Forbidden', { status: 403 });
     }
@@ -68,34 +75,32 @@ export default {
       return new Response('Invalid JSON', { status: 400 });
     }
 
-    const { code, code_verifier, redirect_uri, grant_type, refresh_token } = body;
+    const { code, code_verifier, redirect_uri, grant_type, refresh_token, client_type } = body;
 
-    // grant_type kontrolü
     if (grant_type !== 'authorization_code' && grant_type !== 'refresh_token') {
       return new Response('Invalid grant_type', { status: 400 });
     }
 
-    // authorization_code için zorunlu alanlar
-    if (grant_type === 'authorization_code' && (!code || !code_verifier || !redirect_uri)) {
+    if (grant_type === 'authorization_code' && (!code || !redirect_uri)) {
       return new Response('Missing required fields', { status: 400 });
     }
 
-    // refresh_token için zorunlu alan
     if (grant_type === 'refresh_token' && !refresh_token) {
       return new Response('Missing refresh_token', { status: 400 });
     }
 
-    // Google'a gönderilecek parametreler
+    const { client_id, client_secret } = getClientCredentials(env, client_type);
+
     const params = new URLSearchParams({
-      client_id: env.GOOGLE_CLIENT_ID,
-      client_secret: env.GOOGLE_CLIENT_SECRET,
+      client_id,
+      client_secret,
       grant_type,
     });
 
     if (grant_type === 'authorization_code') {
       params.set('code', code);
-      params.set('code_verifier', code_verifier);
       params.set('redirect_uri', redirect_uri);
+      if (code_verifier) params.set('code_verifier', code_verifier);
     } else {
       params.set('refresh_token', refresh_token);
     }

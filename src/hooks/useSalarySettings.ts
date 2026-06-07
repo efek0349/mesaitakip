@@ -30,6 +30,7 @@ const defaultSettings: SalarySettings = {
   shiftInitialType: 'day',
   salaryHistory: {},
   autoBackupEnabled: false,
+  autoBackupPeriod: 'weekly',
   lastBackupDate: '',
   dailyMealAllowance: 0,
   dailyTravelAllowance: 0,

@@ -1,7 +1,8 @@
 /**
  *  Google Drive Yedekleme Servisi
- *  Android: Kalıcı Oturum (PKCE + Refresh Token, doğrudan Google)
- *  Web: Kalıcı Oturum (PKCE + Refresh Token, Cloudflare Worker proxy üzerinden)
+ *  Android : Kalıcı Oturum (PKCE + Refresh Token, doğrudan Google)
+ *  Web     : Kalıcı Oturum (PKCE + Refresh Token, Cloudflare Worker)
+ *  Tauri   : Kalıcı Oturum (Loopback 127.0.0.1:7890, Rust TCP listener)
  */
 
 /* global RequestInit */
@@ -9,23 +10,37 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { Dialog } from '@capacitor/dialog';
 
-const CLIENT_ID = Capacitor.isNativePlatform()
+// Platform tespiti
+const IS_NATIVE = Capacitor.isNativePlatform();
+//const IS_TAURI  = '__TAURI__' in window;
+const IS_TAURI =
+  typeof window !== "undefined" &&
+  window.location.hostname === "tauri.localhost";
+
+const CLIENT_ID = IS_NATIVE
   ? import.meta.env.VITE_GOOGLE_ANDROID_CLIENT_ID
   : import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID;
+
+// Desktop için ayrı Client ID (Google Console'da "Desktop app" tipi oluşturulmalı)
+const DESKTOP_CLIENT_ID = (import.meta.env.VITE_GOOGLE_DESKTOP_CLIENT_ID as string) || CLIENT_ID;
 
 // Cloudflare Worker URL — web'de token exchange burada yapılır
 const WORKER_URL = import.meta.env.VITE_WORKER_URL?.replace(/\/$/, '');
 
+// Tauri loopback — Google Console'da http://127.0.0.1:7890 kayıtlı olmalı
+const LOOPBACK_PORT = 7890;
+const LOOPBACK_URI  = `http://127.0.0.1:${LOOPBACK_PORT}`;
+
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
-const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
+const AUTH_URL         = 'https://accounts.google.com/o/oauth2/v2/auth';
+const TOKEN_URL        = 'https://oauth2.googleapis.com/token';
+const DRIVE_API        = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3/files';
 
-const STORAGE_KEY = 'gd_access';
+const STORAGE_KEY       = 'gd_access';
 const REFRESH_TOKEN_KEY = 'gd_refresh';
-const EXPIRES_AT_KEY = 'gd_exp';
-const USER_KEY = 'gd_user';
+const EXPIRES_AT_KEY    = 'gd_exp';
+const USER_KEY          = 'gd_user';
 const CODE_VERIFIER_KEY = 'gd_cv';
 
 export interface GoogleUser {
@@ -61,8 +76,22 @@ class GoogleDriveService {
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
+  // Redirect URI — platforma göre
+  private getRedirectUri(): string {
+    if (IS_NATIVE) return 'com.efek0349.mesaitakip:/oauth2redirect';
+    if (IS_TAURI)  return LOOPBACK_URI;
+    return window.location.origin; // + window.location.pathname;
+  }
+
+  // Aktif Client ID — platforma göre
+  private getClientId(): string {
+    if (IS_NATIVE) return CLIENT_ID;
+    if (IS_TAURI)  return DESKTOP_CLIENT_ID;
+    return CLIENT_ID;
+  }
+
   private async initNativeListeners() {
-    if (this.listenersInitialized || !Capacitor.isNativePlatform()) return;
+    if (this.listenersInitialized || !IS_NATIVE) return;
     this.listenersInitialized = true;
     try {
       const { App } = await import('@capacitor/app');
@@ -82,38 +111,83 @@ class GoogleDriveService {
     }
   }
 
+  // Tauri: Rust TCP listener'ı başlat, oauth-code event'ini bekle
+  private async startLoopbackListener(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Google girişi zaman aşımına uğradı (5 dakika)'));
+      }, 5 * 60 * 1000);
+
+      Promise.all([
+        import('@tauri-apps/api/event'),
+        import('@tauri-apps/api/core'),
+      ]).then(([{ listen }, { invoke }]) => {
+        // Rust'tan gelen code event'ini dinle
+        listen<string>('oauth-code', async (event) => {
+          clearTimeout(timeout);
+          try {
+            await this.handleCode(event.payload);
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        });
+
+        // Kullanıcı iptal ettiyse
+        listen<string>('oauth-error', (event) => {
+          clearTimeout(timeout);
+          reject(new Error(`Google OAuth hatası: ${event.payload}`));
+        });
+
+        // Rust tarafında TCP listener başlat
+        invoke('start_oauth_listener').catch(reject);
+      }).catch(reject);
+    });
+  }
+
   private async handleRedirect() {
-    if (Capacitor.isNativePlatform()) return;
+    // Native ve Tauri'de bu flow çalışmaz
+    if (IS_NATIVE || IS_TAURI) return;
 
     const url = new URL(window.location.href);
     const code = url.searchParams.get('code');
     if (code) {
       await this.handleCode(code);
     }
-    // Eski implicit flow hash temizliği (geçiş dönemi için)
+    // Eski implicit flow hash temizliği
     if (window.location.hash.includes('access_token=')) {
       window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
     }
   }
 
-  // Token exchange — Android: doğrudan Google, Web: Cloudflare Worker üzerinden
+  // Token exchange — platforma göre doğru endpoint'e gider
   private async exchangeToken(params: Record<string, string>): Promise<Response> {
-    if (Capacitor.isNativePlatform()) {
-      // Android: client_secret gerekmez (PKCE yeterli)
+    if (IS_NATIVE) {
+      // Android: Google'a direkt (PKCE, client_secret gerekmez)
       return fetch(TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(params)
       });
-    } else {
-      // Web: client_secret Worker'da güvenli şekilde saklanır
-      if (!WORKER_URL) throw new Error('VITE_WORKER_URL tanımlanmamış');
-      return fetch(WORKER_URL, {
+    }
+
+    if (IS_TAURI) {
+      // Desktop: Google'a direkt (Desktop app client, PKCE)
+      // Desktop client type PKCE ile client_secret gerektirmez
+      return fetch(TOKEN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params)
       });
     }
+
+    // Web: Cloudflare Worker üzerinden (client_secret Worker'da güvenli)
+    if (!WORKER_URL) throw new Error('VITE_WORKER_URL tanımlanmamış');
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
   }
 
   private async handleCode(code: string) {
@@ -127,15 +201,14 @@ class GoogleDriveService {
         return;
       }
 
-      const redirectUri = Capacitor.isNativePlatform()
-        ? 'com.efek0349.mesaitakip:/oauth2redirect'
-        : window.location.origin + window.location.pathname;
+      const redirectUri = this.getRedirectUri();
+      const clientId    = this.getClientId();
 
       const res = await this.exchangeToken({
-        client_id: CLIENT_ID,
+        client_id:     clientId,
         code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
+        grant_type:    'authorization_code',
+        redirect_uri:  redirectUri,
         code_verifier: verifier
       });
 
@@ -146,18 +219,22 @@ class GoogleDriveService {
         await this.fetchUserInfo(data.access_token);
         await Preferences.remove({ key: CODE_VERIFIER_KEY });
 
-        if (Capacitor.isNativePlatform()) {
+        if (IS_NATIVE) {
           await Dialog.alert({ title: 'Başarılı', message: 'Google Drive bağlantısı kuruldu!' });
           window.location.href = '/';
+        } else if (IS_TAURI) {
+          // Tauri'de sayfa reload yok — event ile UI'ı güncelle
+          window.dispatchEvent(new CustomEvent('google-auth-success'));
         } else {
           window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+          window.location.reload();
         }
       } else {
         throw new Error(data.error_description || data.error);
       }
     } catch (e: any) {
       console.error('Login error', e);
-      if (Capacitor.isNativePlatform()) {
+      if (IS_NATIVE) {
         await Dialog.alert({ title: 'Giriş Hatası', message: e.message });
       }
     } finally {
@@ -169,13 +246,11 @@ class GoogleDriveService {
     if (!data.access_token) return;
 
     this.accessToken = data.access_token;
-    this.expiresAt = Date.now() + (Number(data.expires_in || 3600) * 1000);
+    this.expiresAt   = Date.now() + (Number(data.expires_in || 3600) * 1000);
 
-    await Preferences.set({ key: STORAGE_KEY, value: data.access_token });
+    await Preferences.set({ key: STORAGE_KEY,    value: data.access_token });
     await Preferences.set({ key: EXPIRES_AT_KEY, value: this.expiresAt.toString() });
 
-    // Refresh token her zaman gelmeyebilir (Google bazen atlamaz)
-    // Geldiyse kaydet, gelmediyse mevcut olanı koru
     if (data.refresh_token) {
       await Preferences.set({ key: REFRESH_TOKEN_KEY, value: data.refresh_token });
     }
@@ -187,8 +262,8 @@ class GoogleDriveService {
 
     try {
       const res = await this.exchangeToken({
-        client_id: CLIENT_ID,
-        grant_type: 'refresh_token',
+        client_id:     this.getClientId(),
+        grant_type:    'refresh_token',
         refresh_token: refresh
       });
 
@@ -202,7 +277,7 @@ class GoogleDriveService {
       const data = await res.json();
       await this.saveTokens(data);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -215,11 +290,10 @@ class GoogleDriveService {
         await this.initNativeListeners();
         await this.handleRedirect();
 
-        const { value: token } = await Preferences.get({ key: STORAGE_KEY });
-        const { value: exp } = await Preferences.get({ key: EXPIRES_AT_KEY });
+        const { value: token }   = await Preferences.get({ key: STORAGE_KEY });
+        const { value: exp }     = await Preferences.get({ key: EXPIRES_AT_KEY });
         const { value: userStr } = await Preferences.get({ key: USER_KEY });
 
-        // Token hiç yok — refresh token varsa sessizce yenile
         if (!token || !exp) {
           const { value: hasRefresh } = await Preferences.get({ key: REFRESH_TOKEN_KEY });
           if (hasRefresh) {
@@ -233,10 +307,9 @@ class GoogleDriveService {
         }
 
         this.accessToken = token;
-        this.expiresAt = parseInt(exp);
+        this.expiresAt   = parseInt(exp);
         if (userStr) this.user = JSON.parse(userStr);
 
-        // Token süresi dolmuş veya dolmak üzere (60sn eşik)
         if (Date.now() > this.expiresAt - 60000) {
           const ok = await this.refresh();
           if (ok && this.accessToken) {
@@ -247,7 +320,6 @@ class GoogleDriveService {
           return null;
         }
 
-        // Token geçerli, user bilgisi yoksa çek
         if (!this.user && this.accessToken) {
           await this.fetchUserInfo(this.accessToken);
         }
@@ -262,28 +334,33 @@ class GoogleDriveService {
   }
 
   async signIn() {
-    const isNative = Capacitor.isNativePlatform();
-    const redirectUri = isNative
-      ? 'com.efek0349.mesaitakip:/oauth2redirect'
-      : window.location.origin + window.location.pathname;
+    const redirectUri = this.getRedirectUri();
+    const clientId    = this.getClientId();
 
-    // Her iki platformda da PKCE + code flow
-    const verifier = this.randomString(64);
+    const verifier  = this.randomString(64);
     const challenge = await this.sha256(verifier);
     await Preferences.set({ key: CODE_VERIFIER_KEY, value: verifier });
 
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
-      redirect_uri: redirectUri,
-      scope: SCOPES,
-      response_type: 'code',
-      prompt: 'consent select_account',
-      code_challenge: challenge,
+      client_id:             clientId,
+      redirect_uri:          redirectUri,
+      scope:                 SCOPES,
+      response_type:         'code',
+      prompt:                'consent select_account',
+      code_challenge:        challenge,
       code_challenge_method: 'S256',
-      access_type: 'offline'
+      access_type:           'offline'
     });
 
-    window.location.href = `${AUTH_URL}?${params.toString()}`;
+    if (IS_TAURI) {
+      // Sistem tarayıcısını aç, loopback listener başlat
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(`${AUTH_URL}?${params.toString()}`);
+      // Rust TCP server code'u yakalar ve 'oauth-code' event'i gönderir
+      await this.startLoopbackListener();
+    } else {
+      window.location.href = `${AUTH_URL}?${params.toString()}`;
+    }
   }
 
   private async fetchUserInfo(token: string) {
@@ -294,8 +371,8 @@ class GoogleDriveService {
       if (res.ok) {
         const data = await res.json();
         this.user = {
-          email: data.email,
-          name: data.name,
+          email:    data.email,
+          name:     data.name,
           imageUrl: data.picture
         };
         await Preferences.set({ key: USER_KEY, value: JSON.stringify(this.user) });
@@ -307,13 +384,15 @@ class GoogleDriveService {
 
   async signOut() {
     this.accessToken = null;
-    this.user = null;
-    this.expiresAt = 0;
-    await Preferences.remove({ key: STORAGE_KEY });
-    await Preferences.remove({ key: REFRESH_TOKEN_KEY });
-    await Preferences.remove({ key: USER_KEY });
-    await Preferences.remove({ key: CODE_VERIFIER_KEY });
-    await Preferences.remove({ key: EXPIRES_AT_KEY });
+    this.user        = null;
+    this.expiresAt   = 0;
+    await Promise.all([
+      Preferences.remove({ key: STORAGE_KEY }),
+      Preferences.remove({ key: REFRESH_TOKEN_KEY }),
+      Preferences.remove({ key: USER_KEY }),
+      Preferences.remove({ key: CODE_VERIFIER_KEY }),
+      Preferences.remove({ key: EXPIRES_AT_KEY }),
+    ]);
   }
 
   private async apiRequest(url: string, options: RequestInit = {}): Promise<Response> {
@@ -346,46 +425,38 @@ class GoogleDriveService {
 
   async listBackups(): Promise<DriveFile[]> {
     try {
-      const q = encodeURIComponent("name contains 'backup_' and trashed = false");
+      const q   = encodeURIComponent("name contains 'backup_' and trashed = false");
       const url = `${DRIVE_API}?q=${q}&fields=files(id, name, createdTime)&orderBy=createdTime desc`;
       const res = await this.apiRequest(url);
       const data = await res.json();
       return data.files || [];
-    } catch (error) {
-      return [];
-    }
+    } catch { return []; }
   }
 
   async uploadBackup(jsonData: string): Promise<boolean> {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-      const metadata = { name: `backup_${timestamp}.json`, mimeType: 'application/json' };
-      const formData = new FormData();
+      const metadata  = { name: `backup_${timestamp}.json`, mimeType: 'application/json' };
+      const formData  = new FormData();
       formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      formData.append('file', new Blob([jsonData], { type: 'application/json' }));
+      formData.append('file',     new Blob([jsonData],                  { type: 'application/json' }));
       const res = await this.apiRequest(`${DRIVE_UPLOAD_API}?uploadType=multipart`, { method: 'POST', body: formData });
       return res.ok;
-    } catch (error) {
-      return false;
-    }
+    } catch { return false; }
   }
 
   async downloadBackup(fileId: string): Promise<string | null> {
     try {
       const res = await this.apiRequest(`${DRIVE_API}/${fileId}?alt=media`);
       return res.ok ? await res.text() : null;
-    } catch (error) {
-      return null;
-    }
+    } catch { return null; }
   }
 
   async deleteBackup(fileId: string): Promise<boolean> {
     try {
       const res = await this.apiRequest(`${DRIVE_API}/${fileId}`, { method: 'DELETE' });
       return res.ok;
-    } catch (error) {
-      return false;
-    }
+    } catch { return false; }
   }
 
   getUser() { return this.user; }

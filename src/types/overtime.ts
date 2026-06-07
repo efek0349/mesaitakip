@@ -70,6 +70,7 @@ export interface SeveranceSettings {
 
 export interface BackupSettings {
   autoBackupEnabled?: boolean;
+  autoBackupPeriod?: 'daily' | 'weekly' | 'monthly';
   lastBackupDate?: string;
 }
 

@@ -449,7 +449,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                             </div>
                             <div>
                               <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Oto Yedekleme</span>
-                              <span className="block text-[10px] text-gray-500 dark:text-gray-400 italic">Anlık bulut senkronizasyonu</span>
+                              <span className="block text-[10px] text-gray-500 dark:text-gray-400 italic">Bulut senkronizasyonu</span>
                             </div>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
@@ -462,6 +462,27 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({ isOpen, onClos
                             <div className="w-12 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500 shadow-inner"></div>
                           </label>
                         </div>
+
+                        {settings.autoBackupEnabled && (
+                          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1 tracking-widest">Yedekleme Periyodu</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(['daily', 'weekly', 'monthly'] as const).map((period) => (
+                                <button
+                                  key={period}
+                                  onClick={() => updateSettings({ ...settings, autoBackupPeriod: period })}
+                                  className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase transition-all border-b-2 active:translate-y-0.5 active:border-b-0 ${
+                                    settings.autoBackupPeriod === period || (!settings.autoBackupPeriod && period === 'weekly')
+                                      ? 'bg-orange-500 text-white border-orange-700 shadow-md'
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700'
+                                  }`}
+                                >
+                                  {period === 'daily' ? 'Günlük' : period === 'weekly' ? 'Haftalık' : 'Aylık'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         
                         {!googleUser && settings.autoBackupEnabled && (
                           <div className="mt-3 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800/30 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter animate-pulse">

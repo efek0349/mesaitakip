@@ -7,11 +7,22 @@ import tsParser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: ['dist', 'android/**', 'ios/**'],
+    ignores: ['dist', 'android/**', 'ios/**', 'src-tauri/**'],
   },
 
   // JS kuralları
   js.configs.recommended,
+
+  // Worker.js için özel kurallar
+  {
+    files: ['worker.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.serviceworker,
+      },
+    },
+  },
 
   // TypeScript tavsiye edilen kurallar
   {
