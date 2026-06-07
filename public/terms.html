@@ -2,7 +2,41 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Terms of Service - Mesai Takip</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --text: #1e293b;
+      --accent: #3b82f6;
+      --card-bg: white;
+      --border: #e2e8f0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000;
+        --text: #f8fafc;
+        --accent: #60a5fa;
+        --card-bg: #111827;
+        --border: #1f2937;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 24px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: var(--accent); margin-bottom: 24px; font-size: 1.5rem; }
+    h2 { margin-top: 32px; margin-bottom: 12px; font-size: 1.1rem; color: var(--accent); }
+    p { margin-bottom: 16px; opacity: 0.9; }
+    b { color: var(--accent); }
+  </style>
 </head>
 <body>
   <h1>Terms of Service</h1>
@@ -11,22 +45,40 @@
 
   <h2>Kullanım</h2>
   <p>
-    Uygulama yalnızca mesai takibi amacıyla kullanılmalıdır.
+    Uygulama yalnızca mesai takibi amacıyla kullanılmalıdır. Verilerin doğruluğu kullanıcının sorumluluğundadır.
   </p>
 
-  <h2>Hesap</h2>
+  <h2>Hesap ve Veriler</h2>
   <p>
-    Kullanıcılar Google hesapları ile giriş yapar. Başka bir veri toplanmaz.
+    Uygulama verileri cihazınızda saklanır. Google Drive yedeklemesi isteğe bağlıdır. Kişisel verileriniz hiçbir sunucuya aktarılmaz.
   </p>
 
   <h2>Sorumluluk</h2>
   <p>
-    Uygulama “olduğu gibi” sunulur. Kesintilerden geliştirici sorumlu değildir.
+    Uygulama “olduğu gibi” sunulur. Veri kayıplarından veya teknik kesintilerden geliştirici sorumlu tutulamaz.
   </p>
 
   <h2>İletişim</h2>
   <p>
-    kndmrefe@gmail.com
+    Sorularınız için: <a href="mailto:kndmrefe@gmail.com" style="color: var(--accent);">kndmrefe@gmail.com</a>
   </p>
+
+<script>
+  function syncTheme() {
+    try {
+      const isDark = window.parent.document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.body.style.setProperty('--bg', '#000000');
+        document.body.style.setProperty('--text', '#f8fafc');
+        document.body.style.setProperty('--accent', '#60a5fa');
+        document.body.style.setProperty('--card-bg', '#111827');
+        document.body.style.setProperty('--border', '#1f2937');
+      }
+    } catch (e) {}
+  }
+  syncTheme();
+  setInterval(syncTheme, 1000);
+</script>
+
 </body>
 </html>

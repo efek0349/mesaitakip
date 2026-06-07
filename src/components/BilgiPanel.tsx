@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, AlertCircle, BookOpen, Clock, Shield, FileText } from 'lucide-react';
+import { RefreshCw, AlertCircle, BookOpen, Clock, Shield, FileText, X } from 'lucide-react';
 import { useBilgi } from '../hooks/useBilgi';
 
 // Basit markdown → JSX dönüştürücü (harici kütüphane gerektirmez)
@@ -116,6 +116,7 @@ const inlineFormat = (text: string): React.ReactNode => {
 
 export const BilgiPanel: React.FC = () => {
   const { content, loading, error, refresh, lastUpdated } = useBilgi();
+  const [viewFile, setViewViewFile] = React.useState<{ url: string; title: string } | null>(null);
 
   const rendered = useMemo(() => {
     if (!content) return null;
@@ -132,6 +133,35 @@ export const BilgiPanel: React.FC = () => {
         return `${hours} saat önce`;
       })()
     : null;
+
+  if (viewFile) {
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-dark-bg animate-in slide-in-from-right duration-300">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setViewViewFile(null)}
+              className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 active:scale-90 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h2 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight">{viewFile.title}</h2>
+          </div>
+        </div>
+        <div className="flex-1 w-full bg-white dark:bg-black overflow-hidden relative">
+          <iframe 
+            src={viewFile.url} 
+            className="w-full h-full border-none dark:invert-[0.9] dark:hue-rotate-180 brightness-100"
+            style={{ 
+              filter: document.documentElement.classList.contains('dark') ? 'invert(0.9) hue-rotate(180deg)' : 'none',
+              backgroundColor: document.documentElement.classList.contains('dark') ? '#000000' : '#f8fafc'
+            }}
+            title={viewFile.title}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -165,23 +195,21 @@ export const BilgiPanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-3 custom-scrollbar">
         {/* Yasal Politikalar Linkleri */}
         <div className="mb-4 flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30">
-          <a 
-            href={`${import.meta.env.BASE_URL}privacy.html`}
-            target="_blank" 
+          <button 
+            onClick={() => setViewViewFile({ url: `${import.meta.env.BASE_URL}privacy.html`, title: 'Gizlilik Politikası' })}
             className="flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
             <Shield className="w-3.5 h-3.5" />
             <span className="uppercase tracking-tight">Gizlilik Politikası</span>
-          </a>
+          </button>
           
-          <a 
-            href={`${import.meta.env.BASE_URL}terms.html`}
-            target="_blank" 
+          <button 
+            onClick={() => setViewViewFile({ url: `${import.meta.env.BASE_URL}terms.html`, title: 'Kullanım Şartları' })}
             className="flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
             <span className="uppercase tracking-tight">Kullanım Şartları</span>
             <FileText className="w-3.5 h-3.5" />
-          </a>
+          </button>
         </div>
 
         {loading && !content && (
