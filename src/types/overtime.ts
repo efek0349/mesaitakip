@@ -13,6 +13,7 @@ export interface OvertimeEntry {
   type: EntryType;
   isFullDay?: boolean; // Tam gün izinli mi?
   isPaid?: boolean; // Ücretli mi? (Varsayılan: true)
+  deductFromOvertime?: boolean; // Mesai alacağından mı düşülsün?
   workedHalfDay?: boolean; // Arife günü yarım gün çalışıldı mı?
   note?: string; // Opsiyonel not alanı
 }
@@ -39,6 +40,7 @@ export interface PaySettings {
   holidayMultiplier: number;
   deductBreakTime: boolean;
   isSaturdayWork: boolean;
+  isSaturdayWorkManual?: boolean; // Cumartesi çalışma durumuna manuel müdahale
   hasSalaryAttachment: boolean;
   salaryAttachmentRate: number;
   hasTES: boolean;
@@ -83,7 +85,7 @@ export interface SalarySettings extends
 
 // MonthlySalary — SalarySettings'ten türetildi, senkron kalır
 export type MonthlySalary = Pick<SalarySettings,
-  'monthlyGrossSalary' | 'bonus' | 'isSaturdayWork' |
+  'monthlyGrossSalary' | 'bonus' | 'isSaturdayWork' | 'isSaturdayWorkManual' |
   'shiftSystemEnabled' | 'shiftSystemType' |
   'defaultStartTime' | 'defaultEndTime'
 >;

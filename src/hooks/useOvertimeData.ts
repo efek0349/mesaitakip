@@ -67,7 +67,8 @@ const validateAndCleanData = (data: any): MonthlyData => {
           minutes,
           type: entry.type || 'overtime',
           isFullDay: !!entry.isFullDay,
-          isPaid: entry.isPaid !== undefined ? !!entry.isPaid : false
+          isPaid: entry.isPaid !== undefined ? !!entry.isPaid : false,
+          deductFromOvertime: !!entry.deductFromOvertime
         } as OvertimeEntry;
       });
     }
@@ -183,7 +184,7 @@ export const useOvertimeData = () => {
     return () => { isMounted = false; };
   }, [isLoaded]);
 
-  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string, isFullDay: boolean = false, isPaid: boolean = false, workedHalfDay: boolean = false) => {
+  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string, isFullDay: boolean = false, isPaid: boolean = false, workedHalfDay: boolean = false, deductFromOvertime: boolean = false) => {
     if (!isDataLoaded) return;
     const monthKey = getMonthKey(date);
     const dateKey = getDateKey(date);
@@ -196,6 +197,7 @@ export const useOvertimeData = () => {
       type, 
       isFullDay, 
       isPaid,
+      deductFromOvertime,
       workedHalfDay,
       note: note || undefined 
     };
@@ -306,14 +308,20 @@ export const useOvertimeData = () => {
     }
   }, [importSettings]);
 
-  const getYearlyTotal = React.useCallback((year: number, deductBreakTime: boolean): number => {
+  const getYearlyTotal = React.useCallback((year: number, deductBreakTime: boolean, dailyWorkingHours: number = 7.5): number => {
     let yearlyTotal = 0;
     const yearPrefix = `${year}-`;
     
     Object.keys(monthlyData).forEach(monthKey => {
       if (monthKey.startsWith(yearPrefix)) {
         monthlyData[monthKey].forEach(entry => {
-          if (entry.type === 'leave') return;
+          if (entry.type === 'leave') {
+            if (entry.deductFromOvertime && (entry.isPaid === false)) {
+              const leaveHours = entry.isFullDay ? dailyWorkingHours : calcTotalHours(entry);
+              yearlyTotal -= leaveHours;
+            }
+            return;
+          }
           yearlyTotal += calculateEffectiveHours(
             calcTotalHours(entry), 
             deductBreakTime
@@ -321,7 +329,7 @@ export const useOvertimeData = () => {
         });
       }
     });
-    return yearlyTotal;
+    return Math.max(0, yearlyTotal);
   }, [monthlyData]);
 
   const clearAllData = React.useCallback(async () => { 

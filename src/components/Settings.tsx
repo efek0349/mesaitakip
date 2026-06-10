@@ -5,7 +5,7 @@ import { useSalarySettings } from '../hooks/useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { APP_VERSION } from '../constants';
-import { getMonthKey, isSaturdayWorkday } from '../utils/dateUtils';
+import { getMonthKey, isSaturdayWorkday, calculateDailyGrossHours, calculateEffectiveHours } from '../utils/dateUtils';
 import { calculateSeverancePay } from '../utils/salaryUtils';
 import { TabButton } from './TabButton';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
@@ -150,7 +150,11 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           next.defaultEndTime = '18:05';
         }
         next.isSaturdayWork = isSaturdayWorkday(next);
-        next.dailyWorkingHours = next.isSaturdayWork ? 7.5 : 9;
+        
+        // Öneri: Saatlere göre hesapla
+        const gross = calculateDailyGrossHours(next.defaultStartTime, next.defaultEndTime);
+        next.dailyWorkingHours = calculateEffectiveHours(gross, next.deductBreakTime);
+        
         return next;
       });
       return;
@@ -160,7 +164,11 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
       setFormData(prev => {
         const next = { ...prev, [field]: value };
         next.isSaturdayWork = isSaturdayWorkday(next);
-        next.dailyWorkingHours = next.isSaturdayWork ? 7.5 : 9;
+        
+        // Öneri: Saatlere göre hesapla
+        const gross = calculateDailyGrossHours(next.defaultStartTime, next.defaultEndTime);
+        next.dailyWorkingHours = calculateEffectiveHours(gross, next.deductBreakTime);
+        
         return next;
       });
       return;
@@ -381,10 +389,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                     </span>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <div className="p-1.5 bg-white dark:bg-gray-900 rounded-lg text-[9px] text-gray-500 border border-gray-100 dark:border-gray-800">
-                        <span className="font-bold text-gray-700 dark:text-gray-300">4-7.5s:</span> 30 Dk
+                        <span className="font-bold text-gray-700 dark:text-gray-300">4-8s:</span> 30 Dk
                       </div>
                       <div className="p-1.5 bg-white dark:bg-gray-900 rounded-lg text-[9px] text-gray-500 border border-gray-100 dark:border-gray-800">
-                        <span className="font-bold text-gray-700 dark:text-gray-300">7.5s+:</span> 1 Saat
+                        <span className="font-bold text-gray-700 dark:text-gray-300">8s+:</span> 1 Saat
                       </div>
                     </div>
                   </div>
@@ -482,8 +490,9 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                         type="text" 
                         inputMode="decimal"
                         value={formData.dailyWorkingHours} 
-                        readOnly
-                        className="w-full p-2.5 bg-gray-100 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-500 dark:text-gray-400 outline-none cursor-not-allowed" 
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} 
+                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
                       />
                     </div>
                   </div>
@@ -509,14 +518,54 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                     </div>
                   </div>
 
-                  <div className="px-1">
+                  <div className="px-1 space-y-2">
                     <div className={`flex items-center gap-2 p-2.5 rounded-xl border ${formData.isSaturdayWork ? 'bg-blue-50/50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800/50' : 'bg-green-50/50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
                       <Info size={12} className={formData.isSaturdayWork ? 'text-blue-500' : 'text-green-500'} />
                       <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 leading-tight">
-                        {formData.isSaturdayWork 
-                          ? 'Günde 8 saat veya altı çalışma (Cumartesi iş günü)' 
-                          : 'Günde 10 saat veya üstü çalışma (Cumartesi tatil)'}
+                        {formData.isSaturdayWorkManual 
+                          ? (formData.isSaturdayWork ? 'Manuel: Cumartesi iş günü olarak belirlendi' : 'Manuel: Cumartesi tatil günü olarak belirlendi')
+                          : (formData.isSaturdayWork 
+                              ? 'Günde 8 saat veya altı çalışma (Cumartesi iş günü)' 
+                              : 'Günde 10 saat veya üstü çalışma (Cumartesi tatil)')}
                       </span>
+                    </div>
+
+                    {/* Manuel Cumartesi Ayarı */}
+                    <div className="p-3 bg-white dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 space-y-3 shadow-inner">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-gray-700 dark:text-gray-200 uppercase leading-none">Manuel Müdahale</span>
+                          <span className="text-[8px] text-gray-500 italic mt-1 leading-none">Otomatik hesaplamayı devre dışı bırak</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={formData.isSaturdayWorkManual}
+                            onChange={(e) => handleInputChange('isSaturdayWorkManual', e.target.checked)}
+                          />
+                          <div className="w-8 h-4 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500"></div>
+                        </label>
+                      </div>
+
+                      {formData.isSaturdayWorkManual && (
+                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
+                          <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">Cumartesi İş Günü mü?</span>
+                          <button
+                            onClick={() => {
+                              const newValue = !formData.isSaturdayWork;
+                              handleInputChange('isSaturdayWork', newValue);
+                            }}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${
+                              formData.isSaturdayWork
+                                ? 'bg-blue-500 text-white shadow-sm'
+                                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                            }`}
+                          >
+                            {formData.isSaturdayWork ? 'EVET' : 'HAYIR'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -141,13 +141,15 @@ export const useSalarySettings = () => {
 
   const getSalaryForDate = React.useCallback((date: Date): MonthlySalary => {
     const monthKey = getMonthKey(date);
-    const { salaryHistory, monthlyGrossSalary, bonus, shiftSystemEnabled, shiftSystemType } = settings;
+    const { salaryHistory, monthlyGrossSalary, bonus, shiftSystemEnabled, shiftSystemType, isSaturdayWorkManual: globalManual } = settings;
 
     if (salaryHistory && salaryHistory[monthKey]) {
       const histEntry = salaryHistory[monthKey];
+      const manual = histEntry.isSaturdayWorkManual ?? globalManual;
       return {
         ...histEntry,
-        isSaturdayWork: isSaturdayWorkday(histEntry),
+        isSaturdayWorkManual: manual,
+        isSaturdayWork: isSaturdayWorkday({ ...histEntry, isSaturdayWorkManual: manual }),
         shiftSystemEnabled: histEntry.shiftSystemEnabled ?? shiftSystemEnabled,
         shiftSystemType: histEntry.shiftSystemType ?? shiftSystemType
       };
@@ -158,9 +160,11 @@ export const useSalarySettings = () => {
       const mostRecentKey = historyKeys.find(key => key <= monthKey);
       if (mostRecentKey) {
         const histEntry = salaryHistory[mostRecentKey];
+        const manual = histEntry.isSaturdayWorkManual ?? globalManual;
         return {
           ...histEntry,
-          isSaturdayWork: isSaturdayWorkday(histEntry),
+          isSaturdayWorkManual: manual,
+          isSaturdayWork: isSaturdayWorkday({ ...histEntry, isSaturdayWorkManual: manual }),
           shiftSystemEnabled: histEntry.shiftSystemEnabled ?? shiftSystemEnabled,
           shiftSystemType: histEntry.shiftSystemType ?? shiftSystemType
         };
@@ -171,6 +175,7 @@ export const useSalarySettings = () => {
       monthlyGrossSalary,
       bonus,
       isSaturdayWork: isSaturdayWorkday(settings),
+      isSaturdayWorkManual: settings.isSaturdayWorkManual,
       shiftSystemEnabled,
       shiftSystemType
     };
@@ -225,11 +230,8 @@ export const useSalarySettings = () => {
     // Cumartesi çalışma durumunu saatlere göre otomatik belirle
     nextSettings.isSaturdayWork = isSaturdayWorkday(nextSettings);
 
-    // Günlük çalışma saatini net saat olarak güncelle
-    const netHours = (nextSettings.defaultStartTime && nextSettings.defaultEndTime) 
-      ? nextSettings.isSaturdayWork ? 7.5 : 9 
-      : nextSettings.dailyWorkingHours;
-    nextSettings.dailyWorkingHours = netHours;
+    // Günlük çalışma saatini UI'dan gelen değer olarak kullan (Artık zorlamıyoruz)
+    nextSettings.dailyWorkingHours = Number(nextSettings.dailyWorkingHours) || currentSettings.dailyWorkingHours;
 
     let activeDate = now;
     if (monthKey) {
@@ -284,6 +286,7 @@ export const useSalarySettings = () => {
         monthlyGrossSalary: Number(nextSettings.monthlyGrossSalary),
         bonus: Number(nextSettings.bonus),
         isSaturdayWork: nextSettings.isSaturdayWork,
+        isSaturdayWorkManual: nextSettings.isSaturdayWorkManual,
         shiftSystemEnabled: nextSettings.shiftSystemEnabled,
         shiftSystemType: nextSettings.shiftSystemType,
         defaultStartTime: nextSettings.defaultStartTime,

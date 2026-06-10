@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useCallback } from 'react';
-import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle, Briefcase, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Clock, Trash2, Settings, Share2, Shield, CheckCircle, XCircle, Briefcase, ChevronDown, ChevronUp, Info, Minus } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -34,7 +34,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
 
   // Veri değişimlerini izlemek için monthlyData'yı (monthlyDataMemo) dependency olarak ekliyoruz
   const monthlyTotal = useMemo(() => getMonthlyTotal(year, month, settings.deductBreakTime), [year, month, settings.deductBreakTime, getMonthlyTotal, monthlyData]);
-  const yearlyTotal = useMemo(() => getYearlyTotal(year, settings.deductBreakTime), [year, settings.deductBreakTime, getYearlyTotal, monthlyData]);
+  const yearlyTotal = useMemo(() => getYearlyTotal(year, settings.deductBreakTime, settings.dailyWorkingHours), [year, settings.deductBreakTime, getYearlyTotal, monthlyData, settings.dailyWorkingHours]);
   const monthlyEntries = useMemo(() => getMonthlyEntries(year, month), [year, month, getMonthlyEntries, monthlyData]);
   
   const isOverLimit = yearlyTotal > YEARLY_LIMIT_HOURS;
@@ -49,36 +49,41 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
       sunday: { hours: 0, payment: 0 },
       holiday: { hours: 0, payment: 0 },
       leave: { hours: 0, deduction: 0 },
+      mahsup: { hours: 0, payment: 0 },
       total: { hours: 0, payment: 0 }
     };
 
-    monthlyEntries.forEach(entry => {
-      const entryDate = parseDate(entry.date);
-      const holiday = getHoliday(entryDate);
-      const isHolidayDate = holiday !== undefined;
-      const dayOfWeek = entryDate.getDay();
-      const isSaturday = dayOfWeek === 6;
-      const isSunday = dayOfWeek === 0;
+    // Önce toplam mahsup edilecek saati hesaplayalım
+    let remainingMahsupHours = monthlyEntries
+      .filter(entry => entry.type === 'leave' && (entry.isPaid === false) && entry.deductFromOvertime)
+      .reduce((sum, entry) => sum + (entry.isFullDay ? settings.dailyWorkingHours : calcTotalHours(entry)), 0);
 
+    const mahsupTotalHoursBackup = remainingMahsupHours;
+
+    // Kesinti (İzin) hesaplamaları
+    monthlyEntries.forEach(entry => {
       if (entry.type === 'leave') {
-        let deduction = 0;
         const entryIsPaid = entry.isPaid !== undefined ? entry.isPaid : true;
-        
-        if (!entryIsPaid) {
-          if (entry.isFullDay) {
-            const dailyHours = settings.dailyWorkingHours;
-            const hourlyRate = getHourlyRate(entryDate);
-            deduction = dailyHours * hourlyRate;
-            stats.leave.hours += dailyHours;
-          } else {
-            const hours = calcTotalHours(entry);
-            const hourlyRate = getHourlyRate(entryDate);
-            deduction = hours * hourlyRate;
-            stats.leave.hours += hours;
-          }
-          stats.leave.deduction += deduction;
+        if (!entryIsPaid && !entry.deductFromOvertime) {
+          const hours = entry.isFullDay ? settings.dailyWorkingHours : calcTotalHours(entry);
+          const hourlyRate = getHourlyRate(parseDate(entry.date));
+          stats.leave.hours += hours;
+          stats.leave.deduction += hours * hourlyRate;
         }
-      } else {
+      }
+    });
+
+    // Mesai girişlerini topla (Mahsup düşülmeden önce)
+    const overtimeEntries = monthlyEntries
+      .filter(entry => entry.type === 'overtime')
+      .map(entry => {
+        const entryDate = parseDate(entry.date);
+        const holiday = getHoliday(entryDate);
+        const isHolidayDate = holiday !== undefined;
+        const dayOfWeek = entryDate.getDay();
+        const isSaturday = dayOfWeek === 6;
+        const isSunday = dayOfWeek === 0;
+        
         const totalHours = calcTotalHours(entry);
         const effectiveHours = calculateEffectiveHours(totalHours, settings.deductBreakTime);
         
@@ -88,26 +93,84 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
         }
 
         const overtimeRate = getOvertimeRate(entryDate, isHolidayDate, weeklyHours);
-        const payment = effectiveHours * (overtimeRate || 0);
+        
+        return {
+          effectiveHours,
+          overtimeRate,
+          isHoliday: isHolidayDate,
+          isSunday: isSunday && !isHolidayDate,
+          isNormal: !isHolidayDate && !isSunday
+        };
+      });
 
-        if (isHolidayDate) {
-          stats.holiday.hours += effectiveHours;
-          stats.holiday.payment += payment;
-        } else if (isSunday) {
-          stats.sunday.hours += effectiveHours;
-          stats.sunday.payment += payment;
-        } else {
-          stats.normal.hours += effectiveHours;
-          stats.normal.payment += payment;
-        }
-
-        stats.total.hours += effectiveHours;
-        stats.total.payment += payment;
+    // Brüt mesai toplamlarını al
+    overtimeEntries.forEach(e => {
+      const payment = e.effectiveHours * (e.overtimeRate || 0);
+      stats.total.hours += e.effectiveHours;
+      stats.total.payment += payment;
+      
+      if (e.isNormal) {
+        stats.normal.hours += e.effectiveHours;
+        stats.normal.payment += payment;
+      } else if (e.isSunday) {
+        stats.sunday.hours += e.effectiveHours;
+        stats.sunday.payment += payment;
+      } else if (e.isHoliday) {
+        stats.holiday.hours += e.effectiveHours;
+        stats.holiday.payment += payment;
       }
     });
 
+    // Mahsup işlemini uygula (En ucuz mesailerden başlayarak düşer: Normal -> Pazar -> Tatil)
+    // Bu sayede kullanıcının lehine bir mahsuplaşma olur.
+    
+    // 1. Normal Mesailerden Düş
+    const normalEntries = overtimeEntries.filter(e => e.isNormal);
+    normalEntries.forEach(e => {
+      const deduct = Math.min(e.effectiveHours, remainingMahsupHours);
+      if (deduct > 0) {
+        stats.mahsup.hours += deduct;
+        stats.mahsup.payment += deduct * (e.overtimeRate || 0);
+        remainingMahsupHours -= deduct;
+      }
+    });
+
+    // 2. Pazar Mesailerinden Düş
+    if (remainingMahsupHours > 0) {
+      const sundayEntries = overtimeEntries.filter(e => e.isSunday);
+      sundayEntries.forEach(e => {
+        const deduct = Math.min(e.effectiveHours, remainingMahsupHours);
+        if (deduct > 0) {
+          stats.mahsup.hours += deduct;
+          stats.mahsup.payment += deduct * (e.overtimeRate || 0);
+          remainingMahsupHours -= deduct;
+        }
+      });
+    }
+
+    // 3. Tatil Mesailerinden Düş
+    if (remainingMahsupHours > 0) {
+      const holidayEntries = overtimeEntries.filter(e => e.isHoliday);
+      holidayEntries.forEach(e => {
+        const deduct = Math.min(e.effectiveHours, remainingMahsupHours);
+        if (deduct > 0) {
+          stats.mahsup.hours += deduct;
+          stats.mahsup.payment += deduct * (e.overtimeRate || 0);
+          remainingMahsupHours -= deduct;
+        }
+      });
+    }
+
+    // Eğer hala mahsup saati kaldıysa (hiç mesai yoksa veya yetmiyorsa), 
+    // kalan mahsup saatlerini baz saat ücreti üzerinden gösterelim (borç gibi)
+    if (remainingMahsupHours > 0) {
+      const hourlyRate = getHourlyRate(currentDate);
+      stats.mahsup.hours += remainingMahsupHours;
+      stats.mahsup.payment += remainingMahsupHours * hourlyRate;
+    }
+
     return stats;
-  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData, calculateWeeklyHoursForSunday, settings.dailyWorkingHours]);
+  }, [monthlyEntries, getHoliday, getOvertimeRate, getHourlyRate, settings.deductBreakTime, isSaturdayWork, monthlyData, calculateWeeklyHoursForSunday, settings.dailyWorkingHours, currentDate]);
 
 
   // AKILLI YEMEK/YOL HESAPLAMA - Merkezi fonksiyona taşındı
@@ -166,16 +229,24 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
 
   const monthlyGrossSalary = Number(monthSalary.monthlyGrossSalary) || 0;
   const bonus = Number(monthSalary.bonus) || 0;
-  const salarySum = (monthlyGrossSalary + bonus) - overtimeStats.leave.deduction;
+  const salaryBase = monthlyGrossSalary - overtimeStats.leave.deduction;
+  const salarySum = salaryBase + bonus;
   
-  // TES kesintisi sadece maaş toplamı üzerinden
+  // TES kesintisi sadece maaş toplamı üzerinden (Maaş + Prim)
   const currentTesRate = settings.hasTES ? (Number(settings.tesRate) || 3) : 0;
   const tesDeduction = settings.hasTES ? salarySum * (currentTesRate / 100) : 0;
   
-  const totalEarnings = (salarySum - tesDeduction) + overtimeStats.total.payment + allowanceData.total;
+  // Mahsup düşülmüş net mesai kazancı
+  const netOvertimePayment = Math.max(0, overtimeStats.total.payment - overtimeStats.mahsup.payment);
+  const netOvertimeHours = Math.max(0, monthlyTotal - overtimeStats.mahsup.hours);
+
+  // Haciz Matrahı: (Maaş + Prim - TES) + (Net Mesai) + Yol/Yemek
+  // Not: Mahsup izni zaten netOvertimePayment içinde düşüldü.
+  const totalEarningsBeforeAttachment = (salarySum - tesDeduction) + netOvertimePayment + allowanceData.total;
+  
   const attachmentRate = settings.salaryAttachmentRate || 25;
-  const attachmentDeduction = settings.hasSalaryAttachment ? totalEarnings * (attachmentRate / 100) : 0;
-  const finalEarnings = totalEarnings - attachmentDeduction;
+  const attachmentDeduction = settings.hasSalaryAttachment ? totalEarningsBeforeAttachment * (attachmentRate / 100) : 0;
+  const finalEarnings = totalEarningsBeforeAttachment - attachmentDeduction;
 
     return (
       <div className="bg-white dark:bg-dark-bg rounded-2xl shadow-lg p-2 mb-4">
@@ -205,6 +276,22 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
               </div>
 
               <div className="space-y-2">
+                {overtimeStats.mahsup.hours > 0 && (
+                  <div className="space-y-1.5 p-2 rounded-xl border bg-black/10 border-white/5 shadow-inner">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 flex items-center justify-center text-blue-200 font-black text-xs">-</span>
+                        <span className="text-[9px] font-black leading-none text-blue-100 uppercase">Mahsup</span>
+                      </div>
+                      <span className="text-[10px] font-black leading-none text-white">-{formatHours(overtimeStats.mahsup.hours)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/10 pt-1">
+                      <span className="text-[9px] font-black leading-none text-indigo-200 uppercase tracking-tighter">Kalan Mesai</span>
+                      <span className="text-[10px] font-black leading-none text-white">{formatHours(netOvertimeHours)}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div 
                   onClick={() => setShowLimitInfo(true)}
                   className={`group flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all duration-300 transform active:scale-95 shadow-inner ${isOverLimit ? 'bg-red-500/30 border-red-400/40 hover:bg-red-500/40' : 'bg-black/10 border-white/5 hover:bg-black/20 hover:ring-1 hover:ring-white/20'}`}
@@ -250,9 +337,9 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
               <div className="flex-1 flex flex-col justify-end gap-1.5">
                 <div className="flex flex-col gap-1.5 p-2 rounded-xl border bg-black/10 border-white/5 shadow-inner">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-emerald-100 font-bold leading-none">Mesai</span>
+                    <span className="text-[10px] text-emerald-100 font-bold leading-none">Mesai (Net)</span>
                     <span className="text-[11px] font-black leading-none text-white">
-                      ₺{overtimeStats.total.payment.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ₺{netOvertimePayment.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
                   </div>
                   {allowanceData.total > 0 && (
@@ -266,9 +353,17 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
                   <div className="flex items-center justify-between border-t border-white/5 pt-1.5">
                     <span className="text-[10px] text-emerald-100 font-bold leading-none">Maaş</span>
                     <span className="text-[11px] font-black leading-none text-white">
-                      ₺{salarySum.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ₺{salaryBase.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
                   </div>
+                  {bonus > 0 && (
+                    <div className="flex items-center justify-between border-t border-white/5 pt-1.5">
+                      <span className="text-[10px] text-emerald-100 font-bold leading-none">Prim</span>
+                      <span className="text-[11px] font-black leading-none text-white">
+                        ₺{bonus.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
                   {overtimeStats.leave.hours > 0 && (
                     <div className="flex items-center justify-between border-t border-white/5 pt-1.5">
                       <span className="text-[10px] text-orange-200 font-black leading-none">İzin</span>
@@ -287,7 +382,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
                   )}
                   {attachmentDeduction > 0 && (
                     <div className="flex items-center justify-between border-t border-white/5 pt-1.5">
-                      <span className="text-[10px] text-red-200 font-black leading-none uppercase">Haciz (%{attachmentRate})</span>
+                      <span className="text-[10px] text-red-200 font-black leading-none uppercase">HACİZ (%{attachmentRate})</span>
                       <span className="text-[11px] font-black leading-none text-red-100">
                         -₺{attachmentDeduction.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
@@ -473,6 +568,20 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
                       <div className="text-right">
                         <p className="text-red-800 dark:text-red-200 font-black">{formatHours(overtimeStats.holiday.hours)}</p>
                         <p className="text-red-600 dark:text-red-300 text-xs font-bold">₺{overtimeStats.holiday.payment.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {overtimeStats.mahsup.hours > 0 && (
+                  <div className="bg-indigo-50/50 dark:bg-indigo-900/30 rounded-xl p-3 border border-indigo-100/50 dark:border-indigo-800/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-indigo-800 dark:text-indigo-200 font-bold text-sm">Mesaiden Mahsup</p>
+                        <p className="text-indigo-600 dark:text-indigo-300 text-[10px] font-medium uppercase">Mesai Havuzundan Düşülen</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-indigo-800 dark:text-indigo-200 font-black">{formatHours(overtimeStats.mahsup.hours)}</p>
+                        <p className="text-indigo-600 dark:text-indigo-300 text-xs font-bold">-₺{overtimeStats.mahsup.payment.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
                       </div>
                     </div>
                   </div>

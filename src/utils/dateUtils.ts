@@ -108,6 +108,11 @@ export const calculateDailyGrossHours = (startTime: string, endTime: string): nu
 };
 
 export const isSaturdayWorkday = (settings: any): boolean => {
+  // Manuel müdahale açıksa, doğrudan isSaturdayWork değerini döndür
+  if (settings.isSaturdayWorkManual) {
+    return !!settings.isSaturdayWork;
+  }
+
   if (!settings.defaultStartTime || !settings.defaultEndTime) return false;
   const grossHours = calculateDailyGrossHours(settings.defaultStartTime, settings.defaultEndTime);
   // Kullanıcı kuralı: 10 saat (veya üzeri) ise Cumartesi yok, 8 saat (veya altı) ise Cumartesi var.
@@ -121,11 +126,13 @@ export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boo
   }
 
   // İş Kanunu'na göre ara dinlenmesi süreleri:
-  // 7.5 saatten fazla olan çalışmalar için 1 saat
-  // 4 saat-7.5 saat arası çalışmalar için 30 dk
+  // Günlük 7.5 saatlik çalışma süresini aşan işlerde 1 saat mola verilir.
+  // Brüt süre (toplam süre) üzerinden hesaplama yaparken:
+  // 8.0 saatten fazla olan toplam süreler için 1 saat (Örn: 8.5s brüt - 1s mola = 7.5s net)
+  // 4 saat-8.0 saat arası toplam süreler için 30 dk
   
-  if (totalHours > 7.5) {
-    return Math.max(7.0, totalHours - 1);
+  if (totalHours > 8.0) {
+    return Math.max(7.5, totalHours - 1);
   } else if (totalHours >= 4) {
     return Math.max(3.5, totalHours - 0.5);
   }

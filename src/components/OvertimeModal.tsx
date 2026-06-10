@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Clock, Edit3, Info, Sun, Moon, ChevronLeft } from 'lucide-react';
+import { X, Plus, Minus, Clock, Edit3, Info, Sun, Moon, ChevronLeft, CreditCard } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -16,7 +16,7 @@ interface OvertimeModalProps {
 
 export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen, onClose, selectedDate }) => {
   const { addOvertimeEntry, removeOvertimeEntry, getEntriesForDate, monthlyData } = useOvertimeData();
-  const { getOvertimeRate, settings, getHourlyRate, getShiftSettingsForDate } = useSalarySettings();
+  const { getOvertimeRate, settings, getHourlyRate, getShiftSettingsForDate, updateSettings, getSalaryForDate } = useSalarySettings();
   const { getHoliday } = useHolidays();
   const { modalStyle, buttonContainerStyle } = useAndroidSafeArea();
   
@@ -26,9 +26,11 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const [type, setType] = useState<'overtime' | 'leave'>('overtime');
   const [isFullDay, setIsFullDay] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [deductFromOvertime, setDeductFromOvertime] = useState(false);
   const [workedHalfDay, setWorkedHalfDay] = useState(false);
   const [note, setNote] = useState('');
   const [showNoteSection, setShowNoteSection] = useState(false);
+  const [monthlyBonus, setMonthlyBonus] = useState<string | number>(0);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
   const existingEntries = React.useMemo(() => 
@@ -61,6 +63,13 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   }, [isOpen]);
 
   useEffect(() => {
+    if (isOpen && selectedDate) {
+      const monthSalary = getSalaryForDate(selectedDate);
+      setMonthlyBonus(monthSalary.bonus);
+    }
+  }, [isOpen, selectedDate, getSalaryForDate]);
+
+  useEffect(() => {
     if (isOpen) {
       if (existingEntryForCurrentType) {
         setTime({
@@ -69,14 +78,16 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
         });
         setIsFullDay(!!existingEntryForCurrentType.isFullDay);
         setIsPaid(existingEntryForCurrentType.isPaid !== undefined ? !!existingEntryForCurrentType.isPaid : true);
+        setDeductFromOvertime(!!existingEntryForCurrentType.deductFromOvertime);
         setWorkedHalfDay(!!existingEntryForCurrentType.workedHalfDay);
         const noteText = existingEntryForCurrentType.note || '';
         setNote(noteText);
-        setShowNoteSection(!!noteText.trim());
+        setShowNoteSection(false);
       } else {
         setTime({ hours: 0, minutes: 0 });
         setIsFullDay(false);
         setIsPaid(false);
+        setDeductFromOvertime(false);
         setWorkedHalfDay(false);
         setNote('');
         setShowNoteSection(false);
@@ -111,10 +122,24 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
   const handleSave = () => {
     if (hours > 0 || minutes > 0 || (type === 'leave' && isFullDay) || (type === 'overtime' && workedHalfDay)) {
-      addOvertimeEntry(selectedDate, hours, minutes, type, note.trim(), isFullDay, isPaid, workedHalfDay);
+      addOvertimeEntry(selectedDate, hours, minutes, type, note.trim(), isFullDay, isPaid, workedHalfDay, deductFromOvertime);
     } else if (existingEntryForCurrentType) {
       removeOvertimeEntry(selectedDate, type);
     }
+
+    // Update monthly bonus if changed
+    const monthKey = getMonthKey(selectedDate);
+    const currentMonthSalary = getSalaryForDate(selectedDate);
+    const newBonus = Number(String(monthlyBonus).replace(',', '.')) || 0;
+    
+    if (newBonus !== currentMonthSalary.bonus) {
+      updateSettings({
+        ...settings,
+        monthlyGrossSalary: currentMonthSalary.monthlyGrossSalary,
+        bonus: newBonus
+      }, monthKey);
+    }
+
     onClose();
   };
 
@@ -340,11 +365,16 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
               {/* Tam Gün İzinli */}
               {type === 'leave' && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-900/10 rounded-2xl border border-orange-200/50 dark:border-orange-800/30 shadow-inner">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black text-orange-900 dark:text-orange-200">Tam Gün İzinli</span>
-                      <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-tighter">1 günlük ({settings.dailyWorkingHours} saat)</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-900/10 rounded-2xl border border-orange-200/50 dark:border-orange-800/30 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-orange-100 dark:bg-orange-800/40 rounded-lg text-orange-600 dark:text-orange-400">
+                        <Sun className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-black text-orange-900 dark:text-orange-200 uppercase tracking-tighter leading-none">Tam Gün İzinli</span>
+                        <span className="text-[9px] text-orange-600/70 dark:text-orange-400/60 font-bold italic mt-0.5">{settings.dailyWorkingHours} saat</span>
+                      </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -364,9 +394,32 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
                           }
                         }}
                       />
-                      <div className="w-12 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500 shadow-inner"></div>
+                      <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500 shadow-inner"></div>
                     </label>
                   </div>
+
+                  {!isPaid && (
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-100 dark:bg-indigo-800/40 rounded-lg text-indigo-600 dark:text-indigo-400">
+                          <Minus className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-black text-indigo-900 dark:text-indigo-200 uppercase tracking-tighter leading-none">Mesaiden Mahsup</span>
+                          <span className="text-[9px] text-indigo-600/70 dark:text-indigo-400/60 font-bold italic mt-0.5">Maaştan değil, mesai alacağından düşer</span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={deductFromOvertime}
+                          onChange={(e) => setDeductFromOvertime(e.target.checked)}
+                        />
+                        <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-500 shadow-inner"></div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -403,6 +456,41 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
                   </div>
                 </div>
               </div>
+
+              {/* Monthly Bonus Section */}
+              {type === 'overtime' && (
+                <div className="pt-2 px-1">
+                  <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/30 p-3 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-amber-100 dark:bg-amber-800/40 rounded-lg">
+                        <CreditCard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-black text-amber-900 dark:text-amber-200 uppercase tracking-tighter leading-none">Prim / İkramiye</span>
+                        <span className="text-[9px] text-amber-600/70 dark:text-amber-400/60 font-bold italic mt-0.5">Tüm ay için geçerli</span>
+                      </div>
+                    </div>
+                    <div className="relative w-32">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 dark:text-amber-400 font-bold text-xs">₺</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={monthlyBonus}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                          const parts = val.split('.');
+                          if (parts.length > 2) {
+                            val = parts[0] + '.' + parts.slice(1).join('');
+                          }
+                          setMonthlyBonus(val);
+                        }}
+                        className="w-full pl-6 pr-3 py-2 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-700/50 rounded-xl text-amber-900 dark:text-white font-black text-sm focus:ring-2 focus:ring-amber-500 outline-none text-right shadow-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Not Ekle Butonu */}
               <div className="pt-2 px-1">
