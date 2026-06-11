@@ -24,7 +24,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
   // Tüm hook’lar component’in en üstünde
   const { getMonthlyTotal, getYearlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, getHourlyRate, getSalaryForDate, settings, isLoaded: salaryLoaded } = useSalarySettings();
-  const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
+  const { getHoliday } = useHolidays();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
