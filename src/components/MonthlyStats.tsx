@@ -310,7 +310,7 @@ export const MonthlyStats: React.FC<MonthlyStatsProps> = ({ currentDate, onOpenS
                 <div className="flex items-center gap-2 p-2 rounded-xl border bg-black/10 border-white/5 shadow-inner">
                   <CheckCircle className="w-3.5 h-3.5 text-blue-200 flex-shrink-0" />
                   <span className="text-[10px] font-black leading-none text-white">
-                    {allowanceData.totalWorkingDays} İş Günü
+                    {allowanceData.netTotalWorkingDays} İş Günü
                   </span>
                 </div>
               </div>

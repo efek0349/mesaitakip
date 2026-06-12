@@ -437,6 +437,7 @@ export const generateExportText = (monthlyData: MonthlyData, year: number, month
 
   let totalNetHours = 0;
   let totalGrossHours = 0;
+  let totalMahsupHours = 0;
   let normalHours = 0;
   let sundayHours = 0;
   let saturdayHours = 0;
@@ -449,8 +450,9 @@ export const generateExportText = (monthlyData: MonthlyData, year: number, month
     const dateKey = getDateKey(date);
     const dayEntries = entriesByDate.get(dateKey) || [];
     const overtimeEntries = dayEntries.filter(e => e.type === 'overtime');
+    const mahsupEntries = dayEntries.filter(e => e.type === 'leave' && !e.isPaid && e.deductFromOvertime);
     
-    if (overtimeEntries.length === 0) return;
+    if (overtimeEntries.length === 0 && mahsupEntries.length === 0) return;
 
     const dayOfWeek = date.getDay();
     const isSaturday = dayOfWeek === 6;
@@ -464,6 +466,7 @@ export const generateExportText = (monthlyData: MonthlyData, year: number, month
     // Toplam mesai süresini ve kesintiyi hesapla
     const dayTotalGross = overtimeEntries.reduce((sum, e) => sum + calcTotalHours(e), 0);
     const dayTotalNet = calculateEffectiveHours(dayTotalGross, deductBreakTime);
+    const dayTotalMahsup = mahsupEntries.reduce((sum, e) => sum + (e.isFullDay ? settings.dailyWorkingHours : calcTotalHours(e)), 0);
     
     const wasDeducted = deductBreakTime && dayTotalGross >= 4;
 
@@ -478,40 +481,49 @@ export const generateExportText = (monthlyData: MonthlyData, year: number, month
 
     const hoursText = formatHours(dayTotalGross).replace(' ', '');
     
-    if (holiday) {
-      if (holiday.type === 'religious') {
-        religiousHolidayHours += dayTotalNet;
+    if (dayTotalGross > 0) {
+      if (holiday) {
+        if (holiday.type === 'religious') {
+          religiousHolidayHours += dayTotalNet;
+        } else {
+          officialHolidayHours += dayTotalNet;
+        }
+      } else if (isSunday) {
+        sundayHours += dayTotalNet;
+      } else if (isSaturday) {
+        if (isSaturdayWork) {
+          normalHours += dayTotalNet;
+        } else {
+          saturdayHours += dayTotalNet;
+        }
       } else {
-        officialHolidayHours += dayTotalNet;
-      }
-    } else if (isSunday) {
-      sundayHours += dayTotalNet;
-    } else if (isSaturday) {
-      if (isSaturdayWork) {
         normalHours += dayTotalNet;
-      } else {
-        saturdayHours += dayTotalNet;
       }
-    } else {
-      normalHours += dayTotalNet;
+      
+      let lineText = `${formattedDate} | ${hoursText} [${statusText}]`;
+      if (isSpecialDay) {
+        lineText += ' *';
+      }
+      
+      const notes = dayEntries.filter(e => e.type === 'overtime').map(e => e.note?.trim()).filter(Boolean);
+      if (notes.length > 0) {
+        lineText += ` (${notes.join(', ')})`;
+      }
+      text += lineText + '\n';
+    }
+
+    if (dayTotalMahsup > 0) {
+      const mahsupText = formatHours(dayTotalMahsup).replace(' ', '');
+      text += `Mahsup edilen   | ${mahsupText} [-!]\n`;
+      totalMahsupHours += dayTotalMahsup;
     }
     
-    let lineText = `${formattedDate} | ${hoursText} [${statusText}]`;
-    if (isSpecialDay) {
-      lineText += ' *';
-    }
-    
-    const notes = dayEntries.map(e => e.note?.trim()).filter(Boolean);
-    if (notes.length > 0) {
-      lineText += ` (${notes.join(', ')})`;
-    }
-    
-    text += lineText + '\n';
     totalNetHours += dayTotalNet;
     totalGrossHours += dayTotalGross;
   });
   
   const totalDeductionHours = totalGrossHours - totalNetHours;
+  const totalNetAfterMahsup = Math.max(0, totalNetHours - totalMahsupHours);
   const formatSaat = (h: number) => formatHours(h).replace(' s', ' sa');
 
   const allowanceData = calculateMonthlyAllowances(year, month, monthlyData, settings, getHoliday);
@@ -522,9 +534,20 @@ export const generateExportText = (monthlyData: MonthlyData, year: number, month
   if (deductBreakTime) {
     text += `[*] TOPLAM_BRUT_MESAI : ${formatSaat(totalGrossHours)}\n`;
     text += `[*] TOPLAM_MOLA       : ${formatSaat(totalDeductionHours)}\n`;
-    text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetHours)}\n`;
+    if (totalMahsupHours > 0) {
+      text += `[*] TOPLAM_MAHSUP     : ${formatSaat(totalMahsupHours)}\n`;
+      text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetAfterMahsup)}\n`;
+    } else {
+      text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetHours)}\n`;
+    }
   } else {
-    text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetHours)}\n`;
+    if (totalMahsupHours > 0) {
+      text += `[*] TOPLAM_BRUT_MESAI : ${formatSaat(totalNetHours)}\n`;
+      text += `[*] TOPLAM_MAHSUP     : ${formatSaat(totalMahsupHours)}\n`;
+      text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetAfterMahsup)}\n`;
+    } else {
+      text += `[*] TOPLAM_NET_MESAI  : ${formatSaat(totalNetHours)}\n`;
+    }
   }
 
   const hasAllowanceSystem = (Number(settings?.dailyMealAllowance) || 0) > 0 || (Number(settings?.dailyTravelAllowance) || 0) > 0;
