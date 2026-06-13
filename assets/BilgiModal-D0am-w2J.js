@@ -1,0 +1,48 @@
+import{a as e,n as t,r as n,t as r}from"./jsx-runtime-BMWuMRn8.js";import{r as i,t as a}from"./storageUtils-yIFyN8ye.js";import{t as o}from"./refresh-cw-DhdbukFX.js";import{E as s,P as c,V as l,k as u}from"./index-CASQdm7T.js";import{t as d}from"./useAndroidSafeArea-DRB_Q_ob.js";var f=t(`BookOpen`,[[`path`,{d:`M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z`,key:`vv98re`}],[`path`,{d:`M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z`,key:`1cyq3y`}]]),p=e(n(),1),m=`https://efek0349.github.io/mesaitakip/bilgi.md`,h=`bilgi_md_cache`,g=`bilgi_md_cache_time`,_=360*60*1e3,v=()=>{let[e,t]=(0,p.useState)(null),[n,r]=(0,p.useState)(!0),[i,o]=(0,p.useState)(null),[s,c]=(0,p.useState)(null),l=(0,p.useCallback)(async(e=!1)=>{if(r(!0),o(null),!e)try{let e=await a.get(h),n=await a.get(g);if(e&&n&&Date.now()-parseInt(n)<_){t(e),c(new Date(parseInt(n))),r(!1);return}}catch{}let n=new AbortController,i=setTimeout(()=>n.abort(),8e3);try{let e=await fetch(`${m}?t=${Date.now()}`,{signal:n.signal});if(clearTimeout(i),!e.ok)throw Error(`HTTP ${e.status}`);let r=await e.text();await a.set(h,r),await a.set(g,String(Date.now())),t(r),c(new Date)}catch{clearTimeout(i);try{let e=await a.get(h);if(e){t(e);let n=await a.get(g);n&&c(new Date(parseInt(n))),r(!1);return}}catch{}o(`İçerik yüklenemedi. İnternet bağlantınızı kontrol edin.`)}finally{r(!1)}},[]);return(0,p.useEffect)(()=>{l()},[l]),{content:e,loading:n,error:i,refresh:()=>l(!0),lastUpdated:s}},y=r(),b=e=>{let t=e.split(`
+`),n=[],r=0;for(;r<t.length;){let e=t[r];if(e.trim()===``){r++;continue}if(e.startsWith(`# `)){n.push((0,y.jsx)(`h1`,{className:`text-lg font-black text-gray-800 dark:text-white mt-4 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700`,children:e.slice(2)},r)),r++;continue}if(e.startsWith(`## `)){n.push((0,y.jsx)(`h2`,{className:`text-sm font-black text-blue-600 dark:text-blue-400 mt-4 mb-1.5 uppercase tracking-wide`,children:e.slice(3)},r)),r++;continue}if(e.startsWith(`### `)){n.push((0,y.jsx)(`h3`,{className:`text-xs font-bold text-gray-700 dark:text-gray-300 mt-3 mb-1`,children:e.slice(4)},r)),r++;continue}if(e.trim()===`---`||e.trim()===`***`){n.push((0,y.jsx)(`hr`,{className:`border-gray-200 dark:border-gray-700 my-3`},r)),r++;continue}if(e.startsWith(`- `)||e.startsWith(`* `)){let e=[];for(;r<t.length&&(t[r].startsWith(`- `)||t[r].startsWith(`* `));)e.push(t[r].slice(2)),r++;n.push((0,y.jsx)(`ul`,{className:`space-y-1 mb-2 ml-2`,children:e.map((e,t)=>(0,y.jsxs)(`li`,{className:`flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300`,children:[(0,y.jsx)(`span`,{className:`mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0`}),(0,y.jsx)(`span`,{children:x(e)})]},t))},`ul-${r}`));continue}if(e.startsWith(`> `)){n.push((0,y.jsx)(`div`,{className:`my-2 pl-3 border-l-4 border-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-r-xl py-2 pr-2`,children:(0,y.jsx)(`p`,{className:`text-xs text-orange-800 dark:text-orange-300 font-medium`,children:e.slice(2)})},r)),r++;continue}n.push((0,y.jsx)(`p`,{className:`text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-1.5`,children:x(e)},r)),r++}return n},x=e=>e.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((e,t)=>e.startsWith(`**`)&&e.endsWith(`**`)?(0,y.jsx)(`strong`,{className:`font-bold text-gray-800 dark:text-white`,children:e.slice(2,-2)},t):e.startsWith("`")&&e.endsWith("`")?(0,y.jsx)(`code`,{className:`px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono text-blue-600 dark:text-blue-400`,children:e.slice(1,-1)},t):e),S=()=>{let{content:e,loading:t,error:n,refresh:r,lastUpdated:a}=v(),[d,m]=p.useState(null),h=(0,p.useMemo)(()=>e?b(e):null,[e]),g=a?(()=>{let e=Date.now()-a.getTime(),t=Math.floor(e/6e4),n=Math.floor(e/36e5);return t<1?`Az önce`:t<60?`${t} dk önce`:`${n} saat önce`})():null;return d?(0,y.jsxs)(`div`,{className:`flex flex-col h-full bg-white dark:bg-dark-bg animate-in slide-in-from-right duration-300`,children:[(0,y.jsx)(`div`,{className:`flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0`,children:(0,y.jsxs)(`div`,{className:`flex items-center gap-2`,children:[(0,y.jsx)(`button`,{onClick:()=>m(null),className:`p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 active:scale-90 transition-all`,children:(0,y.jsx)(s,{className:`w-4 h-4`})}),(0,y.jsx)(`h2`,{className:`text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight`,children:d.title})]})}),(0,y.jsx)(`div`,{className:`flex-1 w-full bg-white dark:bg-black overflow-hidden relative`,children:(0,y.jsx)(`iframe`,{src:d.url,className:`w-full h-full border-none dark:invert-[0.9] dark:hue-rotate-180 brightness-100`,style:{filter:document.documentElement.classList.contains(`dark`)?`invert(0.9) hue-rotate(180deg)`:`none`,backgroundColor:document.documentElement.classList.contains(`dark`)?`#000000`:`#f8fafc`},title:d.title})})]}):(0,y.jsxs)(`div`,{className:`flex flex-col h-full`,children:[(0,y.jsxs)(`div`,{className:`flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0`,children:[(0,y.jsxs)(`div`,{className:`flex items-center gap-2`,children:[(0,y.jsx)(`div`,{className:`p-1.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm`,children:(0,y.jsx)(f,{className:`w-4 h-4`})}),(0,y.jsxs)(`div`,{children:[(0,y.jsx)(`h2`,{className:`text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight`,children:`Bilgi & Duyurular`}),g&&(0,y.jsxs)(`div`,{className:`flex items-center gap-1 mt-0.5`,children:[(0,y.jsx)(i,{className:`w-2.5 h-2.5 text-gray-400`}),(0,y.jsx)(`span`,{className:`text-[9px] text-gray-400`,children:g})]})]})]}),(0,y.jsx)(`button`,{onClick:r,disabled:t,className:`p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 active:scale-90 transition-all disabled:opacity-50`,title:`Yenile`,children:(0,y.jsx)(o,{className:`w-3.5 h-3.5 ${t?`animate-spin`:``}`})})]}),(0,y.jsxs)(`div`,{className:`flex-1 overflow-y-auto px-4 py-3 custom-scrollbar`,children:[(0,y.jsxs)(`div`,{className:`mb-4 flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30`,children:[(0,y.jsxs)(`button`,{onClick:()=>m({url:`/mesaitakip/privacy.html`,title:`Gizlilik Politikası`}),className:`flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors`,children:[(0,y.jsx)(u,{className:`w-3.5 h-3.5`}),(0,y.jsx)(`span`,{className:`uppercase tracking-tight`,children:`Gizlilik Politikası`})]}),(0,y.jsxs)(`button`,{onClick:()=>m({url:`/mesaitakip/terms.html`,title:`Kullanım Şartları`}),className:`flex items-center gap-2 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors`,children:[(0,y.jsx)(`span`,{className:`uppercase tracking-tight`,children:`Kullanım Şartları`}),(0,y.jsx)(c,{className:`w-3.5 h-3.5`})]})]}),t&&!e&&(0,y.jsxs)(`div`,{className:`flex flex-col items-center justify-center py-12 gap-3`,children:[(0,y.jsx)(o,{className:`w-6 h-6 text-blue-400 animate-spin`}),(0,y.jsx)(`p`,{className:`text-xs text-gray-400`,children:`Yükleniyor...`})]}),n&&!e&&(0,y.jsxs)(`div`,{className:`flex flex-col items-center justify-center py-12 gap-3`,children:[(0,y.jsx)(`div`,{className:`p-3 bg-red-50 dark:bg-red-900/20 rounded-xl`,children:(0,y.jsx)(l,{className:`w-6 h-6 text-red-400`})}),(0,y.jsx)(`p`,{className:`text-xs text-gray-500 dark:text-gray-400 text-center`,children:n}),(0,y.jsx)(`button`,{onClick:r,className:`px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg active:scale-95 transition-all`,children:`Tekrar Dene`})]}),h&&(0,y.jsx)(`div`,{className:`space-y-0.5`,children:h})]})]})},C=({isOpen:e,onClose:t})=>{let{modalSafeHeight:n,modalSafePadding:r,isAndroid:i}=d();return e?(0,y.jsx)(`div`,{className:`\r
+        fixed\r
+        inset-0\r
+        z-[60]\r
+        flex\r
+        items-center\r
+        sm:items-center\r
+        justify-center\r
+        bg-black/50\r
+        p-2\r
+        animate-in\r
+        fade-in\r
+        duration-200\r
+      `,children:(0,y.jsxs)(`div`,{style:{height:`${n}vh`,maxHeight:`${n}vh`,marginBottom:i?`${r}px`:void 0},className:`\r
+          w-full\r
+          max-w-md\r
+          bg-white\r
+          dark:bg-gray-900\r
+          rounded-2xl\r
+          sm:rounded-2xl\r
+          shadow-2xl\r
+          flex\r
+          flex-col\r
+          overflow-hidden\r
+          relative\r
+        `,children:[(0,y.jsxs)(`div`,{className:`\r
+            flex\r
+            items-center\r
+            justify-between\r
+            px-4\r
+            py-3\r
+            border-b\r
+            border-gray-200\r
+            dark:border-gray-700\r
+            bg-white\r
+            dark:bg-gray-900\r
+            shrink-0\r
+          `,children:[(0,y.jsx)(`h2`,{className:`font-semibold text-gray-800 dark:text-gray-100`,children:`Bilgi ve Duyurular`}),(0,y.jsx)(`button`,{onClick:t,className:`\r
+              p-2\r
+              rounded-full\r
+              text-gray-500\r
+              dark:text-gray-400\r
+              hover:bg-gray-100\r
+              dark:hover:bg-gray-800\r
+              active:scale-95\r
+              transition-all\r
+            `,"aria-label":`Kapat`,children:(0,y.jsx)(s,{className:`w-5 h-5`})})]}),(0,y.jsx)(`div`,{className:`flex-1 overflow-hidden`,children:(0,y.jsx)(S,{})})]})}):null};export{C as BilgiModal};
