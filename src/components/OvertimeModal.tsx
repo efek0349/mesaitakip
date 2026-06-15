@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Clock, Edit3, Info, Sun, Moon, ChevronLeft, CreditCard } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Plus, Minus, Clock, Edit3, Info, Sun, Moon, ChevronLeft, CreditCard, ArrowUpRight, ArrowDownLeft, Lock, Unlock } from 'lucide-react';
 import { useOvertimeData } from '../hooks/useOvertimeData';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { useHolidays } from '../hooks/useHolidays';
@@ -28,10 +28,30 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const [isPaid, setIsPaid] = useState(false);
   const [deductFromOvertime, setDeductFromOvertime] = useState(false);
   const [workedHalfDay, setWorkedHalfDay] = useState(false);
+  const [noAllowance, setNoAllowance] = useState(false);
   const [note, setNote] = useState('');
   const [showNoteSection, setShowNoteSection] = useState(false);
   const [monthlyBonus, setMonthlyBonus] = useState<string | number>(0);
+  const [dailyMeal, setDailyMeal] = useState<string | number>(0);
+  const [departureTravel, setDepartureTravel] = useState<string | number>(0);
+  const [returnTravel, setReturnTravel] = useState<string | number>(0);
+  const [departureLocked, setDepartureLocked] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Telefonda alana dokunulduğunda "0" değerini temizler, imleci sağa
+  // kaydırmaya gerek kalmadan direkt rakam yazılabilir.
+  const handleNumericFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value === '0' || e.target.value === '0.00' || e.target.value === '0.0') {
+      e.target.value = '';
+    }
+    requestAnimationFrame(() => e.target.select());
+  }, []);
+
+  const handleNumericBlur = useCallback((setter: React.Dispatch<React.SetStateAction<string | number>>) => (e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value.trim() === '') {
+      setter(0);
+    }
+  }, []);
 
   const monthSalary = React.useMemo(() => {
     if (isOpen && selectedDate) {
@@ -73,7 +93,41 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
     if (monthSalary) {
       setMonthlyBonus(monthSalary.bonus);
     }
-  }, [monthSalary]);
+    
+    if (isOpen && selectedDate) {
+      const dateStr = getDateKey(selectedDate);
+      const history = settings.allowanceHistory || {};
+      const dates = Object.keys(history).sort((a, b) => b.localeCompare(a));
+
+      // Seçilen tarih için history'den en yakın önceki kaydı bul
+      const foundDate = dates.find(d => d <= dateStr);
+
+      let meal: number;
+      let dep: number;
+      let ret: number;
+
+      if (foundDate) {
+        const r = history[foundDate];
+        meal = Number(r.meal) || 0;
+        dep = r.departure !== undefined ? Number(r.departure) || 0 : (Number(r.travel) || 0) / 2;
+        ret = r.return !== undefined ? Number(r.return) || 0 : (Number(r.travel) || 0) / 2;
+      } else {
+        // History yok → global ayar değerlerini göster
+        meal = Number(settings.dailyMealAllowance) || 0;
+        dep = Number(settings.departureTravelAllowance) || 0;
+        ret = Number(settings.returnTravelAllowance) || 0;
+      }
+
+      setDailyMeal(meal);
+      setDepartureTravel(dep);
+      setReturnTravel(ret);
+
+      // Kilitleme sadece BUGÜN için — akşam dönüş zammı senaryosu
+      const todayStr = getDateKey(new Date());
+      const isToday = dateStr === todayStr;
+      setDepartureLocked(isToday && !!history[dateStr]);
+    }
+  }, [monthSalary, isOpen, selectedDate, settings]);
 
   useEffect(() => {
     if (isOpen) {
@@ -86,6 +140,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
         setIsPaid(existingEntryForCurrentType.isPaid !== undefined ? !!existingEntryForCurrentType.isPaid : true);
         setDeductFromOvertime(!!existingEntryForCurrentType.deductFromOvertime);
         setWorkedHalfDay(!!existingEntryForCurrentType.workedHalfDay);
+        setNoAllowance(!!existingEntryForCurrentType.noAllowance);
         const noteText = existingEntryForCurrentType.note || '';
         setNote(noteText);
         setShowNoteSection(false);
@@ -97,6 +152,7 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
         setWorkedHalfDay(false);
         setNote('');
         setShowNoteSection(false);
+        setNoAllowance(false);
       }
     }
   }, [isOpen, type, existingEntryForCurrentType]);
@@ -118,6 +174,12 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const isSaturday = selectedDate.getDay() === 6;
   const isSunday = selectedDate.getDay() === 0;
 
+  // Settings'te yol/yemek tanımlanmış mı?
+  const hasAllowanceConfigured = (Number(settings.dailyMealAllowance) || 0) > 0 ||
+    (Number(settings.departureTravelAllowance) || 0) > 0 ||
+    (Number(settings.returnTravelAllowance) || 0) > 0 ||
+    Object.keys(settings.allowanceHistory || {}).length > 0;
+
   const currentTotalHours = (isFullDay && type === 'leave') ? settings.dailyWorkingHours : (hours + minutes / 60);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday, weeklyHours ? weeklyHours + (hours + minutes / 60) : undefined);
   const hourlyRate = getHourlyRate(selectedDate);
@@ -127,23 +189,56 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const totalPayment = type === 'overtime' ? paymentHours * overtimeRate : (isDeductedLeave ? paymentHours * hourlyRate : 0);
 
   const handleSave = () => {
-    if (hours > 0 || minutes > 0 || (type === 'leave' && isFullDay) || (type === 'overtime' && workedHalfDay)) {
-      addOvertimeEntry(selectedDate, hours, minutes, type, note.trim(), isFullDay, isPaid, workedHalfDay, deductFromOvertime);
+    if (hours > 0 || minutes > 0 || (type === 'leave' && isFullDay) || (type === 'overtime' && workedHalfDay) || noAllowance) {
+      addOvertimeEntry(selectedDate, hours, minutes, type, note.trim(), isFullDay, isPaid, workedHalfDay, deductFromOvertime, noAllowance);
     } else if (existingEntryForCurrentType) {
       removeOvertimeEntry(selectedDate, type);
     }
 
-    // Update monthly bonus if changed
+    // Update monthly bonus and daily allowances if changed
     const monthKey = getMonthKey(selectedDate);
     const currentMonthSalary = monthSalary!;
     const newBonus = Number(String(monthlyBonus).replace(',', '.')) || 0;
     
-    if (newBonus !== currentMonthSalary.bonus) {
-      updateSettings({
-        ...settings,
-        monthlyGrossSalary: currentMonthSalary.monthlyGrossSalary,
-        bonus: newBonus
-      }, monthKey);
+    // Check for allowance changes
+    const newMeal = Number(String(dailyMeal).replace(',', '.')) || 0;
+    const newDep = Number(String(departureTravel).replace(',', '.')) || 0;
+    const newRet = Number(String(returnTravel).replace(',', '.')) || 0;
+    const newTravelTotal = newDep + newRet;
+    
+    const dateStr = getDateKey(selectedDate);
+    const currentHistory = settings.allowanceHistory || {};
+    const allowanceChanged = newMeal !== (currentHistory[dateStr]?.meal ?? settings.dailyMealAllowance) || 
+                             newDep !== (currentHistory[dateStr]?.departure ?? settings.departureTravelAllowance) ||
+                             newRet !== (currentHistory[dateStr]?.return ?? settings.returnTravelAllowance);
+
+    if (newBonus !== currentMonthSalary.bonus || allowanceChanged) {
+      const updatedSettings = { ...settings };
+      
+      if (newBonus !== currentMonthSalary.bonus) {
+        updatedSettings.monthlyGrossSalary = currentMonthSalary.monthlyGrossSalary;
+        updatedSettings.bonus = newBonus;
+      }
+      
+      if (allowanceChanged) {
+        const nextAllowanceHistory = { ...currentHistory };
+        // Gidiş kilitliyse mevcut departure'ı koru, sadece return ve meal güncelle
+        const savedDep = departureLocked
+          ? (currentHistory[dateStr]?.departure ?? (Number(settings.departureTravelAllowance) || 0))
+          : newDep;
+        nextAllowanceHistory[dateStr] = { 
+          meal: newMeal, 
+          travel: savedDep + newRet,
+          departure: savedDep,
+          return: newRet
+        };
+
+        // Sadece history'ye yaz — global ayar değerlerine dokunma
+        // Bu tarih ve sonrası yeni fiyatı kullanır (getRateForDate en yakın önceki kaydı alır)
+        updatedSettings.allowanceHistory = nextAllowanceHistory;
+      }
+
+      updateSettings(updatedSettings, monthKey);
     }
 
     onClose();
@@ -429,6 +524,30 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
                 </div>
               )}
 
+              {/* Yol/Yemek Verilmedi — sadece mesai sekmesinde ve yol/yemek tanımlıysa */}
+              {type === 'overtime' && hasAllowanceConfigured && (
+              <div className="flex items-center justify-between p-3 bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-900/20 dark:to-rose-900/10 rounded-2xl border border-rose-200/50 dark:border-rose-800/30 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-rose-100 dark:bg-rose-800/40 rounded-lg text-rose-600 dark:text-rose-400">
+                    <Minus className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-rose-900 dark:text-rose-200 uppercase tracking-tighter leading-none">Yol/Yemek Verilmedi</span>
+                    <span className="text-[9px] text-rose-600/70 dark:text-rose-400/60 font-bold italic mt-0.5">Bu güne ait yol/yemek düşülür</span>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={noAllowance}
+                    onChange={(e) => setNoAllowance(e.target.checked)}
+                  />
+                  <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 shadow-inner"></div>
+                </label>
+              </div>
+              )}
+
               {/* Time Adjusters */}
               <div className={`transition-opacity px-1 ${isFullDay ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -465,36 +584,136 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
 
               {/* Monthly Bonus Section */}
               {type === 'overtime' && (
-                <div className="pt-2 px-1">
-                  <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/30 p-3 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-amber-100 dark:bg-amber-800/40 rounded-lg">
-                        <CreditCard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-2">
+                  <div className="pt-2 px-1">
+                    <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/30 p-3 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-amber-100 dark:bg-amber-800/40 rounded-lg">
+                          <CreditCard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-black text-amber-900 dark:text-amber-200 uppercase tracking-tighter leading-none">Prim / İkramiye</span>
+                          <span className="text-[9px] text-amber-600/70 dark:text-amber-400/60 font-bold italic mt-0.5">Tüm ay için geçerli</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-black text-amber-900 dark:text-amber-200 uppercase tracking-tighter leading-none">Prim / İkramiye</span>
-                        <span className="text-[9px] text-amber-600/70 dark:text-amber-400/60 font-bold italic mt-0.5">Tüm ay için geçerli</span>
+                      <div className="relative w-32">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 dark:text-amber-400 font-bold text-xs">₺</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={monthlyBonus}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                            const parts = val.split('.');
+                            if (parts.length > 2) {
+                              val = parts[0] + '.' + parts.slice(1).join('');
+                            }
+                            setMonthlyBonus(val);
+                          }}
+                          onFocus={handleNumericFocus}
+                          onBlur={handleNumericBlur(setMonthlyBonus)}
+                          className="w-full pl-6 pr-3 py-2 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-700/50 rounded-xl text-amber-900 dark:text-white font-black text-sm focus:ring-2 focus:ring-amber-500 outline-none text-right shadow-sm"
+                          placeholder="0.00"
+                        />
                       </div>
-                    </div>
-                    <div className="relative w-32">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 dark:text-amber-400 font-bold text-xs">₺</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={monthlyBonus}
-                        onChange={(e) => {
-                          let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
-                          const parts = val.split('.');
-                          if (parts.length > 2) {
-                            val = parts[0] + '.' + parts.slice(1).join('');
-                          }
-                          setMonthlyBonus(val);
-                        }}
-                        className="w-full pl-6 pr-3 py-2 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-700/50 rounded-xl text-amber-900 dark:text-white font-black text-sm focus:ring-2 focus:ring-amber-500 outline-none text-right shadow-sm"
-                        placeholder="0.00"
-                      />
                     </div>
                   </div>
+
+                  {/* Yol / Yemek Mini Güncelleme — yol/yemek tanımlıysa göster */}
+                  {hasAllowanceConfigured && (
+                  <div className="pt-1 px-1">
+                    <div className="bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-slate-200/60 dark:border-slate-800/40 p-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {/* Başlık */}
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <ArrowUpRight className="w-3 h-3 text-slate-400" />
+                        <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Yol / Yemek</span>
+                        {departureLocked ? (
+                          <button
+                            onClick={() => setDepartureLocked(false)}
+                            className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500 active:scale-95 transition-all"
+                          >
+                            <Unlock size={9} />
+                            <span className="text-[8px] font-bold">Gidişi düzenle</span>
+                          </button>
+                        ) : (
+                          <span className="text-[8px] text-slate-400 dark:text-slate-500 italic ml-auto">Bu tarihten itibaren</span>
+                        )}
+                      </div>
+                      {/* 3 alan yan yana */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {/* Yemek */}
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-emerald-500 pointer-events-none">Y</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={dailyMeal}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                              const parts = val.split('.');
+                              if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                              setDailyMeal(val);
+                            }}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur(setDailyMeal)}
+                            className="w-full pl-5 pr-1.5 py-2 bg-white dark:bg-gray-800/80 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-emerald-400 outline-none text-right"
+                          />
+                        </div>
+                        {/* Gidiş */}
+                        <div className="relative">
+                          {departureLocked
+                            ? <Lock className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-300 pointer-events-none" />
+                            : <ArrowUpRight className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-400 pointer-events-none" />
+                          }
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={departureTravel}
+                            readOnly={departureLocked}
+                            onChange={(e) => {
+                              if (departureLocked) return;
+                              let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                              const parts = val.split('.');
+                              if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                              setDepartureTravel(val);
+                            }}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur(setDepartureTravel)}
+                            className={`w-full pl-6 pr-1.5 py-2 border rounded-xl font-black text-xs outline-none text-right transition-colors ${
+                              departureLocked
+                                ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                : 'bg-white dark:bg-gray-800/80 border-blue-200 dark:border-blue-800/40 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-400'
+                            }`}
+                          />
+                        </div>
+                        {/* Dönüş */}
+                        <div className="relative">
+                          <ArrowDownLeft className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-purple-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={returnTravel}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                              const parts = val.split('.');
+                              if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                              setReturnTravel(val);
+                            }}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur(setReturnTravel)}
+                            className="w-full pl-6 pr-1.5 py-2 bg-white dark:bg-gray-800/80 border border-purple-200 dark:border-purple-800/40 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-purple-400 outline-none text-right"
+                          />
+                        </div>
+                      </div>
+                      {/* Etiketler */}
+                      <div className="grid grid-cols-3 gap-1.5 mt-1">
+                        <span className="text-[8px] font-bold text-emerald-500 text-center">Yemek</span>
+                        <span className="text-[8px] font-bold text-blue-400 text-center">Gidiş</span>
+                        <span className="text-[8px] font-bold text-purple-400 text-center">Dönüş</span>
+                      </div>
+                    </div>
+                  </div>
+                  )}
                 </div>
               )}
 

@@ -34,9 +34,6 @@ export const useAndroidSafeArea = () => {
       });
     };
 
-    updateInfo();
-    const viewportCleanup = initializeViewportHandler();
-
     if (import.meta.env.DEV) {
       logAndroidDebugInfo();
     }
@@ -56,7 +53,6 @@ export const useAndroidSafeArea = () => {
 
     return () => {
       if (timerId) clearTimeout(timerId);
-      viewportCleanup();
       window.removeEventListener('resize', handleUpdate);
       if (typeof screen !== 'undefined' && screen.orientation) {
         screen.orientation.removeEventListener('change', handleUpdate);

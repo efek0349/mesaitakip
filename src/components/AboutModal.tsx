@@ -1,12 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { X, Info, Github, Code, Check, Gamepad2, Sparkles, Hash, Type } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
-import Game2048 from './Game2048';
-import SudokuGame from './SudokuGame';
-import WordSearchGame from './WordSearchGame';
 import { APP_VERSION } from '../constants';
 import { TabButton } from './TabButton';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
+
+const Game2048 = lazy(() => import('./Game2048'));
+const SudokuGame = lazy(() => import('./SudokuGame'));
+const WordSearchGame = lazy(() => import('./WordSearchGame'));
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -222,15 +223,16 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <div className="bg-gray-100 dark:bg-gray-950/40 rounded-[2rem] border-4 border-gray-200/50 dark:border-gray-800/50 p-1 min-h-[280px] flex items-center justify-center relative shadow-inner group">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
                 <div className="w-full h-full relative z-10 transition-transform duration-500">
-                  <div className={activeGame === '2048' ? 'block' : 'hidden'}>
-                    <Game2048 />
-                  </div>
-                  <div className={activeGame === 'sudoku' ? 'block' : 'hidden'}>
-                    <SudokuGame />
-                  </div>
-                  <div className={activeGame === 'wordsearch' ? 'block' : 'hidden'}>
-                    <WordSearchGame />
-                  </div>
+                  <Suspense fallback={
+                    <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
+                      <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Yükleniyor...</p>
+                    </div>
+                  }>
+                    {activeGame === '2048' && <Game2048 />}
+                    {activeGame === 'sudoku' && <SudokuGame />}
+                    {activeGame === 'wordsearch' && <WordSearchGame />}
+                  </Suspense>
                 </div>
               </div>
 

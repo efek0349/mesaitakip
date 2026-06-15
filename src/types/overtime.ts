@@ -15,6 +15,7 @@ export interface OvertimeEntry {
   isPaid?: boolean; // Ücretli mi? (Varsayılan: true)
   deductFromOvertime?: boolean; // Mesai alacağından mı düşülsün?
   workedHalfDay?: boolean; // Arife günü yarım gün çalışıldı mı?
+  noAllowance?: boolean; // O gün için yol/yemek verilmedi mi?
   note?: string; // Opsiyonel not alanı
 }
 
@@ -47,6 +48,8 @@ export interface PaySettings {
   tesRate: number;
   dailyMealAllowance?: number;
   dailyTravelAllowance?: number;
+  departureTravelAllowance?: number; // Gidiş ücreti
+  returnTravelAllowance?: number;    // Dönüş ücreti
 }
 
 export interface ShiftSettings {
@@ -68,6 +71,8 @@ export interface SeveranceSettings {
   severanceStampTaxRate?: number;
   severanceBaseGross?: number;
   showSeverancePay?: boolean;
+  showMealInExport?: boolean;
+  allowanceStartDate?: string; // YYYY-MM-DD — yol/yemek başlangıç tarihi
 }
 
 export interface BackupSettings {
@@ -80,7 +85,7 @@ export interface BackupSettings {
 export interface SalarySettings extends 
   PersonalInfo, PaySettings, ShiftSettings, SeveranceSettings, BackupSettings {
   salaryHistory?: { [monthKey: string]: MonthlySalary };
-  allowanceHistory?: { [date: string]: { meal: number; travel: number } };
+  allowanceHistory?: { [date: string]: { meal: number; travel: number; departure?: number; return?: number } };
 }
 
 // MonthlySalary — SalarySettings'ten türetildi, senkron kalır

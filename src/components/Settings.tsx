@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase } from 'lucide-react';
+import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase, ArrowUpRight, ArrowDownLeft, Scale, FileText } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { useSalarySettings } from '../hooks/useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { APP_VERSION } from '../constants';
-import { getMonthKey, isSaturdayWorkday, calculateDailyGrossHours, calculateEffectiveHours } from '../utils/dateUtils';
+import { getMonthKey, isSaturdayWorkday, calculateDailyGrossHours, calculateEffectiveHours, TURKISH_MONTHS } from '../utils/dateUtils';
 import { calculateSeverancePay } from '../utils/salaryUtils';
 import { TabButton } from './TabButton';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
@@ -19,7 +19,15 @@ interface SettingsProps {
 type SettingsTab = 'general' | 'salary' | 'severance' | 'system';
 
 export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate }) => {
-  const isWeb = Capacitor.getPlatform() === 'web';
+  // Platform kontrolü için daha güvenli yaklaşım
+  const isWeb = useMemo(() => {
+    try {
+      return Capacitor.getPlatform() === 'web';
+    } catch (e) {
+      return true;
+    }
+  }, []);
+
   const { settings, updateSettings, getSalaryForDate, getShiftSettingsForDate } = useSalarySettings();
   const { modalStyle, buttonContainerStyle } = useAndroidSafeArea();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -32,7 +40,9 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
     shiftInitialType: settings.shiftInitialType ?? 'day',
     severanceCeiling: settings.severanceCeiling ?? 64948.77,
     severanceStampTaxRate: settings.severanceStampTaxRate ?? 0.759,
-    severanceBaseGross: settings.severanceBaseGross ?? 33030.00
+    severanceBaseGross: settings.severanceBaseGross ?? 33030.00,
+    departureTravelAllowance: settings.departureTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0),
+    returnTravelAllowance: settings.returnTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0)
   }));
 
   const [updateStatus, setUpdateStatus] = useState<{
@@ -42,7 +52,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
     error?: string;
   }>({ loading: false });
 
-  // Sync formData with settings when modal opens or external settings change
   useEffect(() => {
     if (isOpen) {
       const monthSalary = getSalaryForDate(currentDate);
@@ -59,25 +68,27 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
         shiftInitialType: shiftForDate?.initialType || settings.shiftInitialType || 'day',
         severanceCeiling: settings.severanceCeiling ?? 64948.77,
         severanceStampTaxRate: settings.severanceStampTaxRate ?? 0.759,
-        severanceBaseGross: settings.severanceBaseGross ?? 33030.00
+        severanceBaseGross: settings.severanceBaseGross ?? 33030.00,
+        departureTravelAllowance: settings.departureTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0),
+        returnTravelAllowance: settings.returnTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0)
       });
     }
   }, [isOpen, settings, currentDate, getSalaryForDate, getShiftSettingsForDate]);
 
   const handleSave = () => {
     const monthKey = getMonthKey(currentDate);
-    updateSettings(formData, monthKey);
+    updateSettings(formData, monthKey, true); // true = settings ekranından, history'ye yazma
     onClose();
   };
 
   const checkUpdates = async () => {
     if (isWeb) return;
-    setUpdateStatus({ loading: true });
+    setUpdateStatus({ loading: true, error: undefined, version: undefined });
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       const response = await fetch('https://api.github.com/repos/efek0349/mesaitakip/releases/latest', {
         signal: controller.signal
       });
@@ -86,35 +97,31 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
       if (!response.ok) throw new Error('Güncelleme kontrolü başarısız.');
 
       const data = await response.json();
-      const latestVersion = data.tag_name?.replace('v', '');
+      const latestVersion = (data.tag_name || '').replace('v', '');
       
       if (!latestVersion) throw new Error('Versiyon bilgisi alınamadı.');
 
-      const compareVersions = (v1: string, v2: string) => {
-        const parts1 = v1.split('.').map(Number);
-        const parts2 = v2.split('.').map(Number);
+      // Versiyon karşılaştırma logic
+      const v1Parts = latestVersion.split('.').map(Number);
+      const v2Parts = APP_VERSION.split('.').map(Number);
+      let isNew = false;
 
-        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-          const p1 = parts1[i] || 0;
-          const p2 = parts2[i] || 0;
-          if (p1 > p2) return 1;
-          if (p1 < p2) return -1;
-        }
-        return 0;
-      };
-
-      const hasNewVersion = compareVersions(latestVersion, APP_VERSION) === 1;
+      for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+        const p1 = v1Parts[i] || 0;
+        const p2 = v2Parts[i] || 0;
+        if (p1 > p2) { isNew = true; break; }
+        if (p1 < p2) { isNew = false; break; }
+      }
 
       setUpdateStatus({
         loading: false,
         version: latestVersion,
-        isNew: hasNewVersion
+        isNew: isNew
       });
-    } catch (error) {
-      const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+    } catch (error: any) {
       setUpdateStatus({ 
         loading: false, 
-        error: isTimeout ? 'Bağlantı zaman aşımına uğradı.' : 'Sunucuya ulaşılamadı. Lütfen internet bağlantınızı kontrol edin.' 
+        error: error.name === 'AbortError' ? 'Bağlantı zaman aşımına uğradı.' : 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.' 
       });
     }
   };
@@ -123,6 +130,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
     const numericFields: (keyof SalarySettingsType)[] = [
       'monthlyGrossSalary', 'bonus', 'monthlyWorkingHours', 'dailyWorkingHours', 
       'tesRate', 'salaryAttachmentRate', 'dailyMealAllowance', 'dailyTravelAllowance', 
+      'departureTravelAllowance', 'returnTravelAllowance',
       'severanceCeiling', 'severanceStampTaxRate', 'severanceBaseGross',
       'weekdayMultiplier', 'saturdayMultiplier', 'sundayMultiplier', 'holidayMultiplier'
     ];
@@ -133,7 +141,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
       if (parts.length > 2) {
         stringValue = parts[0] + '.' + parts.slice(1).join('');
       }
-      // UI'da akıcılık için string olarak tutuyoruz, as any kullanımı geçici bir çözüm
       setFormData(prev => ({ ...prev, [field]: stringValue as any }));
       return;
     }
@@ -150,11 +157,8 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           next.defaultEndTime = '18:05';
         }
         next.isSaturdayWork = isSaturdayWorkday(next);
-        
-        // Öneri: Saatlere göre hesapla
         const gross = calculateDailyGrossHours(next.defaultStartTime, next.defaultEndTime);
         next.dailyWorkingHours = calculateEffectiveHours(gross, next.deductBreakTime);
-        
         return next;
       });
       return;
@@ -164,11 +168,8 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
       setFormData(prev => {
         const next = { ...prev, [field]: value };
         next.isSaturdayWork = isSaturdayWorkday(next);
-        
-        // Öneri: Saatlere göre hesapla
         const gross = calculateDailyGrossHours(next.defaultStartTime, next.defaultEndTime);
         next.dailyWorkingHours = calculateEffectiveHours(gross, next.deductBreakTime);
-        
         return next;
       });
       return;
@@ -201,9 +202,24 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Telefonda sayısal alanlara dokunulduğunda "0" değerini temizler,
+  // imleci sağa kaydırmak zorunda kalmadan direkt yazmaya başlanabilir.
+  const handleNumericFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value === '0' || e.target.value === '0.00' || e.target.value === '0.0') {
+      e.target.value = '';
+    }
+    // Aynı tick içinde React state ile senkron kalması için
+    requestAnimationFrame(() => e.target.select());
+  }, []);
+
+  // Alan boş bırakılıp çıkılırsa "0" olarak geri ayarla
+  const handleNumericBlur = useCallback(<K extends keyof SalarySettingsType>(field: K) => (e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value.trim() === '') {
+      setFormData(prev => ({ ...prev, [field]: '0' as any }));
+    }
+  }, []);
+
   const severancePreview = useMemo(() => {
-    // getSalaryForDate referansı hook'tan geliyor, monthSalary'yi formData'dan türetmek daha güvenli olabilir
-    // ancak tarihsel doğruluk için settings'ten o ayın baz verilerini almak gerekebilir.
     const monthSalary = getSalaryForDate(currentDate);
     return calculateSeverancePay(formData, monthSalary);
   }, [formData, currentDate, getSalaryForDate]);
@@ -217,7 +233,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
         style={modalStyle}
       >
 
-        {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 pb-1">
           <div className="flex items-center gap-2">
             <div className="relative p-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-[0_4px_10px_-2px_rgba(59,130,246,0.5),inset_0_1px_2px_rgba(255,255,255,0.4)] border-b-2 border-blue-800 overflow-hidden">
@@ -234,7 +249,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           </button>
         </div>
 
-        {/* Tab Navigation - 3D Container */}
         <div className="flex-shrink-0 p-3 pt-1">
           <div className="grid grid-cols-4 gap-2 bg-gray-200/50 dark:bg-gray-900/50 p-1.5 rounded-[20px] shadow-inner border border-gray-200/50 dark:border-gray-700/50">
             <TabButton id="general" label="Genel" icon={SettingsIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -244,7 +258,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           </div>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 custom-scrollbar relative w-full pt-1">
 
           {activeTab === 'general' && (
@@ -275,7 +288,6 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                 </div>
               </section>
 
-              {/* Vardiya Sistemi */}
               <section className="space-y-1.5">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Vardiya Düzeni</h3>
                 <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3">
@@ -382,19 +394,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.deductBreakTime ? 'left-6' : 'left-1'}`} />
                     </div>
                   </button>
-
                   <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                     <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-tight pl-1">
                       4857 sayılı İş Kanunu'na göre ara dinlenmeleri fazla mesai süresinden düşülür.
                     </span>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div className="p-1.5 bg-white dark:bg-gray-900 rounded-lg text-[9px] text-gray-500 border border-gray-100 dark:border-gray-800">
-                        <span className="font-bold text-gray-700 dark:text-gray-300">4-8s:</span> 30 Dk
-                      </div>
-                      <div className="p-1.5 bg-white dark:bg-gray-900 rounded-lg text-[9px] text-gray-500 border border-gray-100 dark:border-gray-800">
-                        <span className="font-bold text-gray-700 dark:text-gray-300">8s+:</span> 1 Saat
-                      </div>
-                    </div>
                   </div>
                 </div>
               </section>
@@ -402,302 +405,232 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           )}
 
           {activeTab === 'salary' && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 pb-4">
               <section className="space-y-1.5">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Gelir Bilgileri</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3">
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Aylık Net Maaş</label>
-                      <div className="relative group">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={formData.monthlyGrossSalary} 
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => handleInputChange('monthlyGrossSalary', e.target.value)} 
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
+                      <div className="relative">
+                        <input type="text" inputMode="decimal" value={formData.monthlyGrossSalary} onChange={(e) => handleInputChange('monthlyGrossSalary', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('monthlyGrossSalary')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₺</span>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Prim / İkramiye</label>
                       <div className="relative">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={formData.bonus} 
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => handleInputChange('bonus', e.target.value)} 
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
+                        <input type="text" inputMode="decimal" value={formData.bonus} onChange={(e) => handleInputChange('bonus', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('bonus')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₺</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Günlük Yemek</label>
-                      <div className="relative">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={formData.dailyMealAllowance} 
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => handleInputChange('dailyMealAllowance', e.target.value)} 
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₺</span>
-                      </div>
+                  {/* Yol/Yemek Bilgi Notu */}
+                  <div className="flex gap-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-800/40 rounded-xl p-3">
+                    <div className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-800/60 flex items-center justify-center">
+                      <Info size={11} className="text-blue-500 dark:text-blue-400" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Günlük Yol</label>
-                      <div className="relative">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={formData.dailyTravelAllowance} 
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => handleInputChange('dailyTravelAllowance', e.target.value)} 
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₺</span>
+                      <p className="text-[11px] font-black text-blue-800 dark:text-blue-200 leading-tight">
+                        Yol/Yemek ücretleri bu ekrandan ayarlanır
+                      </p>
+                      <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 leading-snug">
+                        Buraya girilen değerler <span className="font-black">tüm aylar</span> için geçerlidir. Belirli bir günde fiyat güncellemesi yapmak için <span className="font-black">mesai ekleme ekranını</span> kullanın — o tarih ve sonrası yeni fiyatla hesaplanır.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Günlük Yemek</label>
+                        <div className="relative">
+                          <input type="text" inputMode="decimal" value={formData.dailyMealAllowance} onChange={(e) => handleInputChange('dailyMealAllowance', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('dailyMealAllowance')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₺</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1 flex flex-col justify-end">
+                        <div className="p-2.5 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">Toplam Yol</span>
+                            <span className="text-sm font-black text-blue-700 dark:text-blue-300">
+                              ₺{(Number(formData.departureTravelAllowance || 0) + Number(formData.returnTravelAllowance || 0)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleInputChange('showMealInExport', !formData.showMealInExport)}
+                      className="w-full flex items-center justify-between text-left group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg transition-colors ${formData.showMealInExport ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                          <FileText size={16} />
+                        </div>
+                        <div>
+                          <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">Çıktıda Göster</span>
+                          <span className="block text-[9px] text-gray-500 dark:text-gray-400 italic mt-1 leading-none">Yol/yemek detayını rapora ekle</span>
+                        </div>
+                      </div>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.showMealInExport ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all shadow-sm ${formData.showMealInExport ? 'left-6' : 'left-1'}`} />
+                      </div>
+                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-3 bg-gray-100/50 dark:bg-gray-900/30 p-2 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 shadow-inner">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 ml-1">
+                          <ArrowUpRight size={10} className="text-emerald-500" />
+                          <label className="text-[8px] font-black text-gray-500 uppercase">Gidiş Ücreti</label>
+                        </div>
+                        <input type="text" inputMode="decimal" value={formData.departureTravelAllowance} onChange={(e) => handleInputChange('departureTravelAllowance', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('departureTravelAllowance')} className="w-full p-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 ml-1">
+                          <ArrowDownLeft size={10} className="text-blue-500" />
+                          <label className="text-[8px] font-black text-gray-500 uppercase">Dönüş Ücreti</label>
+                        </div>
+                        <input type="text" inputMode="decimal" value={formData.returnTravelAllowance} onChange={(e) => handleInputChange('returnTravelAllowance', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('returnTravelAllowance')} className="w-full p-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
                       </div>
                     </div>
                   </div>
                 </div>
               </section>
 
-              <section className="space-y-1.5">
+              <section className="space-y-1.5 pt-1">
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Yasal Kesintiler</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-2.5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-left">
+                      <div className={`p-1.5 rounded-lg transition-colors ${formData.hasSalaryAttachment ? 'bg-red-50 dark:bg-red-900/30 text-red-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                        <Scale size={14} />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Maaş Haczi</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {formData.hasSalaryAttachment && (
+                        <div className="relative w-16 animate-in fade-in slide-in-from-right-2 duration-200">
+                          <input type="text" inputMode="decimal" value={formData.salaryAttachmentRate} onChange={(e) => handleInputChange('salaryAttachmentRate', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('salaryAttachmentRate')} className="w-full p-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-[10px] font-black outline-none text-right pr-4" />
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 font-bold">%</span>
+                        </div>
+                      )}
+                      <button onClick={() => handleInputChange('hasSalaryAttachment', !formData.hasSalaryAttachment)} className={`w-8 h-4 rounded-full relative transition-colors ${formData.hasSalaryAttachment ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${formData.hasSalaryAttachment ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-2.5">
+                    <div className="flex items-center gap-2 text-left">
+                      <div className={`p-1.5 rounded-lg transition-colors ${formData.hasTES ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                        <ShieldCheck size={14} />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">TES (BES) Kesintisi</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {formData.hasTES && (
+                        <div className="relative w-16 animate-in fade-in slide-in-from-right-2 duration-200">
+                          <input type="text" inputMode="decimal" value={formData.tesRate} onChange={(e) => handleInputChange('tesRate', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('tesRate')} className="w-full p-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-[10px] font-black outline-none text-right pr-4" />
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 font-bold">%</span>
+                        </div>
+                      )}
+                      <button onClick={() => handleInputChange('hasTES', !formData.hasTES)} className={`w-8 h-4 rounded-full relative transition-colors ${formData.hasTES ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${formData.hasTES ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-1.5 pt-1">
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Mesai Katsayıları</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 shadow-sm">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black text-gray-500 uppercase">Haftaiçi</label>
+                      <div className="relative w-16">
+                        <input type="text" value={formData.weekdayMultiplier} onChange={(e) => handleInputChange('weekdayMultiplier', e.target.value)} className="w-full p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-black outline-none text-right pr-4" />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">x</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black text-gray-500 uppercase">Cumartesi</label>
+                      <div className="relative w-16">
+                        <input type="text" value={formData.saturdayMultiplier} onChange={(e) => handleInputChange('saturdayMultiplier', e.target.value)} className="w-full p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-black outline-none text-right pr-4" />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">x</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black text-gray-500 uppercase">Pazar</label>
+                      <div className="relative w-16">
+                        <input type="text" value={formData.sundayMultiplier} onChange={(e) => handleInputChange('sundayMultiplier', e.target.value)} className="w-full p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-black outline-none text-right pr-4" />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">x</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black text-gray-500 uppercase">Bayram</label>
+                      <div className="relative w-16">
+                        <input type="text" value={formData.holidayMultiplier} onChange={(e) => handleInputChange('holidayMultiplier', e.target.value)} className="w-full p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-xs font-black outline-none text-right pr-4" />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">x</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-1.5 pt-1">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Çalışma Düzeni</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-4 shadow-sm">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 tracking-wider">Cumartesi Çalışma Düzeni</label>
+                    <div className="grid grid-cols-3 gap-1 bg-gray-100 dark:bg-gray-900/60 p-1 rounded-2xl border border-gray-200/50 dark:border-gray-800 shadow-inner">
+                      <button
+                        onClick={() => handleInputChange('isSaturdayWorkManual', false)}
+                        className={`py-2 px-1 rounded-xl text-[10px] font-black transition-all duration-300 ${!formData.isSaturdayWorkManual ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm border border-gray-100 dark:border-gray-700' : 'text-gray-500'}`}
+                      >
+                        OTOMATİK
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleInputChange('isSaturdayWorkManual', true);
+                          handleInputChange('isSaturdayWork', true);
+                        }}
+                        className={`py-2 px-1 rounded-xl text-[10px] font-black transition-all duration-300 ${formData.isSaturdayWorkManual && formData.isSaturdayWork ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500'}`}
+                      >
+                        ÇALIŞILIYOR
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleInputChange('isSaturdayWorkManual', true);
+                          handleInputChange('isSaturdayWork', false);
+                        }}
+                        className={`py-2 px-1 rounded-xl text-[10px] font-black transition-all duration-300 ${formData.isSaturdayWorkManual && !formData.isSaturdayWork ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500'}`}
+                      >
+                        TATİL
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 font-bold italic px-1 flex items-center gap-1">
+                      <Info size={10} />
+                      {!formData.isSaturdayWorkManual 
+                        ? "Sistem çalışma saatinize göre otomatik belirler." 
+                        : formData.isSaturdayWork 
+                          ? "Cumartesi her zaman iş günü sayılır." 
+                          : "Cumartesi her zaman tatil sayılır."}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 border-t border-gray-100 dark:border-gray-800 pt-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Aylık Toplam Saat</label>
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={formData.monthlyWorkingHours} 
-                        onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                      />
+                      <input type="text" inputMode="decimal" value={formData.monthlyWorkingHours} onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('monthlyWorkingHours')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Günlük Standart</label>
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={formData.dailyWorkingHours} 
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                      />
+                      <input type="text" inputMode="decimal" value={formData.dailyWorkingHours} onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('dailyWorkingHours')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Başlangıç Saati</label>
-                      <input 
-                        type="time" 
-                        value={formData.defaultStartTime} 
-                        onChange={(e) => handleInputChange('defaultStartTime', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Bitiş Saati</label>
-                      <input 
-                        type="time" 
-                        value={formData.defaultEndTime} 
-                        onChange={(e) => handleInputChange('defaultEndTime', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="px-1 space-y-2">
-                    <div className={`flex items-center gap-2 p-2.5 rounded-xl border ${formData.isSaturdayWork ? 'bg-blue-50/50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800/50' : 'bg-green-50/50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
-                      <Info size={12} className={formData.isSaturdayWork ? 'text-blue-500' : 'text-green-500'} />
-                      <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 leading-tight">
-                        {formData.isSaturdayWorkManual 
-                          ? (formData.isSaturdayWork ? 'Manuel: Cumartesi iş günü olarak belirlendi' : 'Manuel: Cumartesi tatil günü olarak belirlendi')
-                          : (formData.isSaturdayWork 
-                              ? 'Günde 8 saat veya altı çalışma (Cumartesi iş günü)' 
-                              : 'Günde 10 saat veya üstü çalışma (Cumartesi tatil)')}
-                      </span>
-                    </div>
-
-                    {/* Manuel Cumartesi Ayarı */}
-                    <div className="p-3 bg-white dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 space-y-3 shadow-inner">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-gray-700 dark:text-gray-200 uppercase leading-none">Manuel Müdahale</span>
-                          <span className="text-[8px] text-gray-500 italic mt-1 leading-none">Otomatik hesaplamayı devre dışı bırak</span>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
-                            checked={formData.isSaturdayWorkManual}
-                            onChange={(e) => handleInputChange('isSaturdayWorkManual', e.target.checked)}
-                          />
-                          <div className="w-8 h-4 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500"></div>
-                        </label>
-                      </div>
-
-                      {formData.isSaturdayWorkManual && (
-                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
-                          <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">Cumartesi İş Günü mü?</span>
-                          <button
-                            onClick={() => {
-                              const newValue = !formData.isSaturdayWork;
-                              handleInputChange('isSaturdayWork', newValue);
-                            }}
-                            className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${
-                              formData.isSaturdayWork
-                                ? 'bg-blue-500 text-white shadow-sm'
-                                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                            }`}
-                          >
-                            {formData.isSaturdayWork ? 'EVET' : 'HAYIR'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-1.5">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Mesai Katsayıları</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Hafta İçi</label>
-                      <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl">
-                        <span className="text-gray-400 text-xs font-bold">x</span>
-                        <input 
-                          type="number" 
-                          value={formData.weekdayMultiplier} 
-                          onChange={(e) => handleInputChange('weekdayMultiplier', Number(e.target.value))} 
-                          className="flex-1 bg-transparent text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Cumartesi</label>
-                      <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl">
-                        <span className="text-gray-400 text-xs font-bold">x</span>
-                        <input 
-                          type="number" 
-                          value={formData.saturdayMultiplier} 
-                          onChange={(e) => handleInputChange('saturdayMultiplier', Number(e.target.value))} 
-                          className="flex-1 bg-transparent text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Pazar (45s+)</label>
-                      <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl">
-                        <span className="text-gray-400 text-xs font-bold">x</span>
-                        <input 
-                          type="text"
-                          inputMode="decimal"
-                          value={formData.sundayMultiplier} 
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => handleInputChange('sundayMultiplier', e.target.value)} 
-                          className="flex-1 bg-transparent text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Resmi Tatil</label>
-                      <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl">
-                        <span className="text-gray-400 text-xs font-bold">x</span>
-                        <input 
-                          type="number" 
-                          value={formData.holidayMultiplier} 
-                          onChange={(e) => handleInputChange('holidayMultiplier', Number(e.target.value))} 
-                          className="flex-1 bg-transparent text-sm font-bold text-gray-800 dark:text-white outline-none" 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-1.5">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Kesintiler</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3">
-                  {/* Maaş Haczi */}
-                  <div className="p-2.5 bg-white dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                    <button 
-                      onClick={() => handleInputChange('hasSalaryAttachment', !formData.hasSalaryAttachment)} 
-                      className="w-full flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${formData.hasSalaryAttachment ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                          <Percent size={14} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Maaş Haczi</span>
-                      </div>
-                      <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.hasSalaryAttachment ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.hasSalaryAttachment ? 'left-6' : 'left-1'}`} />
-                      </div>
-                    </button>
-                    {formData.hasSalaryAttachment && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between animate-in slide-in-from-top-1 duration-200">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">Kesinti Oranı (%25)</span>
-                        <div className="relative w-20">
-                          <input 
-                            type="text" 
-                            inputMode="decimal"
-                            value={formData.salaryAttachmentRate || '25'} 
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => handleInputChange('salaryAttachmentRate', e.target.value)} 
-                            className="w-full p-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-black text-right pr-6 text-red-600 dark:text-red-400 outline-none" 
-                          />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* TES */}
-                  <div className="p-2.5 bg-white dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                    <button 
-                      onClick={() => handleInputChange('hasTES', !formData.hasTES)} 
-                      className="w-full flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${formData.hasTES ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                          <ShieldCheck size={14} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">TES (Emeklilik)</span>
-                      </div>
-                      <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.hasTES ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.hasTES ? 'left-6' : 'left-1'}`} />
-                      </div>
-                    </button>
-                    {formData.hasTES && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between animate-in slide-in-from-top-1 duration-200">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">Kesinti Oranı (%3)</span>
-                        <div className="relative w-20">
-                          <input 
-                            type="text" 
-                            inputMode="decimal"
-                            value={formData.tesRate || '3'} 
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => handleInputChange('tesRate', e.target.value)} 
-                            className="w-full p-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-black text-right pr-6 text-indigo-600 dark:text-indigo-400 outline-none" 
-                          />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">%</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </section>
@@ -705,32 +638,19 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           )}
 
           {activeTab === 'severance' && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 pb-4">
               <section className="space-y-1.5">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Hesaplama Parametreleri</h3>
-                <div className="bg-amber-50/30 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/20 p-3 space-y-3">
+                <div className="bg-amber-50/30 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/20 p-3 space-y-3 shadow-sm">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">İşe Giriş Tarihi</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        value={formData.employmentStartDate || ''} 
-                        onChange={(e) => handleInputChange('employmentStartDate', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" 
-                      />
-                    </div>
+                    <input type="date" value={formData.employmentStartDate || ''} onChange={(e) => handleInputChange('employmentStartDate', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" />
                   </div>
 
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">Esas Brüt Maaş</label>
                     <div className="relative">
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={formData.severanceBaseGross} 
-                        onChange={(e) => handleInputChange('severanceBaseGross', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" 
-                      />
+                      <input type="text" inputMode="decimal" value={formData.severanceBaseGross} onChange={(e) => handleInputChange('severanceBaseGross', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('severanceBaseGross')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 font-bold">₺</span>
                     </div>
                   </div>
@@ -738,22 +658,12 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">Yasal Tavan</label>
-                      <input 
-                        type="text" 
-                        value={formData.severanceCeiling} 
-                        onChange={(e) => handleInputChange('severanceCeiling', e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" 
-                      />
+                      <input type="text" value={formData.severanceCeiling} onChange={(e) => handleInputChange('severanceCeiling', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">Damga Vergisi</label>
                       <div className="relative">
-                        <input 
-                          type="text" 
-                          value={formData.severanceStampTaxRate} 
-                          onChange={(e) => handleInputChange('severanceStampTaxRate', e.target.value)} 
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" 
-                        />
+                        <input type="text" value={formData.severanceStampTaxRate} onChange={(e) => handleInputChange('severanceStampTaxRate', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 font-bold">%</span>
                       </div>
                     </div>
@@ -761,16 +671,13 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                 </div>
               </section>
 
-              {/* Kıdem Tazminatı Özet Bilgisi */}
               {severancePreview && severancePreview.eligible ? (
-                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg shadow-amber-500/20 text-white">
+                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg text-white">
                   <div className="flex justify-between items-start mb-3">
-                    <div className="p-1.5 bg-white/20 rounded-lg">
-                      <Briefcase size={18} />
-                    </div>
+                    <div className="p-1.5 bg-white/20 rounded-lg"><Briefcase size={18} /></div>
                     <div className="text-right">
-                      <span className="block text-[9px] font-black opacity-70 uppercase tracking-tighter">Net Tazminat ({severancePreview.years} Yıl)</span>
-                      <span className="text-lg font-black">₺{severancePreview.netSeverance.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      <span className="block text-[9px] font-black opacity-70 uppercase">Net Tazminat ({severancePreview.years} Yıl)</span>
+                      <span className="text-lg font-black">₺{severancePreview.netSeverance.toLocaleString('tr-TR')}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-white/20">
@@ -783,15 +690,18 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
                         <span className="text-xs font-bold opacity-90">Ana ekranda göster</span>
                       </div>
                       <div className={`w-10 h-5 rounded-full relative transition-colors bg-black/20 shadow-inner`}>
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.showSeverancePay ? 'left-6' : 'left-1'} shadow-sm`} />
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.showSeverancePay ? 'translate-x-4' : 'translate-x-0'} shadow-sm`} />
                       </div>
                     </button>
                   </div>
                 </div>
               ) : severancePreview && !severancePreview.eligible ? (
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800/30 animate-in fade-in zoom-in-95 duration-200">
-                  <p className="text-[10px] text-amber-800 dark:text-amber-300 font-bold text-center leading-relaxed">
-                    ⚠️ 1 yıllık çalışma süresi dolmadığı için tazminat hakkı henüz oluşmamıştır.
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800/30 animate-in fade-in zoom-in-95 duration-200 shadow-sm text-center py-4">
+                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center mx-auto mb-2 text-amber-600 dark:text-amber-400">
+                    <Info size={20} />
+                  </div>
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed max-w-[200px] mx-auto">
+                    1 yıllık çalışma süresi dolmadığı için tazminat hakkı henüz oluşmamıştır.
                   </p>
                 </div>
               ) : null}
@@ -802,43 +712,54 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
               <section className="space-y-1.5">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Görünüm ve Kullanım</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-4">
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-4 shadow-sm">
                   <ThemeSwitcher />
                 </div>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Uygulama Bilgileri</h3>
-                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3">
+              <section className="space-y-1.5 pt-1">
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Sürüm ve Güncelleme</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-lg">
+                      <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-500">
                         <Info size={16} />
                       </div>
                       <div>
-                        <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">Versiyon</span>
-                        <span className="block text-[9px] text-gray-400 font-mono mt-1">v{APP_VERSION}</span>
+                        <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">Uygulama Sürümü</span>
+                        <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-none">v{APP_VERSION}</span>
                       </div>
                     </div>
                     {!isWeb && (
                       <button 
                         onClick={checkUpdates}
                         disabled={updateStatus.loading}
-                        className="px-2.5 py-1.5 bg-blue-500 text-white text-[9px] font-bold rounded-lg active:scale-95 transition-transform disabled:opacity-50"
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${
+                          updateStatus.loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-500 text-white shadow-md active:scale-95'
+                        }`}
                       >
-                        {updateStatus.loading ? '...' : 'GÜNCELLE'}
+                        {updateStatus.loading ? 'KONTROL EDİLİYOR...' : 'GÜNCELLEMELERİ DENETLE'}
                       </button>
                     )}
                   </div>
 
-                  {!isWeb && updateStatus.version && (
-                    <div className={`mt-3 p-2.5 rounded-xl flex items-center justify-between ${updateStatus.isNew ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
-                      <span className={`text-[9px] font-bold ${updateStatus.isNew ? 'text-orange-600' : 'text-green-600'}`}>
-                        {updateStatus.isNew ? `YENİ SÜRÜM: v${updateStatus.version}` : 'SÜRÜM GÜNCEL'}
-                      </span>
-                      {updateStatus.isNew && (
-                        <a href="https://github.com/efek0349/mesaitakip/releases" target="_blank" rel="noopener noreferrer" className="text-[9px] text-orange-600 underline font-black">İNDİR</a>
-                      )}
+                  {updateStatus.error && (
+                    <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 rounded-xl">
+                      <p className="text-[10px] text-red-600 dark:text-red-400 font-bold text-center leading-tight">{updateStatus.error}</p>
+                    </div>
+                  )}
+
+                  {updateStatus.version && (
+                    <div className={`mt-2 p-2 rounded-xl border animate-in fade-in zoom-in-95 duration-200 ${
+                      updateStatus.isNew ? 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/30' : 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800/30'
+                    }`}>
+                      <p className={`text-[10px] font-bold text-center leading-tight ${
+                        updateStatus.isNew ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {updateStatus.isNew 
+                          ? `Yeni bir sürüm mevcut (v${updateStatus.version})! Lütfen güncelleyin.` 
+                          : 'Uygulamanız güncel durumda.'}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -847,23 +768,11 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, currentDate
           )}
         </div>
 
-        {/* Footer Buttons - 3D Style */}
-        <div 
-          className="flex-shrink-0 flex gap-4 border-t border-gray-100 dark:border-gray-800 p-4 pt-2"
-          style={buttonContainerStyle}
-        >
-          <button 
-            onClick={onClose} 
-            className="flex-1 group relative py-3.5 bg-gradient-to-br from-white to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-500 dark:text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md border-b-4 border-gray-300 dark:border-gray-950 active:translate-y-1 active:border-b-0 transition-all overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+        <div className="flex-shrink-0 flex gap-4 border-t border-gray-100 dark:border-gray-800 p-4 pt-2" style={buttonContainerStyle}>
+          <button onClick={onClose} className="flex-1 group relative py-3.5 bg-gradient-to-br from-white to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-500 dark:text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md border-b-4 border-gray-300 dark:border-gray-950 active:translate-y-1 active:border-b-0 transition-all overflow-hidden">
             İptal
           </button>
-          <button 
-            onClick={handleSave} 
-            className="flex-1 group relative py-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-[0_6px_12px_-2px_rgba(59,130,246,0.4),inset_0_2px_4px_rgba(255,255,255,0.3)] border-b-4 border-indigo-900 active:translate-y-1 active:border-b-0 transition-all overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+          <button onClick={handleSave} className="flex-1 group relative py-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg border-b-4 border-indigo-900 active:translate-y-1 active:border-b-0 transition-all overflow-hidden">
             <span className="relative z-10">Kaydet</span>
           </button>
         </div>

@@ -1,14 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Calendar } from './components/Calendar';
 import { MonthlyStats } from './components/MonthlyStats';
-import { OvertimeModal } from './components/OvertimeModal';
-import { Settings } from './components/Settings';
-import { AboutModal } from './components/AboutModal';
-import { DataBackupModal } from './components/DataBackupModal';
-import { UpdateModal } from './components/UpdateModal';
 import { Toast } from './components/Toast';
 import { ActionIcons } from './components/ActionIcons';
-import { BilgiModal } from './components/BilgiModal';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
 import { useHolidays } from './hooks/useHolidays';
@@ -17,16 +11,50 @@ import { useAutoBackup } from './hooks/useAutoBackup';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { TURKISH_MONTHS } from './utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
-import { Clock, Info } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { googleDriveService } from './utils/googleDriveService';
 import { Browser } from '@capacitor/browser';
 import { Dialog } from '@capacitor/dialog';
 
+const OvertimeModal = lazy(() => import('./components/OvertimeModal').then(m => ({ default: m.OvertimeModal })));
+const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
+const AboutModal = lazy(() => import('./components/AboutModal').then(m => ({ default: m.AboutModal })));
+const DataBackupModal = lazy(() => import('./components/DataBackupModal').then(m => ({ default: m.DataBackupModal })));
+const UpdateModal = lazy(() => import('./components/UpdateModal').then(m => ({ default: m.UpdateModal })));
+const BilgiModal = lazy(() => import('./components/BilgiModal').then(m => ({ default: m.BilgiModal })));
+
 const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [visualProgress, setVisualProgress] = useState(0);
+  const [isFullyReady, setIsFullyReady] = useState(false);
 
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
+  
+  // Visual Progress Logic
+    React.useEffect(() => {
+    let timer: number;
+    const updateProgress = () => {
+      setVisualProgress(prev => {
+        if (prev < 90) {
+          // Faster progress
+          return prev + Math.random() * 15;
+        } else if (dataLoaded && salaryLoaded) {
+          if (prev >= 100) {
+            clearInterval(timer);
+            setTimeout(() => setIsFullyReady(true), 100); // Shorter pause
+            return 100;
+          }
+          return prev + 20;
+        }
+        return prev;
+      });
+    };
+
+    timer = window.setInterval(updateProgress, 30); // Faster interval
+    return () => clearInterval(timer);
+  }, [dataLoaded, salaryLoaded]);
+
   const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
   const updateInfo = useUpdateCheck();
   useTheme();
@@ -94,7 +122,7 @@ const App: React.FC = () => {
       shiftSystemEnabled: monthSalary.shiftSystemEnabled ?? settings.shiftSystemEnabled,
       shiftSystemType: monthSalary.shiftSystemType ?? settings.shiftSystemType
     };
-    const exportText = generateShareableSummaryText(year, month, monthlyData, effectiveSettings, getHoliday);
+    const exportText = await generateShareableSummaryText(year, month, monthlyData, effectiveSettings, getHoliday);
     const title = `${TURKISH_MONTHS[month]} ${year} Mesai Özeti`;
     await shareText(exportText, title);
   }, [currentDate, monthlyData, settings, getHoliday, getSalaryForDate]);
@@ -122,15 +150,34 @@ const App: React.FC = () => {
     [currentDate, hasMonthData, monthlyData]
   );
   
-  if (!dataLoaded || !salaryLoaded) {
+  if (!isFullyReady) {
     return (
-      <div className="bg-gray-100 dark:bg-black flex items-center justify-center min-h-screen-dynamic">
-        <div className="text-center">
-          <div className="p-4 bg-blue-500 rounded-full mb-4 mx-auto w-16 h-16 flex items-center justify-center">
-            <Clock className="w-8 h-8 text-white animate-pulse" />
+      <div className="fixed inset-0 bg-gray-100 dark:bg-black flex items-center justify-center z-[9999]">
+        <div className="flex flex-col items-center gap-6 animate-in fade-in duration-700">
+          <div className="relative">
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse" />
+            <div className="relative w-24 h-24 rounded-[28px] overflow-hidden shadow-2xl border-b-4 border-gray-200 dark:border-gray-800 bg-white p-1">
+              <img 
+                src={`${import.meta.env.BASE_URL}app_icon.png`} 
+                alt="App Icon" 
+                className="w-full h-full object-cover rounded-2xl"
+              />
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Mesai Takip</h2>
-          <p className="text-gray-600 dark:text-gray-400">Veriler yükleniyor...</p>
+          <div className="flex flex-col items-center gap-4 w-48">
+            <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tighter uppercase">
+              Mesai Takip
+            </h2>
+            <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden shadow-inner border border-gray-300/20 dark:border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 rounded-full transition-all duration-300 ease-out" 
+                style={{ width: `${visualProgress}%` }} 
+              />
+            </div>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest animate-pulse">
+              {visualProgress >= 100 ? 'Hazır!' : 'Veriler Yükleniyor'}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -201,17 +248,31 @@ const App: React.FC = () => {
         </div>
       </div>
       
-      <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
-      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} currentDate={currentDate} />
-      <AboutModal isOpen={isAboutModalOpen} onClose={handleCloseAbout} />
-      <DataBackupModal isOpen={isDataBackupOpen} onClose={handleCloseDataBackup} currentDate={currentDate} />
-      <UpdateModal
-        isOpen={isUpdateModalOpen}
-        onClose={handleCloseUpdate}
-        version={updateInfo.latestVersion}
-        onDownload={() => handleOpenLink('https://github.com/efek0349/mesaitakip/releases')}
-      />
-      <BilgiModal isOpen={isBilgiOpen} onClose={handleCloseBilgi} />
+      <Suspense fallback={null}>
+        {isModalOpen && (
+          <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
+        )}
+        {isSettingsOpen && (
+          <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} currentDate={currentDate} />
+        )}
+        {isAboutModalOpen && (
+          <AboutModal isOpen={isAboutModalOpen} onClose={handleCloseAbout} />
+        )}
+        {isDataBackupOpen && (
+          <DataBackupModal isOpen={isDataBackupOpen} onClose={handleCloseDataBackup} currentDate={currentDate} />
+        )}
+        {isUpdateModalOpen && (
+          <UpdateModal
+            isOpen={isUpdateModalOpen}
+            onClose={handleCloseUpdate}
+            version={updateInfo.latestVersion}
+            onDownload={() => handleOpenLink('https://github.com/efek0349/mesaitakip/releases')}
+          />
+        )}
+        {isBilgiOpen && (
+          <BilgiModal isOpen={isBilgiOpen} onClose={handleCloseBilgi} />
+        )}
+      </Suspense>
       
       <Toast />
     </div>

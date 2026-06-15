@@ -320,13 +320,13 @@ export const generateCsvContent = (
   return [headers.map(escapeCsv).join(','), ...rows].join('\n');
 };
 
-export const generateShareableSummaryText = (
+export const generateShareableSummaryText = async (
   year: number,
   month: number, // 0-11
   monthlyData: MonthlyData,
   settings: SalarySettings,
   getHoliday: (date: Date) => Holiday | undefined
-): string => {
+): Promise<string> => {
   return generateExportText(
     monthlyData,
     year,

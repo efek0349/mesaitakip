@@ -1,6 +1,6 @@
 import React, { useSyncExternalStore } from 'react';
 import { SalarySettings, MonthlySalary } from '../types/overtime';
-import { getMonthKey, getNormalizedShiftStartDate, isSaturdayWorkday } from '../utils/dateUtils';
+import { getMonthKey, getNormalizedShiftStartDate, isSaturdayWorkday, getDateKey } from '../utils/dateUtils';
 import { storage } from '../utils/storageUtils';
 
 import { EventEmitter } from '../utils/EventEmitter';
@@ -26,7 +26,7 @@ const defaultSettings: SalarySettings = {
   defaultEndTime: '18:05',
   shiftSystemEnabled: false,
   shiftSystemType: '2-shift',
-  shiftStartDate: new Date().toISOString().split('T')[0],
+  shiftStartDate: '',  // Kullanıcı vardiyayı aktif edince seçer; boş kalırsa bugün kullanılır
   shiftInitialType: 'day',
   salaryHistory: {},
   autoBackupEnabled: false,
@@ -34,7 +34,10 @@ const defaultSettings: SalarySettings = {
   lastBackupDate: '',
   dailyMealAllowance: 0,
   dailyTravelAllowance: 0,
+  departureTravelAllowance: 0,
+  returnTravelAllowance: 0,
   allowanceHistory: {},
+  allowanceStartDate: '',
   employmentStartDate: '',
   severanceCeiling: 64948.77,
   severanceStampTaxRate: 0.759,
@@ -57,21 +60,37 @@ const salaryStore = {
 const loadGlobalSettings = async () => {
   if (isSalaryLoaded) return;
   try {
-    await storage.migrateIfNeeded(); // Migration'ın tamamlandığından emin ol
+    await storage.migrateIfNeeded(); 
     const initialized = await storage.get('mesai-app-initialized');
     if (initialized) {
       const savedSettings = await storage.get('mesai-salary-settings');
       if (savedSettings) {
         const parsedSettings = JSON.parse(savedSettings);
         
-        // Migration for allowanceHistory: from array to object map
+        // Migration for allowanceHistory: handle split travel
         let allowanceHistory = parsedSettings.allowanceHistory || {};
         if (Array.isArray(allowanceHistory)) {
-          const map: { [date: string]: { meal: number; travel: number } } = {};
+          const map: { [date: string]: any } = {};
           allowanceHistory.forEach((h: any) => {
-            if (h.date) map[h.date] = { meal: h.meal || 0, travel: h.travel || 0 };
+            if (h.date) {
+              map[h.date] = { 
+                meal: h.meal || 0, 
+                travel: h.travel || 0,
+                departure: h.departure || (h.travel ? h.travel / 2 : 0),
+                return: h.return || (h.travel ? h.travel / 2 : 0)
+              };
+            }
           });
           allowanceHistory = map;
+        } else {
+          // Object format migration
+          Object.keys(allowanceHistory).forEach(key => {
+            const entry = allowanceHistory[key];
+            if (entry.travel && entry.departure === undefined) {
+              entry.departure = entry.travel / 2;
+              entry.return = entry.travel / 2;
+            }
+          });
         }
 
         globalSettings = { 
@@ -81,9 +100,18 @@ const loadGlobalSettings = async () => {
           allowanceHistory
         };
         
-        // Migration: If dailyWorkingHours is missing, set it based on isSaturdayWork
         if (globalSettings.dailyWorkingHours === undefined) {
           globalSettings.dailyWorkingHours = globalSettings.isSaturdayWork ? 7.5 : 9;
+        }
+
+        // Ensure split travel exists (only fill in if truly never set, not when user set it to 0)
+        if (globalSettings.departureTravelAllowance === undefined && globalSettings.returnTravelAllowance === undefined) {
+          const half = (Number(globalSettings.dailyTravelAllowance) || 0) / 2;
+          globalSettings.departureTravelAllowance = half;
+          globalSettings.returnTravelAllowance = half;
+        } else {
+          if (globalSettings.departureTravelAllowance === undefined) globalSettings.departureTravelAllowance = 0;
+          if (globalSettings.returnTravelAllowance === undefined) globalSettings.returnTravelAllowance = 0;
         }
       }
     }
@@ -95,7 +123,6 @@ const loadGlobalSettings = async () => {
   salaryEmitter.emit();
 };
 
-// Save settings to storage
 const saveGlobalSettings = async () => {
   try {
     await storage.set('mesai-salary-settings', JSON.stringify(globalSettings));
@@ -149,40 +176,28 @@ export const useSalarySettings = () => {
 
   const getSalaryForDate = React.useCallback((date: Date): MonthlySalary => {
     const monthKey = getMonthKey(date);
-    const { salaryHistory, monthlyGrossSalary, bonus, shiftSystemEnabled, shiftSystemType, isSaturdayWorkManual: globalManual } = settings;
+    const { salaryHistory, monthlyGrossSalary, bonus, shiftSystemEnabled, shiftSystemType, isSaturdayWorkManual: globalManual, isSaturdayWork: globalSatWork } = settings;
 
+    let baseSalary = monthlyGrossSalary;
+    let baseBonus = bonus;
+    
     if (salaryHistory && salaryHistory[monthKey]) {
       const histEntry = salaryHistory[monthKey];
-      const manual = histEntry.isSaturdayWorkManual ?? globalManual;
-      return {
-        ...histEntry,
-        isSaturdayWorkManual: manual,
-        isSaturdayWork: isSaturdayWorkday({ ...histEntry, isSaturdayWorkManual: manual }),
-        shiftSystemEnabled: histEntry.shiftSystemEnabled ?? shiftSystemEnabled,
-        shiftSystemType: histEntry.shiftSystemType ?? shiftSystemType
-      };
-    }
-    
-    if (salaryHistory) {
+      baseSalary = histEntry.monthlyGrossSalary;
+      baseBonus = histEntry.bonus;
+    } else if (salaryHistory) {
       const mostRecentKey = sortedSalaryKeys.find(key => key <= monthKey);
       if (mostRecentKey) {
-        const histEntry = salaryHistory[mostRecentKey];
-        const manual = histEntry.isSaturdayWorkManual ?? globalManual;
-        return {
-          ...histEntry,
-          isSaturdayWorkManual: manual,
-          isSaturdayWork: isSaturdayWorkday({ ...histEntry, isSaturdayWorkManual: manual }),
-          shiftSystemEnabled: histEntry.shiftSystemEnabled ?? shiftSystemEnabled,
-          shiftSystemType: histEntry.shiftSystemType ?? shiftSystemType
-        };
+        baseSalary = salaryHistory[mostRecentKey].monthlyGrossSalary;
+        baseBonus = salaryHistory[mostRecentKey].bonus;
       }
     }
     
     return {
-      monthlyGrossSalary,
-      bonus,
-      isSaturdayWork: isSaturdayWorkday(settings),
-      isSaturdayWorkManual: settings.isSaturdayWorkManual,
+      monthlyGrossSalary: baseSalary,
+      bonus: baseBonus,
+      isSaturdayWork: globalSatWork,
+      isSaturdayWorkManual: globalManual,
       shiftSystemEnabled,
       shiftSystemType
     };
@@ -191,7 +206,7 @@ export const useSalarySettings = () => {
   const getShiftSettingsForDate = React.useCallback((date: Date) => {
     if (!settings.shiftSystemEnabled) return null;
 
-    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    const dateStr = getDateKey(date);
     const entry = sortedShiftHistory.find(h => h.startDate <= dateStr);
     
     if (entry) {
@@ -212,16 +227,14 @@ export const useSalarySettings = () => {
     };
   }, [settings, sortedShiftHistory]);
 
-  const updateSettings = React.useCallback((newSettingsOrUpdater: SalarySettings | ((prev: SalarySettings) => SalarySettings), monthKey?: string) => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-
+  const updateSettings = React.useCallback((newSettingsOrUpdater: SalarySettings | ((prev: SalarySettings) => SalarySettings), monthKey?: string, skipAllowanceHistory?: boolean) => {
     const currentSettings = globalSettings;
     const nextSettings = typeof newSettingsOrUpdater === 'function' 
       ? newSettingsOrUpdater(currentSettings) 
       : { ...newSettingsOrUpdater };
 
-    // Vardiya sistemi tipi değiştiyse varsayılan saatleri güncelle
+    const todayKey = getDateKey(new Date());
+
     if (nextSettings.shiftSystemType !== currentSettings.shiftSystemType) {
       if (nextSettings.shiftSystemType === '3-shift') {
         nextSettings.defaultStartTime = '08:05';
@@ -232,13 +245,10 @@ export const useSalarySettings = () => {
       }
     }
 
-    // Cumartesi çalışma durumunu saatlere göre otomatik belirle
     nextSettings.isSaturdayWork = isSaturdayWorkday(nextSettings);
-
-    // Günlük çalışma saatini UI'dan gelen değer olarak kullan (Artık zorlamıyoruz)
     nextSettings.dailyWorkingHours = Number(nextSettings.dailyWorkingHours) || currentSettings.dailyWorkingHours;
 
-    let activeDate = now;
+    let activeDate = new Date();
     if (monthKey) {
       const [year, month] = monthKey.split('-').map(Number);
       activeDate = new Date(year, month - 1, 1);
@@ -246,18 +256,24 @@ export const useSalarySettings = () => {
     
     const currentShift = getShiftSettingsForDate(activeDate);
 
-    // Allowance history tracking
-    if (nextSettings.dailyMealAllowance !== currentSettings.dailyMealAllowance || 
-        nextSettings.dailyTravelAllowance !== currentSettings.dailyTravelAllowance) {
-      const nextAllowanceHistory = { ...(currentSettings.allowanceHistory || {}) };
-      nextAllowanceHistory[today] = { 
-        meal: Number(nextSettings.dailyMealAllowance) || 0, 
-        travel: Number(nextSettings.dailyTravelAllowance) || 0 
-      };
-      nextSettings.allowanceHistory = nextAllowanceHistory;
+    // YOL/YEMEK GÜNCELLEME: global değerler değiştiğinde (Settings ekranından)
+    const allowanceChanged = 
+      nextSettings.dailyMealAllowance !== currentSettings.dailyMealAllowance || 
+      nextSettings.departureTravelAllowance !== currentSettings.departureTravelAllowance ||
+      nextSettings.returnTravelAllowance !== currentSettings.returnTravelAllowance;
+
+    if (allowanceChanged) {
+      const departure = Number(nextSettings.departureTravelAllowance) || 0;
+      const returnVal = Number(nextSettings.returnTravelAllowance) || 0;
+      nextSettings.dailyTravelAllowance = departure + returnVal;
+
+      if (skipAllowanceHistory) {
+        // Settings ekranından: history'yi temizle, tüm aylar global değeri kullanır
+        nextSettings.allowanceHistory = {};
+      }
+      // Mesai modalından bu blok tetiklenmez (global değerler değişmez)
     }
 
-    // Vardiya geçmişi takibi
     const shiftFieldsChanged = 
       nextSettings.shiftSystemEnabled !== currentSettings.shiftSystemEnabled ||
       nextSettings.shiftSystemType !== (currentShift?.systemType || currentSettings.shiftSystemType) ||
@@ -266,7 +282,10 @@ export const useSalarySettings = () => {
 
     if (shiftFieldsChanged && nextSettings.shiftSystemEnabled) {
       const newHistory = [...(currentSettings.shiftHistory || [])];
-      const startDate = nextSettings.shiftStartDate || today;
+      // Vardiya yeni aktif ediliyorsa (önceden kapalıydı veya history boştu)
+      // startDate'i bugün olarak zorla — geçmiş aylar etkilenmesin
+      const isFirstActivation = !currentSettings.shiftSystemEnabled || newHistory.length === 0;
+      const startDate = isFirstActivation ? todayKey : (nextSettings.shiftStartDate || todayKey);
       
       const existingIdx = newHistory.findIndex(h => h.startDate === startDate);
       const entry = {
@@ -287,11 +306,11 @@ export const useSalarySettings = () => {
 
     if (monthKey) {
       const nextHistory = { ...(currentSettings.salaryHistory || {}) };
+      
       nextHistory[monthKey] = {
+        ...nextHistory[monthKey],
         monthlyGrossSalary: Number(nextSettings.monthlyGrossSalary),
         bonus: Number(nextSettings.bonus),
-        isSaturdayWork: nextSettings.isSaturdayWork,
-        isSaturdayWorkManual: nextSettings.isSaturdayWorkManual,
         shiftSystemEnabled: nextSettings.shiftSystemEnabled,
         shiftSystemType: nextSettings.shiftSystemType,
         defaultStartTime: nextSettings.defaultStartTime,

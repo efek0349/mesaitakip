@@ -207,7 +207,7 @@ export const useOvertimeData = () => {
     };
   }, [isLoaded]);
 
-  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string, isFullDay: boolean = false, isPaid: boolean = false, workedHalfDay: boolean = false, deductFromOvertime: boolean = false) => {
+  const addOvertimeEntry = React.useCallback((date: Date, hours: number, minutes: number, type: 'overtime' | 'leave' = 'overtime', note?: string, isFullDay: boolean = false, isPaid: boolean = false, workedHalfDay: boolean = false, deductFromOvertime: boolean = false, noAllowance: boolean = false) => {
     if (!isDataLoaded) return;
     const monthKey = getMonthKey(date);
     const dateKey = getDateKey(date);
@@ -222,6 +222,7 @@ export const useOvertimeData = () => {
       isPaid,
       deductFromOvertime,
       workedHalfDay,
+      noAllowance: noAllowance || undefined,
       note: note || undefined 
     };
 
