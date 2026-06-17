@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { generateWordSearch, generateRandomWords, WordLocation } from '../utils/wordSearchUtils';
-import { RotateCcw, Lightbulb } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 const GRID_SIZE = 12;
 const WORD_COUNT = 10;
+
+const cellsAreEqual = (a: [number, number][], b: [number, number][]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+  }
+  return true;
+};
 
 const WordSearchGame: React.FC = () => {
   const [grid, setGrid] = useState<string[][]>([]);
@@ -17,6 +25,28 @@ const WordSearchGame: React.FC = () => {
   const [hintWord, setHintWord] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // --- Refs mirroring state, used only inside the drag handlers below.
+  // These let the global mousemove/touchmove listeners stay referentially
+  // stable across a drag instead of being torn down and rebuilt on every
+  // single pointer event (this was the main cause of the lag/"tepkime"
+  // problem: the listener-management effect re-ran on every move because
+  // handleMouseMove/handleMouseUp were brand new functions each render).
+  const selectedCellsRef = useRef<[number, number][]>([]);
+  const startCellRef = useRef<[number, number] | null>(null);
+  const isSelectingRef = useRef(false);
+  const gridDataRef = useRef<string[][]>([]);
+  const locationsRef = useRef<WordLocation[]>([]);
+  const foundWordsRef = useRef<string[]>([]);
+  const pendingPointRef = useRef<{ x: number; y: number } | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+
+  useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
+  useEffect(() => { startCellRef.current = startCell; }, [startCell]);
+  useEffect(() => { isSelectingRef.current = isSelecting; }, [isSelecting]);
+  useEffect(() => { gridDataRef.current = grid; }, [grid]);
+  useEffect(() => { locationsRef.current = locations; }, [locations]);
+  useEffect(() => { foundWordsRef.current = foundWords; }, [foundWords]);
 
   useEffect(() => {
     if (gridRef.current) {
@@ -44,37 +74,43 @@ const WordSearchGame: React.FC = () => {
     startNewGame();
   }, [startNewGame]);
 
-  const getCellFromCoords = (clientX: number, clientY: number) => {
+  const getCellFromCoords = useCallback((clientX: number, clientY: number) => {
     if (!gridRef.current) return null;
     const rect = gridRef.current.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
-    
+
     if (x < 0 || x > rect.width || y < 0 || y > rect.height) return null;
-    
+
     const r = Math.floor((y / rect.height) * GRID_SIZE);
     const c = Math.floor((x / rect.width) * GRID_SIZE);
-    
+
     if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
       return [r, c] as [number, number];
     }
     return null;
-  };
+  }, []);
 
-  const handleMouseDown = (r: number, c: number) => {
+  const handleMouseDown = useCallback((r: number, c: number) => {
     setIsSelecting(true);
     setStartCell([r, c]);
     setSelectedCells([[r, c]]);
-  };
+  }, []);
 
-  const handleMouseMove = (clientX: number, clientY: number) => {
-    if (!isSelecting || !startCell) return;
+  // The actual selection-path calculation. Reads everything through refs
+  // so its identity never changes mid-drag, and skips the state update
+  // entirely when the computed path hasn't actually changed (the cursor
+  // can fire dozens of mousemove events while still inside the same
+  // cell) - this is what was forcing a full 144-cell re-render, including
+  // the found-word scan below, far more often than necessary.
+  const processPoint = useCallback((clientX: number, clientY: number) => {
+    if (!isSelectingRef.current || !startCellRef.current) return;
 
     const currentCell = getCellFromCoords(clientX, clientY);
     if (!currentCell) return;
 
     const [r, c] = currentCell;
-    const [sr, sc] = startCell;
+    const [sr, sc] = startCellRef.current;
     const dr = r - sr;
     const dc = c - sc;
 
@@ -88,19 +124,38 @@ const WordSearchGame: React.FC = () => {
       for (let i = 0; i <= steps; i++) {
         newCells.push([sr + stepR * i, sc + stepC * i]);
       }
-      setSelectedCells(newCells);
-    }
-  };
 
-  const handleMouseUp = () => {
-    if (!isSelecting) return;
+      if (!cellsAreEqual(newCells, selectedCellsRef.current)) {
+        setSelectedCells(newCells);
+      }
+    }
+  }, [getCellFromCoords]);
+
+  // rAF throttle: native pointer/touch events can fire much faster than
+  // the screen repaints. We just remember the latest coordinates and let
+  // the browser's own animation frame decide when to actually process
+  // them - capping updates at one per frame instead of one per event.
+  const scheduleProcessPoint = useCallback((x: number, y: number) => {
+    pendingPointRef.current = { x, y };
+    if (rafIdRef.current !== null) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      const point = pendingPointRef.current;
+      if (point) processPoint(point.x, point.y);
+    });
+  }, [processPoint]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isSelectingRef.current) return;
     setIsSelecting(false);
 
-    const selectedWord = selectedCells.map(([r, c]) => grid[r][c]).join('');
+    const cells = selectedCellsRef.current;
+    const grid = gridDataRef.current;
+    const selectedWord = cells.map(([r, c]) => grid[r][c]).join('');
     const reversedWord = [...selectedWord].reverse().join('');
 
-    const match = locations.find(loc => 
-      (loc.word === selectedWord || loc.word === reversedWord) && !foundWords.includes(loc.word)
+    const match = locationsRef.current.find(loc =>
+      (loc.word === selectedWord || loc.word === reversedWord) && !foundWordsRef.current.includes(loc.word)
     );
 
     if (match) {
@@ -108,16 +163,16 @@ const WordSearchGame: React.FC = () => {
     }
     setSelectedCells([]);
     setStartCell(null);
-  };
+  }, []);
 
   const showHint = useCallback(() => {
     if (isSelecting) return;
-    
+
     const remaining = locations.filter(loc => !foundWords.includes(loc.word));
     if (remaining.length > 0) {
       const hint = remaining[Math.floor(Math.random() * remaining.length)];
       setHintWord(hint.word);
-      
+
       // Briefly highlight the word
       const cells: [number, number][] = [];
       const dr = hint.end[0] - hint.start[0];
@@ -129,7 +184,7 @@ const WordSearchGame: React.FC = () => {
       for (let i = 0; i <= steps; i++) {
         cells.push([hint.start[0] + stepR * i, hint.start[1] + stepC * i]);
       }
-      
+
       setSelectedCells(cells);
       setTimeout(() => {
         setSelectedCells([]);
@@ -141,11 +196,11 @@ const WordSearchGame: React.FC = () => {
   const handleTouchStart = (r: number, c: number, e: React.TouchEvent) => {
     const now = new Date().getTime();
     let newCount = 1;
-    
+
     if (now - lastTap < 400) {
       newCount = tapCount + 1;
     }
-    
+
     setTapCount(newCount);
     setLastTap(now);
 
@@ -160,16 +215,13 @@ const WordSearchGame: React.FC = () => {
 
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isSelecting) {
-        handleMouseMove(e.clientX, e.clientY);
-      }
+      scheduleProcessPoint(e.clientX, e.clientY);
     };
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
-      if (isSelecting) {
-        const touch = e.touches[0];
-        handleMouseMove(touch.clientX, touch.clientY);
-      }
+      e.preventDefault();
+      const touch = e.touches[0];
+      scheduleProcessPoint(touch.clientX, touch.clientY);
     };
 
     const handleGlobalEnd = () => {
@@ -188,8 +240,12 @@ const WordSearchGame: React.FC = () => {
       window.removeEventListener('touchmove', handleGlobalTouchMove);
       window.removeEventListener('mouseup', handleGlobalEnd);
       window.removeEventListener('touchend', handleGlobalEnd);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
-  }, [isSelecting, handleMouseMove, handleMouseUp]);
+  }, [isSelecting, scheduleProcessPoint, handleMouseUp]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -203,10 +259,16 @@ const WordSearchGame: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [showHint]);
 
-  const isCellInFoundWord = (r: number, c: number) => {
-    return locations.some(loc => {
-      if (!foundWords.includes(loc.word)) return false;
-      
+  // Pre-compute the set of cells that belong to an already-found word once
+  // whenever locations/foundWords change, instead of re-walking the full
+  // locations list (with its own inner loop) for every one of the 144
+  // cells on every single render - which is what was happening before,
+  // including on every mousemove-triggered render while dragging.
+  const foundCellKeys = useMemo(() => {
+    const keys = new Set<string>();
+    locations.forEach(loc => {
+      if (!foundWords.includes(loc.word)) return;
+
       const dr = loc.end[0] - loc.start[0];
       const dc = loc.end[1] - loc.start[1];
       const steps = Math.max(Math.abs(dr), Math.abs(dc));
@@ -214,11 +276,17 @@ const WordSearchGame: React.FC = () => {
       const stepC = dc === 0 ? 0 : dc / steps;
 
       for (let i = 0; i <= steps; i++) {
-        if (loc.start[0] + stepR * i === r && loc.start[1] + stepC * i === c) return true;
+        keys.add(`${loc.start[0] + stepR * i}-${loc.start[1] + stepC * i}`);
       }
-      return false;
     });
-  };
+    return keys;
+  }, [locations, foundWords]);
+
+  const selectedCellKeys = useMemo(() => {
+    const keys = new Set<string>();
+    selectedCells.forEach(([r, c]) => keys.add(`${r}-${c}`));
+    return keys;
+  }, [selectedCells]);
 
   const getCellCenter = (r: number, c: number) => {
     const cellWidth = containerSize.width / GRID_SIZE;
@@ -276,12 +344,13 @@ const WordSearchGame: React.FC = () => {
 
         {grid.map((row, rIndex) => (
           row.map((letter, cIndex) => {
-            const isSelected = selectedCells.some(([r, c]) => r === rIndex && c === cIndex);
-            const isFound = isCellInFoundWord(rIndex, cIndex);
+            const cellKey = `${rIndex}-${cIndex}`;
+            const isSelected = selectedCellKeys.has(cellKey);
+            const isFound = foundCellKeys.has(cellKey);
 
             return (
               <div
-                key={`${rIndex}-${cIndex}`}
+                key={cellKey}
                 onMouseDown={() => handleMouseDown(rIndex, cIndex)}
                 onTouchStart={(e) => {
                     e.preventDefault();

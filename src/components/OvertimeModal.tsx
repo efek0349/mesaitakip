@@ -174,11 +174,12 @@ export const OvertimeModal: React.FC<OvertimeModalProps> = React.memo(({ isOpen,
   const isSaturday = selectedDate.getDay() === 6;
   const isSunday = selectedDate.getDay() === 0;
 
-  // Settings'te yol/yemek tanımlanmış mı?
-  const hasAllowanceConfigured = (Number(settings.dailyMealAllowance) || 0) > 0 ||
-    (Number(settings.departureTravelAllowance) || 0) > 0 ||
-    (Number(settings.returnTravelAllowance) || 0) > 0 ||
-    Object.keys(settings.allowanceHistory || {}).length > 0;
+  // Bu tarih için gerçekten yol/yemek tanımlı mı?
+  // (Prim/İkramiye veya başka bir alanla ilgisi yok — sadece meal/departure/return tutarlarına bakar.
+  //  allowanceHistory'de kayıt olması yetmez; kayıttaki/global değerlerin gerçekten >0 olması gerekir.)
+  const hasAllowanceConfigured = (Number(dailyMeal) || 0) > 0 ||
+    (Number(departureTravel) || 0) > 0 ||
+    (Number(returnTravel) || 0) > 0;
 
   const currentTotalHours = (isFullDay && type === 'leave') ? settings.dailyWorkingHours : (hours + minutes / 60);
   const overtimeRate = getOvertimeRate(selectedDate, !!holiday, weeklyHours ? weeklyHours + (hours + minutes / 60) : undefined);
