@@ -15,7 +15,7 @@ export const ThemeSwitcher: React.FC = () => {
             </div>
             <div>
                 <h3 className="font-semibold text-gray-800 dark:text-white leading-none">Görünüm</h3>
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight mt-1.5 leading-none">
+                <p className="text-[0.625rem] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight mt-1.5 leading-none">
                     {isDark ? 'KOYU MOD AKTİF' : 'AÇIK MOD AKTİF'}
                 </p>
             </div>

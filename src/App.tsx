@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense } from 'react';
+import { Frame, TitleBar, ProgressBar } from '@react95/core';
 import { Calendar } from './components/Calendar';
 import { MonthlyStats } from './components/MonthlyStats';
 import { Toast } from './components/Toast';
 import { ActionIcons } from './components/ActionIcons';
+import { Win95Shell } from './components/win95/Win95Shell';
 import { useOvertimeData } from './hooks/useOvertimeData';
 import { useSalarySettings } from './hooks/useSalarySettings';
 import { useHolidays } from './hooks/useHolidays';
@@ -11,7 +13,6 @@ import { useAutoBackup } from './hooks/useAutoBackup';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { TURKISH_MONTHS } from './utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
-import { Clock } from 'lucide-react';
 import { googleDriveService } from './utils/googleDriveService';
 import { Browser } from '@capacitor/browser';
 import { Dialog } from '@capacitor/dialog';
@@ -30,7 +31,7 @@ const App: React.FC = () => {
 
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
-  
+
   // Visual Progress Logic
     React.useEffect(() => {
     let timer: number;
@@ -57,13 +58,15 @@ const App: React.FC = () => {
 
   const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
   const updateInfo = useUpdateCheck();
-  useTheme();
+  // win95Enabled: Win95 görünümünün açık/kapalı olduğu kalıcı tercih.
+  // toggleWin95/setWin95: TaskBar'daki "Görünüm" menüsünden (Win95Shell) çağrılır.
+  const { win95Enabled, toggleWin95, setWin95, win95Font, setWin95Font } = useTheme();
   useAutoBackup();
 
   React.useEffect(() => {
     googleDriveService.init().catch(console.error);
   }, []);
-  
+
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -77,21 +80,21 @@ const App: React.FC = () => {
       setIsUpdateModalOpen(true);
     }
   }, [updateInfo.hasUpdate]);
-  
+
   const handleDateClick = useCallback((date: Date) => {
     setSelectedDate(date);
     setIsModalOpen(true);
   }, []);
-  
+
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedDate(null);
   }, []);
-  
+
   const handleOpenSettings = useCallback(() => {
     setIsSettingsOpen(true);
   }, []);
-  
+
   const handleOpenDataBackup = useCallback(() => {
     setIsDataBackupOpen(true);
   }, []);
@@ -140,26 +143,63 @@ const App: React.FC = () => {
       clearMonthData(year, month);
     }
   }, [currentDate, clearMonthData]);
-  
+
   const handleDateChange = useCallback((date: Date) => {
     setCurrentDate(date);
   }, []);
-  
+
   const hasData = useMemo(
     () => hasMonthData(currentDate.getFullYear(), currentDate.getMonth()),
     [currentDate, hasMonthData, monthlyData]
   );
-  
+
+  // ─── Splash / Yükleniyor ekranı ───────────────────────────────────────────
+  // win95Enabled durumuna göre iki ayrı görünüm: Win95 (splash: Frame+ProgressBar, merkeze hizalı logo/isim)
+  // veya orijinal Tailwind tasarımı (rounded ikon kutusu, gradient ilerleme çubuğu).
   if (!isFullyReady) {
+    if (win95Enabled) {
+      return (
+        <div className="win95-desktop fixed inset-0 flex items-center justify-center z-[9999]">
+          <Frame
+            className="win95-window-enter"
+            boxShadow="out"
+            style={{ width: 260, padding: '28px 24px' }}
+          >
+            <div className="flex flex-col items-center" style={{ gap: 16 }}>
+              <img
+                src={`${import.meta.env.BASE_URL}app_icon.png`}
+                alt="App Icon"
+                style={{ width: 64, height: 64, objectFit: 'cover', imageRendering: 'pixelated' }}
+              />
+              <span style={{ fontSize: 15, fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>
+                Mesai Takip
+              </span>
+              <div style={{ width: '100%' }}>
+                {/* ÖNEMLİ: ProgressBar'ın varsayılan genişliği 150px SABİT
+                    (React95'in kendi kaynak kodundan doğrulandı) — kapsayıcı
+                    div'in width:100% vermesi yetmiyor, ProgressBar'a width
+                    prop'u AYRICA verilmeli. Bu eksikti, bar her zaman 150px
+                    kalıp 260px'lik pencerenin solunda duruyordu. */}
+                <ProgressBar percent={Math.round(visualProgress)} width="100%" />
+              </div>
+              <span style={{ fontSize: 11, textAlign: 'center' }}>
+                {visualProgress >= 100 ? 'Hazır!' : 'Veriler Yükleniyor...'}
+              </span>
+            </div>
+          </Frame>
+        </div>
+      );
+    }
+
     return (
       <div className="fixed inset-0 bg-gray-100 dark:bg-black flex items-center justify-center z-[9999]">
         <div className="flex flex-col items-center gap-6 animate-in fade-in duration-700">
           <div className="relative">
             <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse" />
             <div className="relative w-24 h-24 rounded-[28px] overflow-hidden shadow-2xl border-b-4 border-gray-200 dark:border-gray-800 bg-white p-1">
-              <img 
-                src={`${import.meta.env.BASE_URL}app_icon.png`} 
-                alt="App Icon" 
+              <img
+                src={`${import.meta.env.BASE_URL}app_icon.png`}
+                alt="App Icon"
                 className="w-full h-full object-cover rounded-2xl"
               />
             </div>
@@ -169,12 +209,12 @@ const App: React.FC = () => {
               Mesai Takip
             </h2>
             <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden shadow-inner border border-gray-300/20 dark:border-white/5">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 rounded-full transition-all duration-300 ease-out" 
-                style={{ width: `${visualProgress}%` }} 
+              <div
+                className="h-full bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${visualProgress}%` }}
               />
             </div>
-            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest animate-pulse">
+            <p className="text-[0.625rem] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest animate-pulse">
               {visualProgress >= 100 ? 'Hazır!' : 'Veriler Yükleniyor'}
             </p>
           </div>
@@ -183,6 +223,179 @@ const App: React.FC = () => {
     );
   }
 
+  // ─── Ortak modaller (her iki temada da aynı, Suspense+Toast paylaşılır) ───
+  const sharedModals = (
+    <>
+      <Suspense fallback={null}>
+        {isModalOpen && (
+          <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} win95Enabled={win95Enabled} />
+        )}
+        {isSettingsOpen && (
+          <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} currentDate={currentDate} win95Enabled={win95Enabled} />
+        )}
+        {isAboutModalOpen && (
+          <AboutModal isOpen={isAboutModalOpen} onClose={handleCloseAbout} win95Enabled={win95Enabled} />
+        )}
+        {isDataBackupOpen && (
+          <DataBackupModal isOpen={isDataBackupOpen} onClose={handleCloseDataBackup} currentDate={currentDate} win95Enabled={win95Enabled} />
+        )}
+        {isUpdateModalOpen && (
+          <UpdateModal
+            isOpen={isUpdateModalOpen}
+            onClose={handleCloseUpdate}
+            version={updateInfo.latestVersion}
+            onDownload={() => handleOpenLink('https://github.com/efek0349/mesaitakip/releases')}
+            win95Enabled={win95Enabled}
+          />
+        )}
+        {isBilgiOpen && (
+          <BilgiModal isOpen={isBilgiOpen} onClose={handleCloseBilgi} win95Enabled={win95Enabled} />
+        )}
+      </Suspense>
+      <Toast win95Enabled={win95Enabled} />
+    </>
+  );
+
+  // ─── WIN95 GÖRÜNÜMÜ ────────────────────────────────────────────────────────
+  if (win95Enabled) {
+    return (
+      // ÖNEMLİ: position: 'relative' KASITLI eklendi. React95'in TaskBar'ı
+      // kendi içinde `position: fixed; bottom: 0px` kullanıyor (gerçek
+      // kaynak kodundan doğrulandı) — normalde bu, TaskBar'ı GERÇEK VIEWPORT
+      // tabanına sabitler, mobil tarayıcı/Android'in adres çubuğu, navigasyon
+      // çubuğu (gesture bar) gibi dinamik UI elemanlarıyla çakışabilir
+      //
+      // CSS'in temel kuralı: `position: fixed` bir element, en yakın
+      // "positioned" (static OLMAYAN position değerine sahip) ebeveynine
+      // göre konumlanır — eğer hiç yoksa viewport'a göre konumlanır. Bu
+      // dış div'e `position: relative` vererek, TaskBar'ın fixed
+      // davranışını GERÇEK VIEWPORT'TAN ALIP bu kapsayıcının sınırlarına
+      // (height: 100dvh, safe-area padding'leri dahil) bağlıyoruz. Artık
+      // TaskBar her zaman BU kapsayıcının en altında durur, Android'in
+      // navigasyon çubuğunun gerçek davranışından etkilenmez.
+      <div className="win95-desktop h-screen-dynamic flex flex-col" style={{ position: 'relative' }}>
+
+        {/* Ana Program Penceresi — eski header+içerik alanının Win95 karşılığı.
+            pt-[env(safe-area-inset-top)] mobil çentik/status bar payı için korunuyor. */}
+        <div
+          className="flex-1 overflow-hidden flex flex-col min-h-0 p-1"
+          style={{ paddingTop: 'max(4px, env(safe-area-inset-top))' }}
+        >
+          {/* ÖNEMLİ: Frame'in kendi CSS sprinkle sistemi `display` özelliğini
+              bir custom property üzerinden kontrol ediyor — Tailwind'in
+              `flex flex-col` class'ları Frame'e doğrudan verildiğinde CSS
+              yükleme sırasına bağlı olarak ezilebiliyordu, bu da Frame'in
+              içeriğinin (TitleBar + scroll alanı) flex değil normal blok
+              akışında dizilmesine, ve içeriğin SINIRSIZ BÜYÜMESİNE yol
+              açıyordu (TaskBar'ı ekran dışına itiyordu). Çözüm: Frame'i
+              SADECE görsel kabuk (kenarlık/gölge) olarak kullanıp, gerçek
+              flex/overflow kontrolünü native div'lere veriyoruz — Frame'in
+              kendi layout davranışına hiç güvenmiyoruz. */}
+          <Frame
+            boxShadow="out"
+            bgColor="material"
+            className="win95-window-enter"
+            style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}
+          >
+            <div style={{ flexShrink: 0 }}>
+              <TitleBar
+                title={
+                  (settings.firstName || settings.lastName)
+                    ? `Mesai Takip — ${settings.firstName} ${settings.lastName}`.trim()
+                    : 'Mesai Takip'
+                }
+                icon={
+                  <img
+                    src={`${import.meta.env.BASE_URL}app_icon.png`}
+                    alt=""
+                    className="w-4 h-4"
+                    style={{ imageRendering: 'pixelated' }}
+                  />
+                }
+              />
+            </div>
+
+            {/* Scrollable İçerik — explicit arka plan rengi (#c3c7cb, Win95'in
+                klasik pencere gövdesi grisi) ki Calendar/MonthlyStats kendi
+                arka planlarını taşımadan bu zemin üzerinde doğru görünsün.
+                flexBasis: 0 ÖNEMLİ — flex-grow'un doğru hesaplanması için
+                (içerik boyutuna göre değil, kalan alana göre büyüsün). */}
+            <div
+              style={{
+                flex: '1 1 0',
+                minHeight: 0,
+                overflowY: 'auto',
+                padding: 8,
+                backgroundColor: '#c3c7cb',
+              }}
+            >
+              <Calendar
+                currentDate={currentDate}
+                onDateChange={handleDateChange}
+                onDateClick={handleDateClick}
+                win95Enabled={true}
+              />
+              <MonthlyStats
+                currentDate={currentDate}
+                onOpenSettings={handleOpenSettings}
+                onOpenDataBackup={handleOpenDataBackup}
+                win95Enabled={true}
+              />
+            </div>
+          </Frame>
+        </div>
+
+        {sharedModals}
+
+        {/* TaskBar rezerve alanı — DÜZELTME NOTU: Bu div'in `position:
+            'relative'` olması TaskBar'ın konumunu HİÇ etkilemiyor. CSS
+            kuralı: `position:fixed` bir eleman, yalnızca `position:relative`
+            değil, `transform`/`filter`/`perspective`/`will-change` gibi yeni
+            bir "containing block" yaratan bir özelliğe sahip ata elemanlara
+            göre konumlanır — sade bir `position:relative` bunu sağlamaz.
+            TaskBar (react95 kaynağı: `<Frame position="fixed" bottom="0px">`)
+            dolayısıyla GERÇEK VIEWPORT'a göre sabitleniyor, bu div'e göre
+            değil. Bu div'in TEK gerçek işlevi: flex sütun düzeninde TaskBar'ın
+            kapladığı kadar (28px + güvenli alan) boşluk AYIRMAK, böylece
+            üstteki içerik TaskBar'ın altında kalıp görünmez olmuyor.
+
+            Gerçek Android gesture-navigasyon güvenli alanı düzeltmesi artık
+            Win95Shell.tsx + win95-overrides.css'te (`win95-taskbar-safe-area`
+            / `win95-taskbar-safe-area-filler`, `transform: translateY(...)`)
+            uygulanıyor — orada hem CSS `env(safe-area-inset-bottom)` hem de
+            androidUtils.ts'nin JS ile hesapladığı `--nav-bar-height`
+            değişkeninin BÜYÜĞÜ (`max()`) kullanılıyor, çünkü Android 15+
+            zorunlu edge-to-edge render'ında (LineageOS 23.2 gibi) JS
+            heuristiği tek başına güvenilir değil. Buradaki paddingBottom da
+            AYNI `max(...)` ifadesini kullanmalı ki rezerve edilen boşluk,
+            gerçekte kaydırılan TaskBar yüksekliğiyle birebir eşleşsin. */}
+        <div
+          style={{
+            position: 'relative',
+            paddingBottom: 'max(env(safe-area-inset-bottom), var(--nav-bar-height, 0px))',
+            minHeight: 28,
+          }}
+          className="flex-shrink-0"
+        >
+          <Win95Shell
+            onOpenDataBackup={handleOpenDataBackup}
+            onOpenSettings={handleOpenSettings}
+            onShareMonthlyStats={handleShareMonthlyStats}
+            onClearMonthlyStats={handleClearMonthlyStats}
+            onOpenBilgi={() => setIsBilgiOpen(true)}
+            onOpenAbout={() => setIsAboutModalOpen(true)}
+            canShare={hasData}
+            canClear={hasData}
+            onTurnOffWin95={() => setWin95(false)}
+            win95Font={win95Font}
+            onSetWin95Font={setWin95Font}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ─── ORİJİNAL (TAILWIND) GÖRÜNÜMÜ ─────────────────────────────────────────
   return (
     <div className="bg-gray-100 dark:bg-black h-screen-dynamic flex flex-col pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
 
@@ -198,19 +411,19 @@ const App: React.FC = () => {
                 className="flex items-center justify-center w-10 h-10 rounded-lg overflow-hidden shadow-md border-b-4 border-gray-300 dark:border-gray-700 active:border-b-0 active:translate-y-1 transition-all flex-shrink-0 bg-white"
                 aria-label="Hakkında"
               >
-                <img 
-                  src={`${import.meta.env.BASE_URL}app_icon.png`} 
-                  alt="App Icon" 
+                <img
+                  src={`${import.meta.env.BASE_URL}app_icon.png`}
+                  alt="App Icon"
                   className="w-full h-full object-cover"
                 />
               </button>
 
               {(settings.firstName || settings.lastName) && (
                 <div className="flex flex-col justify-center min-w-0 pr-1">
-                  <span className="text-[9px] font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
+                  <span className="text-[0.5625rem] font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
                     {settings.firstName}
                   </span>
-                  <span className="text-[9px] font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
+                  <span className="text-[0.5625rem] font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
                     {settings.lastName}
                   </span>
                 </div>
@@ -224,6 +437,7 @@ const App: React.FC = () => {
               onShareMonthlyStats={handleShareMonthlyStats}
               onClearMonthlyStats={handleClearMonthlyStats}
               onOpenBilgi={() => setIsBilgiOpen(true)}
+              onToggleWin95={toggleWin95}
               canShare={hasData}
               canClear={hasData}
               className="flex-shrink-0"
@@ -239,42 +453,18 @@ const App: React.FC = () => {
             currentDate={currentDate}
             onDateChange={handleDateChange}
             onDateClick={handleDateClick}
+            win95Enabled={false}
           />
-          <MonthlyStats 
-            currentDate={currentDate} 
+          <MonthlyStats
+            currentDate={currentDate}
             onOpenSettings={handleOpenSettings}
             onOpenDataBackup={handleOpenDataBackup}
+            win95Enabled={false}
           />
         </div>
       </div>
-      
-      <Suspense fallback={null}>
-        {isModalOpen && (
-          <OvertimeModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate} />
-        )}
-        {isSettingsOpen && (
-          <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} currentDate={currentDate} />
-        )}
-        {isAboutModalOpen && (
-          <AboutModal isOpen={isAboutModalOpen} onClose={handleCloseAbout} />
-        )}
-        {isDataBackupOpen && (
-          <DataBackupModal isOpen={isDataBackupOpen} onClose={handleCloseDataBackup} currentDate={currentDate} />
-        )}
-        {isUpdateModalOpen && (
-          <UpdateModal
-            isOpen={isUpdateModalOpen}
-            onClose={handleCloseUpdate}
-            version={updateInfo.latestVersion}
-            onDownload={() => handleOpenLink('https://github.com/efek0349/mesaitakip/releases')}
-          />
-        )}
-        {isBilgiOpen && (
-          <BilgiModal isOpen={isBilgiOpen} onClose={handleCloseBilgi} />
-        )}
-      </Suspense>
-      
-      <Toast />
+
+      {sharedModals}
     </div>
   );
 }

@@ -1,0 +1,163 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 MODU AÇIK/KAPALI YÖNETİMİ
+   ═══════════════════════════════════════════════════════════════════════════
+   Bu dosya main.tsx'te @react95/core/themes/win95.css İMPORT EDİLDİKTEN SONRA
+   yükleniyor — kasıtlı. win95.css kendi renklerini :root üzerinde tanımlıyor;
+   bizim koyu varyant override'larımız da :root/html seviyesinde olduğu için
+   (aynı CSS custom property'leri farklı değerlerle yeniden tanımlıyoruz),
+   hem doğru specificity (html.win95-mode.dark > :root) hem doğru import sırası
+   bizim tarafımızda olmalı. İkisi birlikte garantili sonuç verir.
+
+   <html> elementine `win95-mode` class'ı eklendiğinde (useTheme.ts tarafından)
+   Win95 görünümü devreye girer. Bu class yokken App.tsx orijinal Tailwind
+   tasarımını render eder — yani Win95 bileşenleri DOM'a hiç girmez, sadece
+   CSS değil, render dalı tamamen değişir (App.tsx'teki koşullu render). */
+html:not(.win95-mode) {
+  /* React95 GlobalStyle'ın body'e uyguladığı ms_sans_serif fontunu iptal et,
+     Win95 modu kapalıyken Tailwind tasarımının kendi fontu görünsün.
+
+     ÖNEMLİ: Sadece `font-family: inherit` yeterli gelmedi — React95'in
+     GlobalStyle'ı çok geniş kapsamlı bir @font-face + selector seti
+     tanımlıyor (muhtemelen yüksek specificity veya `*` benzeri bir
+     selector). Bu yüzden burada hem `html` hem `body` hem de `#root`
+     (Vite'ın varsayılan mount noktası) üzerinde, '*' joker seçiciyle
+     ve '!important' ile garantili bir şekilde override ediyoruz. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+html:not(.win95-mode) body,
+html:not(.win95-mode) #root,
+html:not(.win95-mode) #root * {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 KAPALIYKEN SCROLLBAR'I TARAYICI VARSAYILANINA DÖNDÜR
+   ═══════════════════════════════════════════════════════════════════════════
+   KÖK SEBEP: React95'in GlobalStyle'ı SADECE font değil, aynı zamanda
+   global `::-webkit-scrollbar` kuralları da enjekte ediyor (kalın, kare,
+   Win95-tarzı gri scrollbar — gerçek kaynaktan doğrulandı). Bu kurallar
+   Win95 modu açık/kapalı ayrımı yapmadan TÜM SAYFAYA uygulanıyordu, bu
+   yüzden Win95'i kapatınca da scrollbar Win95 görünümünde kalıyordu.
+
+   ÇÖZÜM: Win95 kapalıyken (html:not(.win95-mode)) tüm webkit-scrollbar
+   pseudo-element'lerini `revert` ile tarayıcının kendi varsayılan
+   tasarımına döndürüyoruz — bu, GlobalStyle'ın enjekte ettiği kuralları
+   etkisiz kılar, sayfa orijinal (ince, sistem temalı) scrollbar'ına
+   geri döner. */
+html:not(.win95-mode) ::-webkit-scrollbar,
+html:not(.win95-mode) ::-webkit-scrollbar-track,
+html:not(.win95-mode) ::-webkit-scrollbar-thumb,
+html:not(.win95-mode) ::-webkit-scrollbar-corner,
+html:not(.win95-mode) ::-webkit-scrollbar-button {
+  all: revert;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 AÇIKKEN KESİN YÜKSEKLİK SINIRI (taşma engelleme)
+   ═══════════════════════════════════════════════════════════════════════════
+   KÖK SEBEP: index.css'teki .win95-desktop class'ı `min-height: 100dvh`
+   kullanıyor (Win95 kapalıyken esnek/scrollable bir sayfa için kasıtlı).
+   Ama min-height, içerik ondan uzunsa kapsayıcının BÜYÜMESİNE izin verir —
+   Win95 AÇIKKEN bu, App.tsx'teki tüm flex-1/min-height:0 zincirini
+   anlamsız kılıyordu: en dış kapsayıcı sabit olmadığı için takvim/pencere
+   içeriği büyüdükçe TÜM SAYFA büyüyor, TaskBar ekranın gerçek altına değil,
+   büyümüş sayfanın altına itiliyordu.
+
+   ÇÖZÜM: Win95 modu AÇIKKEN .win95-desktop'a kesin `height: 100dvh` +
+   `overflow: hidden` veriyoruz — artık kapsayıcı asla içeriğe göre
+   büyüyemez, taşan içerik kendi iç scroll alanında (App.tsx'teki
+   overflowY:auto div'i) kalmak zorunda. */
+html.win95-mode .win95-desktop {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 KOYU VARYANTI KALDIRILDI
+   ═══════════════════════════════════════════════════════════════════════════
+   Geri bildirim: Win95 Koyu varyantı yeterince iyi görünmüyordu ve
+   düzeltmek ciddi uğraş gerektiriyordu, buna değmezdi. Bu yüzden Win95 modu
+   artık HER ZAMAN klasik/açık renklerle görünür — <html>'e `dark` class'ı
+   eklenmiş olsa bile (ör. kullanıcı daha önce Tailwind koyu modunu seçmişse),
+   `win95-mode` açıkken bu hiçbir görsel etki yaratmaz; win95.css'in kendi
+   klasik renkleri (gri/teal) olduğu gibi kullanılır. Tema seçimi (Açık/Koyu)
+   Win95 açıkken Başlat menüsünden ve Ayarlar'dan kaldırıldı. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 YAZI TİPİ TERCİHİ
+   ═══════════════════════════════════════════════════════════════════════════
+   useTheme.ts: win95Font='system' olduğunda <html>'e `win95-font-system`
+   class'ı eklenir. Bu durumda React95'in GlobalStyle ile yüklediği piksel
+   fontu (ms_sans_serif) yerine cihazın normal arayüz fontu kullanılır.
+
+   Win95'in pencere/buton/bevel görsel dili (renkler, gölgeler, kenarlıklar)
+   AYNEN kalır — sadece metin render şekli değişir. Bazı semboller (☀/☾ gibi)
+   piksel fontunda düzgün görünmediği veya bazı kullanıcılar retro fontu
+   tercih etmediği için bu seçenek eklendi.
+
+   '!important' kullanıldı çünkü React95'in kendi bileşenleri (.win95
+   class'lı her şey) font-family'yi yüksek specificity ile component bazında
+   set ediyor olabilir — bu override'ın her durumda kazanmasını garantiliyor. */
+html.win95-mode.win95-font-system,
+html.win95-mode.win95-font-system * {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIN95 TASKBAR — ANDROID GESTURE NAVİGASYON GÜVENLİ ALANI
+   ═══════════════════════════════════════════════════════════════════════════
+   KÖK SEBEP: react95'in TaskBar'ı kendi içinde <Frame position="fixed"
+   bottom="0px" h="28px" .../> render ediyor (gerçek kaynaktan doğrulandı,
+   TaskBar.tsx) — bu, ekranın Android gesture-navigasyon şeridiyle kaplı
+   olabilecek gerçek alt kenarına göre sabitlenir. androidUtils.ts bunu
+   `visualViewport` ölçümüyle (--nav-bar-height) telafi etmeye çalışıyor,
+   ama bu JS heuristiği Android 15+ zorunlu edge-to-edge render'ında (ör.
+   LineageOS 23.2) bottomInset'i her zaman 0 okuyabiliyor — WebView, gesture
+   "pill" alanını eski cihazlardaki gibi visualViewport'a yansıtmıyor.
+   Sonuç: --nav-bar-height yanlışlıkla 0px kalıyor ve TaskBar gerçekten
+   gesture çubuğunun ALTINDA/ARKASINDA render oluyor (Android 13 gibi
+   eski/klasik 3-tuş navigasyonlu cihazlarda ise navigasyon çubuğu gerçek
+   viewport yüksekliğini zaten düşürdüğü için sorun hiç ortaya çıkmıyordu).
+
+   ÇÖZÜM: JS heuristiğine TEK BAŞINA güvenmek yerine, standart CSS
+   `env(safe-area-inset-bottom)` değerini de devreye sokup ikisinin
+   BÜYÜĞÜNÜ kullanıyoruz (`max(...)`) — env() düzgün raporlanan
+   cihazlarda/ROM'larda JS heuristiği yanlış olsa bile doğru sonucu verir.
+
+   TaskBar'ın kendi height/padding'ini büyütmek yerine `transform:
+   translateY(...)` ile YUKARI kaydırıyoruz, çünkü react95 TaskBar'ın iç
+   Start-menü/dropdown Frame'leri `bottom: 28px` gibi TaskBar kutusunun
+   KENDİ boyutuna göre sabit offsetler kullanıyor (TaskBar.tsx: `<Frame
+   position="absolute" bottom="28px">{list}</Frame>`) — kutunun boyutunu
+   artırmak bu offsetleri kaydırıp Start menüsünü yanlış yere düşürürdü.
+   transform ise layout kutusunun boyutunu değiştirmediği için bu iç
+   hesaplamalar bozulmadan kalır; sadece TaskBar'ın render edildiği piksel
+   konumu yukarı taşınır.
+
+   TaskBar yukarı kayınca altında (gerçek ekran kenarına kadar) boş bir
+   şerit kalır — bunu Win95Shell.tsx'te TaskBar'ın hemen üstünde render
+   edilen `.win95-taskbar-safe-area-filler` div'i, TaskBar ile TAM AYNI
+   rengi (react95'in kendi `--r95-color-material` CSS değişkeni) ve
+   z-index'i (`--r95-zIndex-taskbar`) kullanarak dolduruyor — böylece
+   görsel olarak TaskBar sanki doğrudan büyümüş gibi görünür, ama iç
+   dropdown konumlandırması bozulmaz. */
+:root {
+  --win95-taskbar-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--nav-bar-height, 0px));
+}
+
+html.win95-mode .win95-taskbar-safe-area {
+  transform: translateY(calc(-1 * var(--win95-taskbar-safe-bottom))) !important;
+}
+
+html.win95-mode .win95-taskbar-safe-area-filler {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--win95-taskbar-safe-bottom);
+  background-color: var(--r95-color-material);
+  z-index: var(--r95-zIndex-taskbar);
+  pointer-events: none;
+}

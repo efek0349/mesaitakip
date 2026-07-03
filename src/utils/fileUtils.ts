@@ -168,15 +168,14 @@ export const saveBackupFile = async (data: string, filename: string): Promise<vo
 export const pickAndReadBackupFile = async (): Promise<string | null> => {
   if (Capacitor.isNativePlatform()) {
     try {
-      const permissions = await FilePicker.checkPermissions();
-      if (permissions.publicStorage !== 'granted') {
-        const request = await FilePicker.requestPermissions();
-        if (request.publicStorage !== 'granted') {
-          showToast('Dosya seçebilmek için depolama izni vermeniz gerekmektedir.', 'error');
-          return null;
-        }
-      }
-
+      // NOT: Burada bilerek FilePicker.checkPermissions()/requestPermissions() ÇAĞRILMIYOR.
+      // pickFiles() Android'de Storage Access Framework (SAF / ACTION_OPEN_DOCUMENT) kullanır;
+      // bu, tekil bir dosya seçmek için READ_EXTERNAL_STORAGE veya ACCESS_MEDIA_LOCATION
+      // izinlerine ihtiyaç DUYMAZ (bu izinler yalnızca galeriden toplu medya/EXIF konumu
+      // okurken gerekir). checkPermissions() çağrısı, AndroidManifest.xml'de bu izinler
+      // deklare edilmediğinde "Missing the following permissions in AndroidManifest.xml"
+      // hatasını fırlatıyordu — yani hatanın kaynağı gerçek bir izin eksikliği değil,
+      // ihtiyaç duyulmayan bir izin kontrolüydü.
       const result = await FilePicker.pickFiles({
         types: ['application/json'], 
         multiple: false,

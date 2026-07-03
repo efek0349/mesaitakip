@@ -2,7 +2,33 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { storage } from '../utils/storageUtils';
 
 type Theme = 'light' | 'dark';
+export type Win95Font = 'pixel' | 'system';
+export type FontScale = 'small' | 'medium' | 'large' | 'xlarge';
 
+// Yazı boyutu ölçekleri: <html> kök font-size'ını değiştirir. Uygulama genelinde
+// yazı tipi boyutları rem birimiyle tanımlandığı için (bkz. text-[0.625rem] gibi
+// px'ten rem'e çevrilmiş sınıflar) kök boyut değiştiğinde TÜM metinler orantılı
+// olarak büyür/küçülür — Android'in kendi "yazı tipi boyutu" ayarından bağımsız,
+// uygulamanın kendi iç ölçeği.
+export const FONT_SCALE_PERCENT: Record<FontScale, number> = {
+  small: 87.5,
+  medium: 100,
+  large: 112.5,
+  xlarge: 125,
+};
+
+/**
+ * Win95 modu: Tailwind tasarımının üzerine binen, açılıp kapanabilen
+ * alternatif görünüm. Win95 açıkken her zaman klasik/açık renklerle görünür —
+ * Koyu varyant kaldırıldı (yeterince iyi görünmüyordu). Win95 kapalıyken
+ * theme, normal Tailwind dark/light tasarımını kontrol etmeye devam eder.
+ *
+ * win95Font: Win95'in orijinal piksel fontu (ms_sans_serif, React95
+ * GlobalStyle ile gelir) bazı sembolleri düzgün render etmiyor ve herkesin
+ * zevkine uygun olmayabilir. 'system' seçeneği bunu cihazın normal arayüz
+ * fontuna (-apple-system/Segoe UI/Roboto) çevirir — Win95'in pencere/buton/
+ * bevel görünümü olduğu gibi kalır, sadece yazı tipi değişir.
+ */
 export const useTheme = () => {
   const [theme, setTheme] = useState<Theme>(() => {
     // Hızlı boot için önce localStorage'dan al
@@ -17,6 +43,22 @@ export const useTheme = () => {
     return 'light';
   });
 
+  const [win95Enabled, setWin95Enabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('win95Enabled');
+    // Kayıt yoksa (ilk yükleme) varsayılan olarak Win95 teması açık gelsin
+    return saved === null ? true : saved === 'true';
+  });
+
+  const [win95Font, setWin95FontState] = useState<Win95Font>(() => {
+    const saved = localStorage.getItem('win95Font');
+    return saved === 'system' ? 'system' : 'pixel';
+  });
+
+  const [fontScale, setFontScaleState] = useState<FontScale>(() => {
+    const saved = localStorage.getItem('fontScale');
+    return (saved === 'small' || saved === 'medium' || saved === 'large' || saved === 'xlarge') ? saved : 'medium';
+  });
+
   // Preferences'tan yükle (Kalıcı depolama)
   useEffect(() => {
     const loadTheme = async () => {
@@ -24,6 +66,18 @@ export const useTheme = () => {
         const savedTheme = await storage.get('theme') as Theme;
         if (savedTheme && savedTheme !== theme) {
           setTheme(savedTheme);
+        }
+        const savedWin95 = await storage.get('win95Enabled');
+        if (savedWin95 !== null) {
+          setWin95Enabled(savedWin95 === 'true');
+        }
+        const savedFont = await storage.get('win95Font');
+        if (savedFont === 'system' || savedFont === 'pixel') {
+          setWin95FontState(savedFont);
+        }
+        const savedFontScale = await storage.get('fontScale');
+        if (savedFontScale === 'small' || savedFontScale === 'medium' || savedFontScale === 'large' || savedFontScale === 'xlarge') {
+          setFontScaleState(savedFontScale);
         }
       } catch (error) {
         console.error('Tema yükleme hatası:', error);
@@ -57,9 +111,98 @@ export const useTheme = () => {
     saveTheme();
   }, [theme]);
 
+  // Win95 modu değişikliğini uygula ve kaydet
+  useEffect(() => {
+    const root = window.document.documentElement;
+
+    if (win95Enabled) {
+      root.classList.add('win95-mode');
+    } else {
+      root.classList.remove('win95-mode');
+    }
+
+    const saveWin95 = async () => {
+      try {
+        await storage.set('win95Enabled', String(win95Enabled));
+        localStorage.setItem('win95Enabled', String(win95Enabled));
+      } catch (error) {
+        console.error('Win95 modu kaydetme hatası:', error);
+      }
+    };
+    saveWin95();
+  }, [win95Enabled]);
+
+  // Win95 font tercihini uygula ve kaydet
+  useEffect(() => {
+    const root = window.document.documentElement;
+
+    if (win95Font === 'system') {
+      root.classList.add('win95-font-system');
+    } else {
+      root.classList.remove('win95-font-system');
+    }
+
+    const saveFont = async () => {
+      try {
+        await storage.set('win95Font', win95Font);
+        localStorage.setItem('win95Font', win95Font);
+      } catch (error) {
+        console.error('Font tercihi kaydetme hatası:', error);
+      }
+    };
+    saveFont();
+  }, [win95Font]);
+
+  // Yazı boyutu ölçeğini uygula ve kaydet
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.style.fontSize = `${FONT_SCALE_PERCENT[fontScale]}%`;
+
+    const saveFontScale = async () => {
+      try {
+        await storage.set('fontScale', fontScale);
+        localStorage.setItem('fontScale', fontScale);
+      } catch (error) {
+        console.error('Yazı boyutu kaydetme hatası:', error);
+      }
+    };
+    saveFontScale();
+  }, [fontScale]);
+
   const toggleTheme = useCallback(() => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   }, []);
 
-  return { theme, toggleTheme };
+  const setThemeDirectly = useCallback((newTheme: Theme) => {
+    setTheme(newTheme);
+  }, []);
+
+  const toggleWin95 = useCallback(() => {
+    setWin95Enabled(prev => !prev);
+  }, []);
+
+  const setWin95 = useCallback((enabled: boolean) => {
+    setWin95Enabled(enabled);
+  }, []);
+
+  const setWin95Font = useCallback((font: Win95Font) => {
+    setWin95FontState(font);
+  }, []);
+
+  const setFontScale = useCallback((scale: FontScale) => {
+    setFontScaleState(scale);
+  }, []);
+
+  return {
+    theme,
+    setTheme: setThemeDirectly,
+    toggleTheme,
+    win95Enabled,
+    toggleWin95,
+    setWin95,
+    win95Font,
+    setWin95Font,
+    fontScale,
+    setFontScale,
+  };
 };

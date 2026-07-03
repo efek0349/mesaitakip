@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storage } from '../utils/storageUtils';
 
-const BILGI_URL = 'https://efek0349.github.io/mesaitakip/bilgi.md';
+const BILGI_URL = 'https://mesaitakip.github.io/bilgi.md';
 const CACHE_KEY = 'bilgi_md_cache';
 const CACHE_TIME_KEY = 'bilgi_md_cache_time';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 saat

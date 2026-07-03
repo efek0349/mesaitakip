@@ -105,4 +105,5 @@ export interface Holiday {
   type: HolidayType;
   shortName: string;
   isHalfDay?: boolean; // Yarım gün (Arife) mi?
+  recurring?: boolean; // true ise her yıl aynı ay/gün'de tekrarlanır (yalnızca manuel özel günler için anlamlı)
 }

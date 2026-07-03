@@ -117,9 +117,9 @@ export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boo
     return totalHours;
   }
 
-  if (totalHours > 8.0) {
-    return Math.max(7.5, totalHours - 1);
-  } else if (totalHours >= 4) {
+  if (totalHours >= 8) {
+    return totalHours - 1;
+  } else if (totalHours >= 4.1) {
     return Math.max(3.5, totalHours - 0.5);
   }
   
@@ -639,13 +639,16 @@ export const generateExportText = async (monthlyData: MonthlyData, year: number,
     const dayTotalGross = overtimeEntries.reduce((sum, e) => sum + calcTotalHours(e), 0);
     const dayTotalNet = calculateEffectiveHours(dayTotalGross, deductBreakTime);
 
-    const wasDeducted = deductBreakTime && dayTotalGross >= 4;
+    // calculateEffectiveHours ile aynı sınırları kullan, aksi halde etiket
+    // gerçekte düşülen süreyle uyuşmaz (örn. 7.6 saatte "1s_MOLA" yazıp
+    // aslında 30 dk düşülmesi gibi).
+    const wasDeducted = deductBreakTime && dayTotalGross >= 4.1;
 
     let statusText = '✓';
     if (wasDeducted) {
-        if (dayTotalGross > 7.5) {
+        if (dayTotalGross >= 8) {
             statusText = '1s_MOLA';
-        } else if (dayTotalGross >= 4) {
+        } else {
             statusText = '30dk_MOLA';
         }
     }

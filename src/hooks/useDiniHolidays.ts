@@ -4,7 +4,7 @@ import { storage } from '../utils/storageUtils';
 import { FALLBACK_RELIGIOUS_HOLIDAYS } from '../utils/holidayUtils';
 import { EventEmitter } from '../utils/EventEmitter';
 
-const DINI_URL = 'https://efek0349.github.io/mesaitakip/dini.json';
+const DINI_URL = 'https://mesaitakip.github.io/dini.json';
 const CACHE_KEY = 'dini_holidays_cache';
 const CACHE_TIME_KEY = 'dini_holidays_cache_time';
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün — bayramlar sık değişmez

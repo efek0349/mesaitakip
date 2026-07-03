@@ -1,9 +1,17 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useSalarySettings } from './useSalarySettings';
 import { useOvertimeData } from './useOvertimeData';
-import { googleDriveService } from '../utils/googleDriveService';
+import { getSavedFolderName, backupNowToFolder, listFolderBackups, deleteFolderBackup } from '../utils/folderBackupUtils';
 import { showToast } from '../utils/toastUtils';
 
+/**
+ * Otomatik yedekleme artık Google Drive yerine kullanıcının Veri Yönetimi > Dosya
+ * bölümünden seçtiği YEREL KLASÖRE yazar. Sebep: Google OAuth, test/onaylanmamış
+ * projelerde 7 günde bir refresh token'ı geçersiz kılıyor ve arka planda sessizce
+ * yedekleme yapılamamasına yol açıyordu. Yerel klasör hesap/internet gerektirmediği
+ * için arka planda kesintisiz çalışır. Google Drive'a manuel yedekleme hâlâ
+ * "Bulut" sekmesinden yapılabilir; bu yalnızca OTOMATİK mekanizmayı değiştirir.
+ */
 export const useAutoBackup = () => {
   const { settings, updateSettings, isLoaded: salaryLoaded } = useSalarySettings();
   const { exportAllData, isLoaded: dataLoaded } = useOvertimeData();
@@ -51,55 +59,29 @@ export const useAutoBackup = () => {
     }
 
     try {
-      // 3. Oturum Kontrolü: Sadece tarih dolmuşsa Google Drive'a bak
-      await googleDriveService.init();
-      const user = googleDriveService.getUser();
-      if (!user) return;
-
-      // 4. Bulut Kontrolü: Yerel tarih boş olsa bile buluttaki son yedeğe bak (örn: uygulama güncelleme sonrası)
-      const allBackups = await googleDriveService.listBackups();
-      if (allBackups.length > 0) {
-        const latestCloudBackup = allBackups[0];
-        const latestCloudTime = new Date(latestCloudBackup.createdTime).getTime();
-        
-        if (!isNaN(latestCloudTime)) {
-          const cloudDiffMs = Date.now() - latestCloudTime;
-          const cloudDiffDays = cloudDiffMs / (1000 * 60 * 60 * 24);
-
-          let dayLimit = 7;
-          if (currentSettings.autoBackupPeriod === 'daily') dayLimit = 1;
-          else if (currentSettings.autoBackupPeriod === 'monthly') dayLimit = 30;
-
-          // Eğer bulutta zaten yeni bir yedek varsa (periyot dolmamışsa)
-          if (cloudDiffDays < (dayLimit - 0.05)) {
-            // Yerel durumu bulutla senkronize et ve yedeklemeyi atla
-            updateSettingsRef.current(prev => ({
-              ...prev,
-              lastBackupDate: latestCloudBackup.createdTime
-            }));
-            return;
-          }
-        }
-      }
+      // 3. Klasör Kontrolü: Kullanıcı bir yedekleme klasörü seçmemişse sessizce çık
+      const folderName = await getSavedFolderName();
+      if (!folderName) return;
 
       const data = exportAllDataRef.current();
       if (!data) return;
 
-      const success = await googleDriveService.uploadBackup(data);
-      if (success) {
+      const result = await backupNowToFolder(data);
+      if (result.success) {
         updateSettingsRef.current(prev => ({
           ...prev,
           lastBackupDate: new Date().toISOString()
         }));
 
-        // Eski yedekleri temizle (Sadece 10 yedek tut)
+        // Eski yedekleri temizle (Sadece son 10 yedeği tut)
+        const allBackups = await listFolderBackups();
         if (allBackups.length > 10) {
-          const backupsToDelete = allBackups.slice(9); // Mevcut liste + yeni eklenen
+          const backupsToDelete = allBackups.slice(10);
           await Promise.allSettled(
-            backupsToDelete.map(file => googleDriveService.deleteBackup(file.id))
+            backupsToDelete.map(file => deleteFolderBackup(file.name))
           );
         }
-        showToast('Otomatik bulut yedeklemesi tamamlandı', 'success', 4000);
+        showToast('Otomatik yerel yedekleme tamamlandı', 'success', 4000);
       }
     } catch (error) {
       console.error('Otomatik yedekleme hatası:', error);

@@ -1,6 +1,6 @@
 // Tatil sistemi
-// Dini bayramlar: useDiniHolidays hook'u ile online kaynaktan güncellenir
-// Resmi tatiller: yıl parametresinden hesaplanır
+// Dini bayramlar: useDiniHolidays hook'u ile online kaynaktan (dini.json) güncellenir
+// Resmi tatiller: useResmiHolidays hook'u ile online kaynaktan (resmi.json) güncellenir
 
 import { Holiday } from '../types/overtime';
 
@@ -121,43 +121,92 @@ export const FALLBACK_RELIGIOUS_HOLIDAYS: Holiday[] = [
   { date: '2035-12-03', name: 'Ramazan Bayramı 3. Gün',  type: 'religious', shortName: 'Ramazn' },
 ];
 
-// ─── Resmi tatiller ────────────────────────────────────────────────────────────
+// ─── Fallback: Hardcoded resmi tatiller ───────────────────────────────────────
+// İnternet yokken veya ilk yüklemede kullanılır.
+// useResmiHolidays başarılı olduğunda bunların yerini online veri (resmi.json) alır.
+// Tarihleri her yıl sabit olan resmi tatiller için 2025-2035 arası önceden üretildi.
+// Yeni bir resmi tatil ilan edilirse veya tarih değişirse resmi.json güncellenmeli;
+// bu liste yalnızca offline/ilk yükleme yedeğidir.
+function buildFallbackOfficialHolidays(): Holiday[] {
+  const years = Array.from({ length: 11 }, (_, i) => 2025 + i); // 2025-2035
+  const result: Holiday[] = [];
+  for (const year of years) {
+    result.push(
+      { date: `${year}-01-01`, name: 'Yılbaşı',                                            type: 'official', shortName: 'Yılbaşı'    },
+      { date: `${year}-03-21`, name: 'Nevruz Bayramı',                                     type: 'official', shortName: 'Nevruz'     },
+      { date: `${year}-04-23`, name: '23 Nisan Ulusal Egemenlik ve Çocuk Bayramı',         type: 'official', shortName: '23 Nisan'   },
+      { date: `${year}-05-01`, name: '1 Mayıs Emek ve Dayanışma Günü',                     type: 'official', shortName: '1 Mayıs'    },
+      { date: `${year}-05-19`, name: "19 Mayıs Atatürk'ü Anma, Gençlik ve Spor Bayramı",  type: 'official', shortName: '19 Mayıs'   },
+      { date: `${year}-07-15`, name: '15 Temmuz Demokrasi ve Milli Birlik Günü',           type: 'official', shortName: '15 Temmuz'  },
+      { date: `${year}-08-30`, name: '30 Ağustos Zafer Bayramı',                           type: 'official', shortName: '30 Ağustos' },
+      { date: `${year}-10-28`, name: 'Cumhuriyet Bayramı Arifesi',                         type: 'official', shortName: '28 Eki',    isHalfDay: true },
+      { date: `${year}-10-29`, name: '29 Ekim Cumhuriyet Bayramı',                         type: 'official', shortName: '29 Ekim'   },
+    );
+  }
+  return result;
+}
+
+export const FALLBACK_OFFICIAL_HOLIDAYS: Holiday[] = buildFallbackOfficialHolidays();
+
+// Geriye dönük uyumluluk: eskiden resmi tatiller bu fonksiyonla hesaplanıyordu.
+// Online veri (resmi.json) artık öncelikli; bu fonksiyon yalnızca o yıl için
+// fallback listeden filtreleme yapar, aralık (2025-2035) dışındaki yıllarda boş döner.
 export function getOfficialHolidays(year: number): Holiday[] {
-  return [
-    { date: `${year}-01-01`, name: 'Yılbaşı',                                            type: 'official', shortName: 'Yılbaşı'    },
-    { date: `${year}-03-21`, name: 'Nevruz Bayramı',                                     type: 'official', shortName: 'Nevruz'     },
-    { date: `${year}-04-23`, name: '23 Nisan Ulusal Egemenlik ve Çocuk Bayramı',         type: 'official', shortName: '23 Nisan'   },
-    { date: `${year}-05-01`, name: '1 Mayıs Emek ve Dayanışma Günü',                     type: 'official', shortName: '1 Mayıs'    },
-    { date: `${year}-05-19`, name: "19 Mayıs Atatürk'ü Anma, Gençlik ve Spor Bayramı",  type: 'official', shortName: '19 Mayıs'   },
-    { date: `${year}-07-15`, name: '15 Temmuz Demokrasi ve Milli Birlik Günü',           type: 'official', shortName: '15 Temmuz'  },
-    { date: `${year}-08-30`, name: '30 Ağustos Zafer Bayramı',                           type: 'official', shortName: '30 Ağustos' },
-    { date: `${year}-10-28`, name: 'Cumhuriyet Bayramı Arifesi',                         type: 'official', shortName: '28 Eki',    isHalfDay: true },
-    { date: `${year}-10-29`, name: '29 Ekim Cumhuriyet Bayramı',                         type: 'official', shortName: '29 Ekim'   },
-  ];
+  return FALLBACK_OFFICIAL_HOLIDAYS.filter(h => h.date.startsWith(`${year}-`));
 }
 
 // ─── Tüm tatilleri getir ───────────────────────────────────────────────────────
-// religiousHolidays: useDiniHolidays hook'undan gelir.
-// Verilmezse FALLBACK_RELIGIOUS_HOLIDAYS kullanılır (offline/ilk yükleme).
+// religiousHolidays: useDiniHolidays hook'undan gelir (dini.json).
+// officialHolidays: useResmiHolidays hook'undan gelir (resmi.json).
+// customHolidays: useCustomHolidays hook'undan gelir (Veri Yönetimi > Tatiller'de
+//                 kullanıcının manuel eklediği günler). Verilmezse boş kabul edilir.
+// Verilmezse ilgili FALLBACK listesi kullanılır (offline/ilk yükleme).
 //
-// Cache key: yıl + religious verinin ilk tarihi (fingerprint)
-// Online veri geldiğinde fingerprint değişir → cache invalidate olur.
+// Cache key: yıl + her kaynağın fingerprint'i
+// Online veri veya kullanıcı manuel listesi değiştiğinde fingerprint değişir → cache invalidate olur.
 
 const holidayCache = new Map<string, Holiday[]>();
 
+function fingerprintCustom(customHolidays: Holiday[]): string {
+  if (customHolidays.length === 0) return 'none';
+  // Sadece tarihi değil; isim, tür, kısa ad, yarım gün ve tekrar bilgisini de
+  // parmak izine dahil ediyoruz. Aksi halde kullanıcı bir özel günü DÜZENLEYİP
+  // (tarih aynı kalsa bile) ismini değiştirdiğinde cache eski veriyi döndürmeye devam eder.
+  return customHolidays
+    .map(h => `${h.date}|${h.recurring ? 1 : 0}|${h.name}|${h.shortName}|${h.type}|${h.isHalfDay ? 1 : 0}`)
+    .sort()
+    .join(';');
+}
+
 export function getAllHolidays(
   year: number,
-  religiousHolidays: Holiday[] = FALLBACK_RELIGIOUS_HOLIDAYS
+  religiousHolidays: Holiday[] = FALLBACK_RELIGIOUS_HOLIDAYS,
+  officialHolidays: Holiday[] = FALLBACK_OFFICIAL_HOLIDAYS,
+  customHolidays: Holiday[] = []
 ): Holiday[] {
-  const fingerprint = religiousHolidays[0]?.date ?? 'fallback';
-  const cacheKey = `${year}-${fingerprint}`;
+  const religiousFingerprint = religiousHolidays[0]?.date ?? 'fallback';
+  const officialFingerprint = officialHolidays[0]?.date ?? 'fallback';
+  const customFingerprint = fingerprintCustom(customHolidays);
+  const cacheKey = `${year}-${religiousFingerprint}-${officialFingerprint}-${customFingerprint}`;
 
   if (holidayCache.has(cacheKey)) {
     return holidayCache.get(cacheKey)!;
   }
 
-  const official = getOfficialHolidays(year);
+  const official = officialHolidays.filter(h => h.date.startsWith(`${year}-`));
   const religious = religiousHolidays.filter(h => h.date.startsWith(`${year}-`));
+
+  // Özel günler: "Her yıl tekrarla" işaretliyse, kaydedilen ay/gün'ü o yıla uyarlayıp
+  // her yıl için yeniden üretiyoruz. İşaretli değilse yalnızca eklendiği yılda geçerlidir.
+  const custom: Holiday[] = [];
+  for (const h of customHolidays) {
+    if (h.recurring) {
+      const [, month, day] = h.date.split('-');
+      custom.push({ ...h, date: `${year}-${month}-${day}` });
+    } else if (h.date.startsWith(`${year}-`)) {
+      custom.push(h);
+    }
+  }
 
   // Çakışma çözümü: aynı tarihte birden fazla tatil varsa
   // tam gün > yarım gün, resmi > dini önceliği
@@ -181,6 +230,13 @@ export function getAllHolidays(
     }
   }
 
+  // Kullanıcının Veri Yönetimi > Tatiller'den manuel eklediği günler
+  // her zaman önceliklidir; aynı tarihte online/fallback veri varsa
+  // kullanıcının girdisiyle değiştirilir.
+  for (const h of custom) {
+    byDate.set(h.date, h);
+  }
+
   const result = Array.from(byDate.values())
     .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -193,11 +249,12 @@ export function getAllHolidays(
 // Hook içinde kullanılıyorsa useHolidays → getHoliday tercih edilmeli.
 export function isHoliday(
   date: Date,
-  religiousHolidays: Holiday[] = FALLBACK_RELIGIOUS_HOLIDAYS
+  religiousHolidays: Holiday[] = FALLBACK_RELIGIOUS_HOLIDAYS,
+  officialHolidays: Holiday[] = FALLBACK_OFFICIAL_HOLIDAYS
 ): Holiday | null {
   const year = date.getFullYear();
   const dateKey = `${year}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-  const holidays = getAllHolidays(year, religiousHolidays);
+  const holidays = getAllHolidays(year, religiousHolidays, officialHolidays);
   return holidays.find(h => h.date === dateKey) ?? null;
 }
 

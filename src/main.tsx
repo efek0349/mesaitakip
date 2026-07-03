@@ -2,6 +2,17 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+// React95 (Win95 teması) — sıra önemli:
+// 1) index.css (Tailwind) — base reset
+// 2) GlobalStyle — React95'in font/scrollbar reset'i
+// 3) win95.css — React95'in kendi renk/stil teması (:root değişkenleri)
+// 4) win95-overrides.css — bizim Win95 açık/kapalı yönetimi + koyu varyant
+//    renk override'ları. win95.css'ten SONRA gelmesi kasıtlı: aynı :root
+//    seviyesinde tanım yapıldığı için import sırası ve specificity'nin
+//    bizim tarafımızda olmasını garanti eder.
+import '@react95/core/GlobalStyle';
+import '@react95/core/themes/win95.css';
+import './win95-overrides.css';
 import { initializeViewportHandler } from './utils/androidUtils';
 
 // Initialize the viewport handler to manage safe areas and capture the cleanup function

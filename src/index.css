@@ -18,3 +18,75 @@
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* ─── Win95 Masaüstü ─────────────────────────────────────────────────────────
+   Klasik Windows 95 masaüstü arka planı: düz teal (#008080) zemin.
+   İstersen win95-desktop--pattern class'ını ekleyerek klasik dalga desenini
+   (bezier curve duvar kağıdı) de açabilirsin.
+
+   NOT: min-height (height değil) kasıtlıydı — bu class Win95 KAPALIYKEN de
+   kullanılabilir bir genel yardımcı olsun diye esnek bırakılmıştı. AMA bu,
+   Win95 AÇIKKEN ciddi bir layout hatasına yol açıyordu: min-height, içerik
+   ondan uzunsa kapsayıcının büyümesine izin verir — bu da App.tsx'teki tüm
+   flex-1/min-height:0 zincirini anlamsız kılıyordu (en dış kapsayıcı zaten
+   sabit olmadığı için TaskBar, büyüyen pencerenin altına doğru itiliyordu).
+   win95-overrides.css'te `html.win95-mode .win95-desktop` için bunu
+   `height: 100dvh` ile KESİN bir üst sınıra çeviriyoruz (bkz. o dosya). */
+.win95-desktop {
+  background-color: #008080;
+  min-height: 100dvh;
+}
+
+.win95-desktop--pattern {
+  background-color: #008080;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Pencere açılış animasyonu: Win95'te pencereler "pop" şeklinde anında açılırdı,
+   ama modern dokunuş için yumuşak bir scale+fade ekliyoruz. */
+@keyframes win95-window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.win95-window-enter {
+  animation: win95-window-open 120ms ease-out;
+}
+
+/* Başlat menüsü açılış animasyonu: alttan yukarı doğru "kayma" */
+@keyframes win95-start-menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.win95-start-menu-enter {
+  animation: win95-start-menu-open 100ms ease-out;
+}
+
+/* TaskBar saat metnini Tailwind preflight'tan korumak için */
+.win95-taskbar-clock {
+  font-family: 'ms_sans_serif', sans-serif;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+/* NOT: Win95 modu açık/kapalı yönetimi ayrı bir dosyaya taşındı:
+   src/win95-overrides.css. Bu dosya main.tsx'te @react95/core/themes/win95.css
+   İMPORT EDİLDİKTEN SONRA yükleniyor; bu sayede CSS specificity ve import
+   sırası aynı tarafta olup hiçbir belirsizlik kalmıyor (her ikisi de
+   :root/html seviyesinde tanım yaptığı için sıra önemliydi). */
+

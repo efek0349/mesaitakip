@@ -3,6 +3,8 @@ import { Holiday } from '../types/overtime';
 import { getAllHolidays } from '../utils/holidayUtils';
 import { getDateKey } from '../utils/dateUtils';
 import { useDiniHolidays } from './useDiniHolidays';
+import { useResmiHolidays } from './useResmiHolidays';
+import { useCustomHolidays } from './useCustomHolidays';
 
 /**
  * Hook for managing and accessing holiday information.
@@ -19,6 +21,10 @@ export const useHolidays = (initialYear?: number, loadAdjacentYears = false) => 
 
   // Dini bayramları online kaynaktan çek (fallback hardcoded veriler)
   const { holidays: religiousHolidays } = useDiniHolidays();
+  // Resmi tatilleri online kaynaktan çek (fallback hardcoded veriler)
+  const { holidays: officialHolidays } = useResmiHolidays();
+  // Kullanıcının Veri Yönetimi > Tatiller'den manuel eklediği günler
+  const { holidays: customHolidays } = useCustomHolidays();
 
   // Function to update the year (only works if initialYear is not provided)
   const setCurrentYear = React.useCallback((year: number) => {
@@ -32,19 +38,19 @@ export const useHolidays = (initialYear?: number, loadAdjacentYears = false) => 
   }, [initialYear]);
 
   // Calculate holidays - cached at the component level with useMemo
-  // religiousHolidays değiştiğinde (online veri geldiğinde) otomatik yeniden hesaplanır
+  // religiousHolidays veya officialHolidays değiştiğinde (online veri geldiğinde) otomatik yeniden hesaplanır
   const holidays = React.useMemo(() => {
-    const results = getAllHolidays(currentYear, religiousHolidays);
+    const results = getAllHolidays(currentYear, religiousHolidays, officialHolidays, customHolidays);
 
     // Load adjacent years only if requested (usually for calendar views)
     if (loadAdjacentYears) {
-      const prevYearHolidays = getAllHolidays(currentYear - 1, religiousHolidays);
-      const nextYearHolidays = getAllHolidays(currentYear + 1, religiousHolidays);
+      const prevYearHolidays = getAllHolidays(currentYear - 1, religiousHolidays, officialHolidays, customHolidays);
+      const nextYearHolidays = getAllHolidays(currentYear + 1, religiousHolidays, officialHolidays, customHolidays);
       return [...prevYearHolidays, ...results, ...nextYearHolidays];
     }
 
     return results;
-  }, [currentYear, loadAdjacentYears, religiousHolidays]);
+  }, [currentYear, loadAdjacentYears, religiousHolidays, officialHolidays, customHolidays]);
 
   // Store holidays in a Map for O(1) access
   const holidayMap = React.useMemo(() => {

@@ -11,6 +11,18 @@ export interface AndroidInfo {
 const IS_ANDROID = Capacitor.getPlatform() === 'android';
 
 // Navigasyon çubuğu yüksekliğini klavye durumundan bağımsız sakla
+//
+// BİLİNEN SINIRLAMA (Android 15+ / edge-to-edge zorunlu ROM'lar, örn.
+// LineageOS 23.2): Bu dosyadaki `bottomInset = innerHeight - visualViewport.height`
+// heuristiği, WebView gesture-navigasyon "pill" alanını visualViewport'a hiç
+// yansıtmadığında (bottomInset === 0 okunduğunda) durumu YANLIŞLIKLA "gesture
+// navigasyon yok" olarak yorumlayıp --nav-bar-height'i 0px'e sabitleyebilir —
+// oysa gesture çubuğu hâlâ oradadır. Bu YALNIZCA JS tarafındaki heuristiktir;
+// bu değeri tüketen CSS tarafında (win95-overrides.css, App.tsx) her zaman
+// standart `env(safe-area-inset-bottom)` ile birlikte `max(...)` alınarak
+// kullanılmalı, TEK BAŞINA güvenilmemelidir. Win95 TaskBar'ın gesture-nav
+// altında kalması sorunu tam olarak bu heuristiğin böyle bir cihazda 0
+// dönmesinden kaynaklanıyordu.
 let stableNavBarHeight = 0;
 let navBarDetected = false;
 
