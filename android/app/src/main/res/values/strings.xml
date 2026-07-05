@@ -2,7 +2,18 @@
 <resources>
     <string name="app_name">Mesai Takip</string>
     <string name="title_activity_main">Mesai Takip</string>
+    <string name="shortcut_quick_overtime_short">Mesai Ekle</string>
+    <string name="shortcut_quick_overtime_long">Hızlı Mesai Ekle</string>
     <string name="package_name">com.efek0349.mesaitakip</string>
     <string name="custom_url_scheme">com.efek0349.mesaitakip</string>
     <string name="google_client_id">971204589871-5r68r9ut9ou73r9aie1enblcpbmf7rm5.apps.googleusercontent.com</string>
+    <string name="widget_quick_overtime_label">Mesai Ekle</string>
+    <string name="widget_quick_overtime_description">Bugün için hızlıca mesai kaydı girin</string>
+    <string name="quick_overtime_title">Hızlı Mesai Ekle</string>
+    <string name="quick_overtime_hours_label">SAAT</string>
+    <string name="quick_overtime_minutes_label">DAKİKA</string>
+    <string name="quick_overtime_cancel">İptal</string>
+    <string name="quick_overtime_add">Ekle</string>
+    <string name="quick_overtime_toast_added">Mesai eklendi ✓</string>
+    <string name="quick_overtime_toast_zero">Süre girmeden eklenemez</string>
 </resources>

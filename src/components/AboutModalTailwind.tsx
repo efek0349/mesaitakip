@@ -236,13 +236,6 @@ export const AboutModalTailwind: React.FC<AboutModalProps> = ({ isOpen, onClose 
                 </div>
               </div>
 
-              <div className="py-2 px-3.5 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/10 dark:to-orange-900/5 rounded-2xl border border-orange-100 dark:border-orange-800/20 shadow-sm relative overflow-hidden">
-                <div className="flex items-center gap-3 relative z-10">
-                  <div className="p-1.5 bg-gradient-to-br from-orange-400 to-orange-500 text-white rounded-xl shadow-md border-b-2 border-orange-700 h-fit">
-                    <Gamepad2 size={14} strokeWidth={2.5} />
-                  </div>
-                </div>
-              </div>
             </section>
           </div>
         </div>

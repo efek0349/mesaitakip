@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_card_bg_color">#1F2937</color>
+    <color name="widget_card_stroke_color">#374151</color>
+    <color name="widget_value_text_color">#F9FAFB</color>
+    <color name="widget_label_text_color">#9CA3AF</color>
+    <color name="widget_divider_color">#374151</color>
+    <color name="widget_stepper_button_bg_color">#233A5A</color>
+</resources>

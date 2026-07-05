@@ -1,8 +1,27 @@
 <!doctype html>
 <html lang="tr">
   <head>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WHK8KLQS');</script>
+    <!-- End Google Tag Manager -->
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FDDVWMXF4F"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-FDDVWMXF4F');
+    </script>
+
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -17,6 +36,7 @@
 
     <meta name="description" content="Mesai Takip - Fazla mesai saatlerinizi, izinlerinizi ve maaşınızı kolayca takip edin. Verilerinizi Google Drive ile güvenle yedekleyin." />
     <title>Mesai Takip</title>
+    <meta name="google-site-verification" content="K6oo5kMRQybuegeYt7v7q3zademb9RNb3RiWl4dkaSA" />
 
     <!-- Dark Mode Initial State Script -->
     <script>
@@ -25,7 +45,7 @@
           var savedTheme = localStorage.getItem('theme');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           var theme = savedTheme || (prefersDark ? 'dark' : 'light');
-          
+
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#000000');
@@ -44,7 +64,7 @@
       html { background-color: #f3f4f6; }
       html.dark { background-color: #000000; }
       @supports (-webkit-touch-callout: none) { .ios-fix { height: -webkit-fill-available; } }
-      
+
       /* Botlar için açıklama stili - Kullanıcıdan tamamen gizle ama DOM'da bırak */
       .app-info-bot {
         position: absolute;
@@ -57,14 +77,19 @@
     </style>
   </head>
   <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WHK8KLQS"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+
     <div id="root">
       <!-- Google Botları için Uygulama Açıklaması -->
       <!-- Bu içerik React yüklendiğinde otomatik olarak temizlenecektir -->
       <section class="app-info-bot">
         <h1>Mesai Takip Uygulaması Hakkında</h1>
         <p>
-          Mesai Takip, çalışanların iş hayatını kolaylaştırmak için tasarlanmış kapsamlı bir araçtır. 
-          Bu uygulama ile günlük çalışma saatlerinizi kaydedebilir, fazla mesailerinizi takip edebilir 
+          Mesai Takip, çalışanların iş hayatını kolaylaştırmak için tasarlanmış kapsamlı bir araçtır.
+          Bu uygulama ile günlük çalışma saatlerinizi kaydedebilir, fazla mesailerinizi takip edebilir
           ve ay sonunda alacağınız toplam maaşı tüm kesintileriyle birlikte hesaplayabilirsiniz.
         </p>
         <h2>Temel Özellikler:</h2>
@@ -76,14 +101,14 @@
           <li><strong>Resmi Tatiller:</strong> Türkiye'deki dini ve resmi tatillerin otomatik takibi.</li>
         </ul>
         <p>
-          <a href="/mesaitakip/privacy.html">Gizlilik Politikası</a> | 
-          <a href="/mesaitakip/terms.html">Kullanım Şartları</a>
+          <a href="/privacy.html">Gizlilik Politikası</a> |
+          <a href="/terms.html">Kullanım Şartları</a>
           <br>
           İletişim: kndmrefe@gmail.com
         </p>
       </section>
     </div>
-    
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

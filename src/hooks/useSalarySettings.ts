@@ -43,6 +43,14 @@ const defaultSettings: SalarySettings = {
   severanceStampTaxRate: 0.759,
   severanceBaseGross: 33030.00,
   showSeverancePay: false,
+  usedAnnualLeaveDays: 0,
+  noticePayCumulativeBase: 0,
+  minimumWageGross: 33030,
+  taxBracket1Limit: 190000, taxBracket1Rate: 15,
+  taxBracket2Limit: 400000, taxBracket2Rate: 20,
+  taxBracket3Limit: 1500000, taxBracket3Rate: 27,
+  taxBracket4Limit: 5300000, taxBracket4Rate: 35,
+  taxBracket5Rate: 40,
   shiftHistory: []
 };
 

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ana ekran ikonuna basılı tutunca (long-press) çıkan native Android
+  App Shortcut. Bu, PWA'daki manifest.json "shortcuts" özelliğinin native
+  APK karşılığıdır.
+
+  ÖNEMLİ: Bilerek MainActivity DEĞİL, QuickOvertimeActivity hedefleniyor —
+  MainActivity, Capacitor WebView'ını + React bundle'ını başlatmak zorunda
+  olduğu için (splash animasyonu dahil) her zaman gözle görülür bir açılış
+  süresi var. QuickOvertimeActivity ise WebView'a hiç dokunmayan, saf native
+  (Kotlin + standart Android view'ları) bir pencere olduğu için gerçekten
+  ANINDA açılıyor — yavaş telefonlarda bile widget hissini veriyor.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="quick_overtime"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_quick_overtime_short"
+        android:shortcutLongLabel="@string/shortcut_quick_overtime_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.efek0349.mesaitakip"
+            android:targetClass="com.efek0349.mesaitakip.widget.QuickOvertimeActivity" />
+    </shortcut>
+</shortcuts>

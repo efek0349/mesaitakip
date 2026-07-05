@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Calendar } from 'lucide-react';
 import { Modal, TitleBar, Tabs, Tab, Frame, Button, TextArea, Input } from '@react95/core';
 import { googleDriveService, DriveFile } from '../../utils/googleDriveService';
 import { useDataBackupLogic, BackupTab } from '../../hooks/useDataBackupLogic';
@@ -107,6 +108,7 @@ export const DataBackupModalWin95: React.FC<DataBackupModalWin95Props> = ({ isOp
 
   return (
     <Modal
+      key={`databackup-modal-${position.orientationKey}`}
       id="databackup-modal"
       title="Veri Yönetimi"
       titleBarOptions={[
@@ -456,12 +458,15 @@ export const DataBackupModalWin95: React.FC<DataBackupModalWin95Props> = ({ isOp
 
                 <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: '0.5rem', marginBottom: 2 }}>Tarih</div>
-                  <Input
-                    type="date"
-                    value={newHolidayDate}
-                    onChange={(e) => setNewHolidayDate(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <Input
+                      type="date"
+                      value={newHolidayDate}
+                      onChange={(e) => setNewHolidayDate(e.target.value)}
+                      style={{ width: '100%', paddingRight: 18 }}
+                    />
+                    <Calendar size={11} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', color: '#5a5a5a', pointerEvents: 'none' }} />
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: 6 }}>

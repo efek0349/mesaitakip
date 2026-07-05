@@ -268,3 +268,41 @@ export function getHolidayColorClass(holiday: Holiday): string {
   }
   return 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800/50';
 }
+
+// ─── Yaklaşan tatiller ────────────────────────────────────────────────────────
+// Ana ekrandaki "İzin & Tatil" özet panelinde kullanılır: verilen tarihten
+// (varsayılan: bugün) itibaren en yakın N tatili, kalan gün sayısıyla birlikte
+// döndürür. `allHolidays` genelde useHolidays'ten loadAdjacentYears=true ile
+// gelen (önceki+mevcut+sonraki yıl) listedir, böylece yıl sonunda/başında da
+// bir sonraki yılın tatilleri kaçırılmaz.
+//
+// `dayOfWeek` (0=Pazar...6=Cumartesi) kasıtlı olarak burada, "iş günü mü
+// değil mi" hesabı YAPILMADAN bırakılıyor — çünkü bu, kullanıcının Cumartesi
+// çalışma ayarına (otomatik/manuel) bağlı ve o bilgi settings üzerinden
+// yalnızca çağıran tarafta (useMonthlyStatsLogic) mevcut. Bu fonksiyon
+// settings'e bağımlı olmasın diye ham `dayOfWeek`'i döndürüp workday
+// kararını çağırana bırakıyoruz.
+export interface UpcomingHoliday extends Holiday {
+  daysUntil: number;
+  dayOfWeek: number;
+}
+
+export function getUpcomingHolidays(
+  allHolidays: Holiday[],
+  fromDate: Date = new Date(),
+  limit: number = 5
+): UpcomingHoliday[] {
+  const startOfDay = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  return allHolidays
+    .map((h): UpcomingHoliday => {
+      const [y, m, d] = h.date.split('-').map(Number);
+      const holidayDate = new Date(y, m - 1, d);
+      const daysUntil = Math.round((holidayDate.getTime() - startOfDay.getTime()) / MS_PER_DAY);
+      return { ...h, daysUntil, dayOfWeek: holidayDate.getDay() };
+    })
+    .filter(h => h.daysUntil >= 0)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, limit);
+}

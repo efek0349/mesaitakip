@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase, ArrowUpRight, ArrowDownLeft, Scale, FileText } from 'lucide-react';
+import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase, ArrowUpRight, ArrowDownLeft, Scale, FileText, Palmtree } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { FontSizeSwitcher } from './FontSizeSwitcher';
 import { APP_VERSION } from '../constants';
@@ -27,6 +27,13 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
     handleNumericFocus,
     handleNumericBlur,
     severancePreview,
+    noticePayPreview,
+    annualLeavePreview,
+    taxCalcGross, setTaxCalcGross,
+    taxCalcCumulativeBase, setTaxCalcCumulativeBase,
+    taxCalcResult,
+    applyTaxCalcResultToSalary,
+    resetTaxSettingsToDefault,
   } = useSettingsLogic(isOpen, onClose, currentDate);
 
   if (!isOpen) return null;
@@ -55,9 +62,10 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
         </div>
 
         <div className="flex-shrink-0 p-3 pt-1">
-          <div className="grid grid-cols-4 gap-2 bg-gray-200/50 dark:bg-gray-900/50 p-1.5 rounded-[20px] shadow-inner border border-gray-200/50 dark:border-gray-700/50">
+          <div className="grid grid-cols-5 gap-2 bg-gray-200/50 dark:bg-gray-900/50 p-1.5 rounded-[20px] shadow-inner border border-gray-200/50 dark:border-gray-700/50">
             <TabButton id="general" label="Genel" icon={SettingsIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
             <TabButton id="salary" label="Maaş" icon={CreditCard} activeTab={activeTab} setActiveTab={setActiveTab} />
+            <TabButton id="tax" label="Vergi" icon={Percent} activeTab={activeTab} setActiveTab={setActiveTab} />
             <TabButton id="severance" label="Kıdem" icon={Briefcase} activeTab={activeTab} setActiveTab={setActiveTab} />
             <TabButton id="system" label="Sistem" icon={ShieldCheck} activeTab={activeTab} setActiveTab={setActiveTab} />
           </div>
@@ -145,12 +153,15 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="block text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Başlangıç Tarihi</label>
-                          <input 
-                            type="date" 
-                            value={formData.shiftStartDate} 
-                            onChange={(e) => handleInputChange('shiftStartDate', e.target.value)} 
-                            className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 outline-none" 
-                          />
+                          <div className="relative">
+                            <input 
+                              type="date" 
+                              value={formData.shiftStartDate} 
+                              onChange={(e) => handleInputChange('shiftStartDate', e.target.value)} 
+                              className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 outline-none" 
+                            />
+                            <Calendar size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <label className="block text-[0.5625rem] font-black text-gray-400 uppercase ml-1">İlk Hafta</label>
@@ -215,21 +226,27 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Başlangıç</label>
-                        <input
-                          type="time"
-                          value={formData.defaultStartTime}
-                          onChange={(e) => handleInputChange('defaultStartTime', e.target.value)}
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black outline-none text-center text-gray-800 dark:text-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={formData.defaultStartTime}
+                            onChange={(e) => handleInputChange('defaultStartTime', e.target.value)}
+                            className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black outline-none text-center text-gray-800 dark:text-white"
+                          />
+                          <Clock size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Bitiş</label>
-                        <input
-                          type="time"
-                          value={formData.defaultEndTime}
-                          onChange={(e) => handleInputChange('defaultEndTime', e.target.value)}
-                          className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black outline-none text-center text-gray-800 dark:text-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={formData.defaultEndTime}
+                            onChange={(e) => handleInputChange('defaultEndTime', e.target.value)}
+                            className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black outline-none text-center text-gray-800 dark:text-white"
+                          />
+                          <Clock size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
                       </div>
                     </div>
                     <p className="text-[0.5625rem] text-gray-500 dark:text-gray-400 font-bold italic px-1 flex items-center gap-1">
@@ -279,11 +296,17 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                   <div className="grid grid-cols-2 gap-3 border-t border-gray-100 dark:border-gray-800 pt-3">
                     <div className="space-y-1">
                       <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Aylık Toplam Saat</label>
-                      <input type="text" inputMode="decimal" value={formData.monthlyWorkingHours} onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('monthlyWorkingHours')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                      <div className="relative">
+                        <input type="text" inputMode="decimal" value={formData.monthlyWorkingHours} onChange={(e) => handleInputChange('monthlyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('monthlyWorkingHours')} className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                        <Clock size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Günlük Standart</label>
-                      <input type="text" inputMode="decimal" value={formData.dailyWorkingHours} onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('dailyWorkingHours')} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                      <div className="relative">
+                        <input type="text" inputMode="decimal" value={formData.dailyWorkingHours} onChange={(e) => handleInputChange('dailyWorkingHours', e.target.value)} onFocus={handleNumericFocus} onBlur={handleNumericBlur('dailyWorkingHours')} className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                        <Clock size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -476,6 +499,120 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
             </div>
           )}
 
+          {activeTab === 'tax' && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 pb-4">
+              <section className="space-y-1.5">
+                <h3 className="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest pl-1">Brüt / Net Maaş Hesaplayıcı</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
+                  <p className="text-[0.5625rem] text-gray-500 dark:text-gray-400 font-bold italic px-0.5 flex items-center gap-1">
+                    <Info size={10} />
+                    Brüt maaşınızı girin; gelir vergisi dilimi otomatik tespit edilir.
+                  </p>
+
+                  <details className="group" open>
+                    <summary className="text-[0.5625rem] font-black text-indigo-500 dark:text-indigo-400 uppercase cursor-pointer select-none">
+                      Vergi Dilimleri / Asgari Ücret (Değiştir)
+                    </summary>
+                    <div className="mt-2 space-y-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[0.5rem] font-black text-gray-400 uppercase ml-1">Asgari Ücret (Brüt)</label>
+                        <div className="relative">
+                          <input type="text" inputMode="decimal" value={formData.minimumWageGross} onChange={(e) => handleInputChange('minimumWageGross', e.target.value)} className="w-full p-2 pr-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none text-[0.625rem]">₺</span>
+                        </div>
+                      </div>
+
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[0.5rem] font-black text-gray-400 uppercase ml-1">{n}. Dilim Üst Sınırı</label>
+                            <div className="relative">
+                              <input type="text" inputMode="decimal" value={(formData as any)[`taxBracket${n}Limit`]} onChange={(e) => handleInputChange(`taxBracket${n}Limit` as any, e.target.value)} className="w-full p-2 pr-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
+                              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none text-[0.5625rem]">₺</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[0.5rem] font-black text-gray-400 uppercase ml-1">{n}. Dilim Oranı</label>
+                            <div className="relative">
+                              <input type="text" inputMode="decimal" value={(formData as any)[`taxBracket${n}Rate`]} onChange={(e) => handleInputChange(`taxBracket${n}Rate` as any, e.target.value)} className="w-full p-2 pr-5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
+                              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none text-[0.5625rem]">%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="space-y-1 w-1/2">
+                        <label className="text-[0.5rem] font-black text-gray-400 uppercase ml-1">5. Dilim Oranı (Sınırsız)</label>
+                        <div className="relative">
+                          <input type="text" inputMode="decimal" value={formData.taxBracket5Rate} onChange={(e) => handleInputChange('taxBracket5Rate', e.target.value)} className="w-full p-2 pr-5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-800 dark:text-white outline-none" />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none text-[0.5625rem]">%</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={resetTaxSettingsToDefault}
+                        className="w-full py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg text-[0.5625rem] font-black uppercase tracking-wider active:scale-95 transition-all"
+                      >
+                        Varsayılanlara Sıfırla
+                      </button>
+                    </div>
+                  </details>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Brüt Maaş</label>
+                      <div className="relative">
+                        <input type="text" inputMode="decimal" placeholder="0" value={taxCalcGross} onChange={(e) => setTaxCalcGross(e.target.value)} className="w-full p-2.5 pr-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₺</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Yıl İçi Matrah (ops.)</label>
+                      <div className="relative">
+                        <input type="text" inputMode="decimal" placeholder="0" value={taxCalcCumulativeBase} onChange={(e) => setTaxCalcCumulativeBase(e.target.value)} className="w-full p-2.5 pr-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₺</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {taxCalcResult && (
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-2 shadow-inner">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[0.625rem] font-bold text-gray-500 dark:text-gray-400">Gelir Vergisi Dilimi</span>
+                        <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                          %{(taxCalcResult.bracketRate * 100).toFixed(0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[0.6875rem]">
+                        <span className="text-gray-500 dark:text-gray-400">SGK + İşsizlik</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">-₺{taxCalcResult.sgkAndUnemployment.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-[0.6875rem]">
+                        <span className="text-gray-500 dark:text-gray-400">Gelir Vergisi (istisna sonrası)</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">-₺{taxCalcResult.netIncomeTax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-[0.6875rem] pb-2 border-b border-gray-100 dark:border-gray-800">
+                        <span className="text-gray-500 dark:text-gray-400">Damga Vergisi (istisna sonrası)</span>
+                        <span className="font-bold text-gray-700 dark:text-gray-200">-₺{taxCalcResult.netStampTax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-gray-800 dark:text-white uppercase">Net Maaş</span>
+                        <span className="text-lg font-black text-green-600 dark:text-green-400">
+                          ₺{taxCalcResult.netSalary.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <button
+                        onClick={applyTaxCalcResultToSalary}
+                        className="w-full py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl text-[0.625rem] font-black uppercase tracking-wider shadow-md active:scale-95 transition-all"
+                      >
+                        Aylık Net Maaş Alanına Uygula
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
+
           {activeTab === 'severance' && (
             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 pb-4">
               <section className="space-y-1.5">
@@ -483,7 +620,10 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                 <div className="bg-amber-50/30 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-800/20 p-3 space-y-3 shadow-sm">
                   <div className="space-y-1">
                     <label className="text-[0.5625rem] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">İşe Giriş Tarihi</label>
-                    <input type="date" value={formData.employmentStartDate || ''} onChange={(e) => handleInputChange('employmentStartDate', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" />
+                    <div className="relative">
+                      <input type="date" value={formData.employmentStartDate || ''} onChange={(e) => handleInputChange('employmentStartDate', e.target.value)} className="w-full p-2.5 pr-8 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-sm font-bold text-amber-900 dark:text-amber-100 outline-none" />
+                      <Calendar size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -497,7 +637,10 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[0.5625rem] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">Yasal Tavan</label>
-                      <input type="text" value={formData.severanceCeiling} onChange={(e) => handleInputChange('severanceCeiling', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" />
+                      <div className="relative">
+                        <input type="text" value={formData.severanceCeiling} onChange={(e) => handleInputChange('severanceCeiling', e.target.value)} className="w-full p-2.5 pr-6 bg-white dark:bg-gray-900 border border-amber-100 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-100 outline-none" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 font-bold pointer-events-none">₺</span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[0.5625rem] font-black text-amber-600 dark:text-amber-400 uppercase ml-1">Damga Vergisi</label>
@@ -517,6 +660,11 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                     <div className="text-right">
                       <span className="block text-[0.5625rem] font-black opacity-70 uppercase">Net Tazminat ({severancePreview.years} Yıl)</span>
                       <span className="text-lg font-black">₺{severancePreview.netSeverance.toLocaleString('tr-TR')}</span>
+                      {(severancePreview.months > 0 || severancePreview.days > 0) && (
+                        <span className="block text-[0.5625rem] font-bold opacity-80 mt-0.5">
+                          +{severancePreview.months > 0 ? `${severancePreview.months} AY ` : ''}{severancePreview.days > 0 ? `${severancePreview.days} GÜN ` : ''}EKSTRA: ₺{(severancePreview.monthNetSeverance + severancePreview.dayNetSeverance).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="pt-2 border-t border-white/20">
@@ -526,7 +674,7 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                     >
                       <div className="flex items-center gap-2">
                         <Calendar size={12} className="opacity-80" />
-                        <span className="text-xs font-bold opacity-90">Ana ekranda göster</span>
+                        <span className="text-xs font-bold opacity-90">Ana ekranda göster (Kıdem + İhbar)</span>
                       </div>
                       <div className={`w-10 h-5 rounded-full relative transition-colors bg-black/20 shadow-inner`}>
                         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.showSeverancePay ? 'translate-x-4' : 'translate-x-0'} shadow-sm`} />
@@ -544,6 +692,96 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                   </p>
                 </div>
               ) : null}
+
+              <section className="space-y-1.5">
+                <h3 className="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest pl-1">İhbar (Bildirim) Tazminatı</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
+                  <div className="space-y-1">
+                    <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Yıl İçi Matrah (opsiyonel)</label>
+                    <div className="relative">
+                      <input type="text" inputMode="decimal" placeholder="0" value={formData.noticePayCumulativeBase} onChange={(e) => handleInputChange('noticePayCumulativeBase', e.target.value)} className="w-full p-2.5 pr-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₺</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {noticePayPreview ? (
+                <div className="p-3 bg-gradient-to-br from-slate-600 to-slate-800 rounded-2xl shadow-lg text-white">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="p-1.5 bg-white/20 rounded-lg"><FileText size={18} /></div>
+                    <div className="text-right">
+                      <span className="block text-[0.5625rem] font-black opacity-70 uppercase">Net İhbar Tazminatı ({noticePayPreview.noticeWeeks} Hafta)</span>
+                      <span className="text-lg font-black">₺{noticePayPreview.netNoticePay.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-white/20 space-y-1">
+                    <div className="flex justify-between items-center text-xs font-bold opacity-90">
+                      <span>Brüt Tutar</span>
+                      <span>₺{noticePayPreview.grossNoticePay.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold opacity-90">
+                      <span>Gelir Vergisi</span>
+                      <span>-₺{noticePayPreview.incomeTax.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold opacity-90">
+                      <span>Damga Vergisi</span>
+                      <span>-₺{noticePayPreview.stampTax.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-4">
+                  <p className="text-[0.625rem] text-gray-500 dark:text-gray-400 font-bold leading-relaxed max-w-[220px] mx-auto">
+                    Hesaplama için işe giriş tarihi ve esas brüt maaşı girin.
+                  </p>
+                </div>
+              )}
+
+              <section className="space-y-1.5">
+                <h3 className="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest pl-1">Yıllık İzin</h3>
+                {annualLeavePreview ? (
+                  <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                      <Palmtree size={14} />
+                      <span className="text-[0.5625rem] font-bold">
+                        İzin dönemi: {annualLeavePreview.periodStartLabel} – {annualLeavePreview.periodEndLabel} ({annualLeavePreview.yearsOfService} yıl kıdem)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-2.5 text-center">
+                        <span className="block text-[0.5rem] font-black text-gray-400 uppercase">Hak Edilen</span>
+                        <span className="text-sm font-black text-gray-800 dark:text-white">{annualLeavePreview.entitledDays} gün</span>
+                      </div>
+                      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-2.5 text-center">
+                        <span className="block text-[0.5rem] font-black text-gray-400 uppercase">Kalan</span>
+                        <span className={`text-sm font-black ${annualLeavePreview.remainingDays < 0 ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
+                          {annualLeavePreview.remainingDays} gün
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[0.5625rem] font-black text-gray-400 uppercase ml-1">Kullanılan İzin (Bu Dönem)</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.usedAnnualLeaveDays}
+                          onChange={(e) => handleInputChange('usedAnnualLeaveDays', e.target.value)}
+                          className="w-full p-2.5 pr-10 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.625rem] text-gray-400 font-bold pointer-events-none">gün</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                    <p className="text-[0.625rem] text-gray-500 dark:text-gray-400 font-bold">
+                      Yıllık izin hesaplaması için işe giriş tarihini girin.
+                    </p>
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

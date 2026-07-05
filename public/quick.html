@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#3B82F6" />
+<title>Hızlı Mesai Ekle</title>
+<!--
+  NEDEN AYRI BİR SAYFA (index.html / React uygulaması DEĞİL):
+  Ana React uygulaması (App.tsx, ?action=quick-overtime) React + Tailwind
+  bundle'ının indirilip parse edilmesini, Capacitor Preferences'ın
+  yüklenmesini ve tüm ay verisinin okunmasını bekliyor — bu her zaman
+  gözle görülür bir açılış (splash) süresi yaratıyor, özellikle yavaş
+  telefonlarda.
+
+  Bu sayfa TAMAMEN BAĞIMSIZ: hiçbir framework/bundle içermiyor, sadece
+  düz HTML+CSS+birkaç satır JS (~4KB). Native APK'daki QuickOvertimeActivity
+  (WebView'a hiç dokunmayan native pencere, NumberPicker ile) ile AYNI
+  FİKRİ, web tarafında uyguluyor: React'i tamamen atlayıp anında render
+  oluyor. Saat/dakika seçimi de native NumberPicker'daki gibi KAYDIRMALI
+  BİR ÇARK (wheel/reel) olarak tasarlandı — kullanıcı dokunur dokunmaz
+  "bunu çevirerek/kaydırarak değiştiriyorum" olduğunu sezgisel olarak
+  anlasın diye.
+
+  VERİ SÖZLEŞMESİ: Native widget/Activity ile TAMAMEN AYNI kuyruğu
+  ("quick-widget-pending") kullanıyor. @capacitor/preferences'ın web
+  implementasyonu, anahtarları "CapacitorStorage." önekiyle düz
+  localStorage'a yazıyor (bkz. node_modules/@capacitor/preferences/dist/esm/web.js)
+  — bu yüzden burada da doğrudan "CapacitorStorage.quick-widget-pending"
+  anahtarına yazıyoruz. Ana uygulama (useOvertimeData.ts,
+  processPendingWidgetEntries) bir sonraki açılışında bu kuyruğu normal
+  şekilde okuyup kendi verisine güvenle entegre ediyor — JS tarafında
+  HİÇBİR değişiklik gerekmiyor.
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F3F4F6;
+    overscroll-behavior: none;
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 20px; }
+
+  /* ---- Modern (varsayılan) tema ---- */
+  .card {
+    width: 100%; max-width: 320px; background: #FFFFFF; border-radius: 20px;
+    padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  }
+  .title { font-size: 17px; font-weight: 700; color: #111827; margin: 0; }
+  .date { font-size: 13px; color: #6B7280; margin: 2px 0 18px; }
+
+  .groups { display: flex; gap: 14px; }
+  .group { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .group-label { font-size: 11px; font-weight: 700; color: #9CA3AF; letter-spacing: 0.5px; margin-bottom: 6px; }
+
+  /* ---- Kaydırmalı çark (wheel picker) ---- */
+  .wheel-shell { position: relative; width: 100%; }
+  .wheel {
+    height: 132px; overflow-y: scroll; scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%);
+  }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wheel-pad { height: 44px; scroll-snap-align: start; }
+  .wheel-item {
+    height: 44px; display: flex; align-items: center; justify-content: center;
+    scroll-snap-align: center; font-size: 16px; color: #C0C5CE; font-weight: 700;
+    transition: color 0.1s, font-size 0.1s;
+  }
+  .wheel-item.active { font-size: 24px; color: #3B82F6; }
+  .wheel-highlight {
+    position: absolute; top: 44px; height: 44px; left: -6px; right: -6px;
+    pointer-events: none; border-top: 2px solid #E5E7EB; border-bottom: 2px solid #E5E7EB;
+    background: rgba(59,130,246,0.05); border-radius: 8px;
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn { flex: 1; height: 46px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-cancel { background: #F3F4F6; color: #111827; }
+  .btn-add { background: #3B82F6; color: #FFFFFF; }
+  .warn { color: #DC2626; font-size: 12px; margin-top: 8px; text-align: center; min-height: 14px; }
+
+  .success { display: none; text-align: center; }
+  .success .check {
+    width: 56px; height: 56px; border-radius: 50%; background: #3B82F6; color: #fff;
+    font-size: 28px; display: flex; align-items: center; justify-content: center; margin: 4px auto 14px;
+  }
+  .success p { font-size: 15px; font-weight: 700; color: #111827; margin: 0 0 18px; }
+
+  /* ---- Win95 tema ---- */
+  body.win95 { background: #008080; }
+  body.win95 .card {
+    max-width: 300px; border-radius: 0; padding: 0; background: #C0C0C0;
+    box-shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #dfdfdf, inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+  }
+  body.win95 .titlebar {
+    background: #000080; color: #fff; font-weight: 700; font-size: 13px;
+    padding: 5px 6px; font-family: 'Courier New', monospace;
+  }
+  body.win95 .inner { padding: 16px; }
+  body.win95 .date { color: #000; font-family: 'Courier New', monospace; }
+  body.win95 .group-label { color: #000; font-family: 'Courier New', monospace; }
+  body.win95 .wheel {
+    background: #fff;
+    box-shadow: inset -1px -1px 0 #fff, inset 1px 1px 0 #000;
+  }
+  body.win95 .wheel-item { color: #9CA3AF; font-family: 'Courier New', monospace; }
+  body.win95 .wheel-item.active { color: #000080; }
+  body.win95 .wheel-highlight { border-color: #808080; background: rgba(0,0,128,0.06); border-radius: 0; }
+  body.win95 .btn {
+    border-radius: 0; font-family: 'Courier New', monospace; background: #C0C0C0; color: #000;
+    box-shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #dfdfdf, inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+  }
+  body.win95 .success .check { border-radius: 0; }
+</style>
+</head>
+<body>
+
+  <div class="card" id="card">
+    <div class="titlebar" id="titlebar" style="display:none;">Hızlı Mesai Ekle</div>
+    <div class="inner" id="inner">
+
+      <div id="formView">
+        <p class="title" id="titleModern">Hızlı Mesai Ekle</p>
+        <p class="date" id="dateLabel"></p>
+
+        <div class="groups">
+          <div class="group">
+            <span class="group-label">SAAT</span>
+            <div class="wheel-shell">
+              <div class="wheel-highlight"></div>
+              <div class="wheel" id="hoursWheel"></div>
+            </div>
+          </div>
+          <div class="group">
+            <span class="group-label">DAKİKA</span>
+            <div class="wheel-shell">
+              <div class="wheel-highlight"></div>
+              <div class="wheel" id="minutesWheel"></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="warn" id="warnLabel"></p>
+
+        <div class="actions">
+          <button class="btn btn-cancel" id="cancelBtn">İptal</button>
+          <button class="btn btn-add" id="addBtn">Ekle</button>
+        </div>
+      </div>
+
+      <div class="success" id="successView">
+        <div class="check">✓</div>
+        <p>Mesai eklendi</p>
+        <div class="actions">
+          <button class="btn btn-add" id="openAppBtn" style="width:100%">Uygulamayı Aç</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function () {
+  var ITEM_HEIGHT = 44;
+  var MAX_HOURS = 16;
+  var MINUTE_STEPS = [0, 15, 30, 45];
+
+  var hours = 2;
+  var minutesIndex = 0;
+
+  var win95 = localStorage.getItem('win95Enabled') === 'true';
+  if (win95) {
+    document.body.classList.add('win95');
+    document.getElementById('titlebar').style.display = 'block';
+    document.getElementById('titleModern').style.display = 'none';
+  }
+
+  var warnEl = document.getElementById('warnLabel');
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function todayLabel() {
+    try {
+      var d = new Date();
+      return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+    } catch (e) { return ''; }
+  }
+  document.getElementById('dateLabel').textContent = todayLabel();
+
+  // ---- Genel amaçlı kaydırmalı çark (wheel picker) kurucusu ----
+  // labels: her satırda gösterilecek metin dizisi (index = değer)
+  // onChange: kaydırma durunca seçilen index ile çağrılır
+  function buildWheel(container, labels, initialIndex, onChange) {
+    container.innerHTML = '';
+
+    var topPad = document.createElement('div');
+    topPad.className = 'wheel-pad';
+    container.appendChild(topPad);
+
+    var items = labels.map(function (label) {
+      var el = document.createElement('div');
+      el.className = 'wheel-item';
+      el.textContent = label;
+      container.appendChild(el);
+      return el;
+    });
+
+    var bottomPad = document.createElement('div');
+    bottomPad.className = 'wheel-pad';
+    container.appendChild(bottomPad);
+
+    var currentIndex = initialIndex;
+    var scrollTimer = null;
+
+    function setActive(index) {
+      currentIndex = index;
+      for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('active', i === index);
+      }
+    }
+
+    function scrollToIndex(index, smooth) {
+      container.scrollTo({ top: index * ITEM_HEIGHT, behavior: smooth ? 'smooth' : 'auto' });
+    }
+
+    container.addEventListener('scroll', function () {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(function () {
+        var index = Math.round(container.scrollTop / ITEM_HEIGHT);
+        index = Math.max(0, Math.min(labels.length - 1, index));
+        setActive(index);
+        scrollToIndex(index, true);
+        onChange(index);
+      }, 90);
+    });
+
+    items.forEach(function (el, index) {
+      el.addEventListener('click', function () {
+        scrollToIndex(index, true);
+        setActive(index);
+        onChange(index);
+      });
+    });
+
+    scrollToIndex(initialIndex, false);
+    setActive(initialIndex);
+  }
+
+  var hoursLabels = [];
+  for (var h = 0; h <= MAX_HOURS; h++) hoursLabels.push(String(h));
+  var minutesLabels = MINUTE_STEPS.map(pad);
+
+  buildWheel(document.getElementById('hoursWheel'), hoursLabels, hours, function (index) {
+    hours = index;
+  });
+  buildWheel(document.getElementById('minutesWheel'), minutesLabels, minutesIndex, function (index) {
+    minutesIndex = index;
+  });
+
+  document.getElementById('cancelBtn').addEventListener('click', function () {
+    if (!window.close) { window.location.href = '/'; return; }
+    window.close();
+    setTimeout(function () { window.location.href = '/'; }, 300);
+  });
+
+  document.getElementById('openAppBtn').addEventListener('click', function () {
+    window.location.href = '/';
+  });
+
+  document.getElementById('addBtn').addEventListener('click', function () {
+    var minutes = MINUTE_STEPS[minutesIndex];
+    if (hours === 0 && minutes === 0) {
+      warnEl.textContent = 'Süre girmeden eklenemez';
+      return;
+    }
+    warnEl.textContent = '';
+
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+
+    var STORAGE_KEY = 'CapacitorStorage.quick-widget-pending';
+    var existingRaw = localStorage.getItem(STORAGE_KEY);
+    var pending = [];
+    try {
+      if (existingRaw) pending = JSON.parse(existingRaw);
+      if (!Array.isArray(pending)) pending = [];
+    } catch (e) { pending = []; }
+    pending.push({ date: dateStr, hours: hours, minutes: minutes });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('successView').style.display = 'block';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Frame, Button } from '@react95/core';
-import { formatHours, TURKISH_MONTHS } from '../../utils/dateUtils';
+import { formatHours, TURKISH_MONTHS, getTurkishDayName } from '../../utils/dateUtils';
 import { YEARLY_LIMIT_HOURS } from '../../constants';
 import { useMonthlyStatsLogic } from '../../hooks/useMonthlyStatsLogic';
 
@@ -25,7 +25,8 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
     isLoading,
     year, month,
     monthlyTotal, yearlyTotal, isOverLimit,
-    overtimeStats, allowanceData, severanceData,
+    overtimeStats, allowanceData, severanceData, noticePayData,
+    annualLeaveInfo, upcomingHolidays,
     bonus, salaryBase,
     currentTesRate, tesDeduction,
     netOvertimePayment, netOvertimeHours,
@@ -34,6 +35,7 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
     showLimitInfo, setShowLimitInfo,
     showSeveranceDetails, setShowSeveranceDetails,
     showOvertimeDetails, setShowOvertimeDetails,
+    showLeaveHolidayDetails, setShowLeaveHolidayDetails,
   } = useMonthlyStatsLogic(currentDate);
 
   if (isLoading) {
@@ -155,7 +157,7 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
       {/* Detay sekmeleri */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
         <Button
-          onClick={() => { setShowOvertimeDetails(!showOvertimeDetails); setShowSeveranceDetails(false); }}
+          onClick={() => { setShowOvertimeDetails(!showOvertimeDetails); setShowSeveranceDetails(false); setShowLeaveHolidayDetails(false); }}
           style={{
             flex: 1, fontSize: '0.625rem', padding: '6px 4px',
             backgroundColor: showOvertimeDetails ? '#000e7a' : undefined,
@@ -166,7 +168,7 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
         </Button>
         {settings.showSeverancePay && severanceData?.eligible && (
           <Button
-            onClick={() => { setShowSeveranceDetails(!showSeveranceDetails); setShowOvertimeDetails(false); }}
+            onClick={() => { setShowSeveranceDetails(!showSeveranceDetails); setShowOvertimeDetails(false); setShowLeaveHolidayDetails(false); }}
             style={{
               flex: 1, fontSize: '0.625rem', padding: '6px 4px',
               backgroundColor: showSeveranceDetails ? '#000e7a' : undefined,
@@ -176,6 +178,16 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
             Kıdem Tazm. {showSeveranceDetails ? '▲' : '▼'}
           </Button>
         )}
+        <Button
+          onClick={() => { setShowLeaveHolidayDetails(!showLeaveHolidayDetails); setShowOvertimeDetails(false); setShowSeveranceDetails(false); }}
+          style={{
+            flex: 1, fontSize: '0.625rem', padding: '6px 4px',
+            backgroundColor: showLeaveHolidayDetails ? '#000e7a' : undefined,
+            color: showLeaveHolidayDetails ? '#ffffff' : '#1a1a1a',
+          }}
+        >
+          İzin &amp; Tatil {showLeaveHolidayDetails ? '▲' : '▼'}
+        </Button>
       </div>
 
       {/* Mesai dökümü */}
@@ -228,22 +240,68 @@ export const MonthlyStatsWin95: React.FC<MonthlyStatsWin95Props> = ({ currentDat
             <span>Yıllık Tutar</span>
             <span style={{ fontWeight: 700 }}>₺{fmt(severanceData.netSeverance)}</span>
           </div>
-          {(severanceData.months > 0 || severanceData.days > 0) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.625rem' }}>
-              <span>
-                +{severanceData.months > 0 ? `${severanceData.months} AY ` : ''}{severanceData.days > 0 ? `${severanceData.days} GÜN ` : ''}EKSTRA
-              </span>
-              <span style={{ fontWeight: 700 }}>₺{fmt(severanceData.monthNetSeverance + severanceData.dayNetSeverance)}</span>
-            </div>
-          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.5625rem', borderTop: '1px dashed #868a8e', paddingTop: 4 }}>
             <span>Damga Vergisi Kesintisi</span>
             <span>-₺{severanceData.totalStampTax.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
+          {noticePayData && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.625rem', borderTop: '1px dashed #868a8e', paddingTop: 4 }}>
+              <span>İhbar Tazm. ({noticePayData.noticeWeeks} Hafta, Net)</span>
+              <span style={{ fontWeight: 700 }}>₺{fmt(noticePayData.netNoticePay)}</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', fontWeight: 700, borderTop: '1px solid #868a8e', paddingTop: 4 }}>
-            <span>Toplam Net</span>
-            <span>₺{fmt(severanceData.totalNetSeverance)}</span>
+            <span>Toplam Net (Kıdem + İhbar)</span>
+            <span>₺{fmt(severanceData.totalNetSeverance + (noticePayData?.netNoticePay || 0))}</span>
           </div>
+        </Frame>
+      )}
+
+      {/* İzin & Tatil özeti */}
+      {showLeaveHolidayDetails && (
+        <Frame boxShadow="in" style={{ padding: 6, color: '#1a1a1a', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: '0.625rem', fontWeight: 700 }}>Yıllık İzin</div>
+          {annualLeaveInfo ? (
+            <Frame boxShadow="out" style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontSize: '0.625rem' }}>
+                <span style={{ opacity: 0.7 }}>HAK EDİLEN </span>
+                <span style={{ fontWeight: 700 }}>{annualLeaveInfo.entitledDays} gün</span>
+              </span>
+              <span style={{ fontSize: '0.625rem' }}>
+                <span style={{ opacity: 0.7 }}>KALAN </span>
+                <span style={{ fontWeight: 700, color: annualLeaveInfo.remainingDays < 0 ? '#aa0000' : undefined }}>
+                  {annualLeaveInfo.remainingDays} gün
+                </span>
+              </span>
+            </Frame>
+          ) : (
+            <Frame boxShadow="out" style={{ padding: 6, fontSize: '0.5625rem', textAlign: 'center' }}>
+              ℹ Yıllık izin bilgisi için Ayarlar &gt; Kıdem sekmesinden işe giriş tarihini girin.
+            </Frame>
+          )}
+
+          <div style={{ fontSize: '0.5625rem', fontWeight: 700, borderTop: '1px dashed #868a8e', paddingTop: 4 }}>Yaklaşan Tatiller</div>
+          {upcomingHolidays.length > 0 ? (
+            upcomingHolidays.map(h => (
+              <div key={h.date} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.625rem' }}>
+                <span>
+                  <span style={!h.isWorkday ? { opacity: 0.55 } : undefined}>
+                    {h.isWorkday ? (h.type === 'religious' ? '☪' : '★') : '⚠'}
+                  </span>
+                  {' '}
+                  <span style={!h.isWorkday ? { fontStyle: 'italic', opacity: 0.55 } : undefined}>{h.name}</span>
+                  {!h.isWorkday && (
+                    <span style={{ fontSize: '0.5rem', opacity: 0.55 }}> ({getTurkishDayName(h.dayOfWeek)})</span>
+                  )}
+                </span>
+                <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>
+                  {h.daysUntil === 0 ? 'Bugün' : h.daysUntil === 1 ? 'Yarın' : `${h.daysUntil} gün`}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p style={{ fontSize: '0.625rem', textAlign: 'center', padding: 4 }}>Yaklaşan tatil bulunmuyor.</p>
+          )}
         </Frame>
       )}
 

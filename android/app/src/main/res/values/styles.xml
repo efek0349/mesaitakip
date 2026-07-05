@@ -21,4 +21,24 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
+
+    <!--
+      QuickOvertimeActivity için: tam WebView/React açılışını beklemeden,
+      ana ekran ikonuna basılı tutup "Hızlı Mesai Ekle" kısayoluna
+      dokunulduğunda ANINDA görünen, widget benzeri floating pencere.
+      Layout'un kendisi (300dp/wrap_content kart) zaten ortalanmaya uygun
+      boyutlandırıldığı için, pencereyi float+dim yapan standart bir Dialog
+      teması kullanıyoruz — Android otomatik ortalayıp arkayı karartıyor.
+    -->
+    <style name="QuickOvertimeDialogTheme" parent="Theme.AppCompat.Light.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
 </resources>

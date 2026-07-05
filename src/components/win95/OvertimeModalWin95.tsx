@@ -57,6 +57,7 @@ export const OvertimeModalWin95: React.FC<OvertimeModalWin95Props> = React.memo(
 
   return (
     <Modal
+      key={`overtime-modal-${position.orientationKey}`}
       id="overtime-modal"
       title={titleText}
       titleBarOptions={[

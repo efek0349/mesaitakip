@@ -3,7 +3,10 @@ import { useOvertimeData } from './useOvertimeData';
 import { useSalarySettings } from './useSalarySettings';
 import { useHolidays } from './useHolidays';
 import { formatHours, TURKISH_MONTHS, calculateEffectiveHours, parseDate, calculateMonthlyAllowances, calculateWeeklyHoursForSunday, isSaturdayWorkday } from '../utils/dateUtils';
-import { calculateSeverancePay } from '../utils/salaryUtils';
+import { calculateSeverancePay, calculateNoticePay } from '../utils/salaryUtils';
+import { getIncomeTaxBrackets } from '../utils/incomeTaxUtils';
+import { calculateAnnualLeave } from '../utils/annualLeaveUtils';
+import { getUpcomingHolidays } from '../utils/holidayUtils';
 import { calcTotalHours } from '../types/overtime';
 import { YEARLY_LIMIT_HOURS } from '../constants';
 
@@ -18,10 +21,21 @@ export function useMonthlyStatsLogic(currentDate: Date) {
   const [showLimitInfo, setShowLimitInfo] = React.useState(false);
   const [showSeveranceDetails, setShowSeveranceDetails] = React.useState(false);
   const [showOvertimeDetails, setShowOvertimeDetails] = React.useState(false);
+  const [showLeaveHolidayDetails, setShowLeaveHolidayDetails] = React.useState(false);
 
   const { getMonthlyTotal, getYearlyTotal, getMonthlyEntries, clearMonthData, monthlyData, isLoaded: dataLoaded } = useOvertimeData();
   const { getOvertimeRate, getHourlyRate, getSalaryForDate, settings, isLoaded: salaryLoaded } = useSalarySettings();
   const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
+
+  // "Yaklaşan Tatiller" özeti, ekranda gezinilen ay/yıl (currentDate) ne
+  // olursa olsun HER ZAMAN gerçek "bugün"e göre hesaplanmalı — bu yüzden
+  // yukarıdaki useHolidays çağrısından (currentDate.getFullYear()'a bağlı)
+  // bağımsız, gerçek yılın bitişik yıllarını (loadAdjacentYears) da
+  // kapsayan ayrı bir örnek kullanılıyor. Dini/resmi tatil verileri global
+  // paylaşılan state'te tutulduğundan (useResmiHolidays/useDiniHolidays)
+  // bu ikinci çağrı ek bir ağ isteğine yol açmıyor.
+  const today = React.useMemo(() => new Date(), []);
+  const { allHolidays: allHolidaysNearToday } = useHolidays(today.getFullYear(), true);
 
   // Kıdem tazminatı ayarı kapatıldığında detayı da kapat
   React.useEffect(() => {
@@ -164,6 +178,28 @@ export function useMonthlyStatsLogic(currentDate: Date) {
     return calculateSeverancePay(settings, monthSalary);
   }, [settings, monthSalary]);
 
+  const noticePayData = useMemo(() => {
+    return calculateNoticePay(settings, Number(settings.noticePayCumulativeBase) || 0, getIncomeTaxBrackets(settings));
+  }, [settings]);
+
+  // Yıllık izin özeti (HAK EDİLEN / KALAN) — Ayarlar > Kıdem sekmesindeki
+  // önizlemeyle aynı hesaplama fonksiyonu, gerçek kayıtlı `settings` ile.
+  const annualLeaveInfo = useMemo(() => calculateAnnualLeave(settings), [settings]);
+
+  // Yaklaşan ilk 5 resmi/dini tatil, bugünden itibaren kalan gün sayısıyla.
+  // isWorkday: bu tatil, kullanıcının NORMALDE çalıştığı bir güne mi denk
+  // geliyor? Pazar hiçbir zaman standart iş günü değildir; Cumartesi ise
+  // yalnızca `isSaturdayWork` (Ayarlar > Genel'deki otomatik/manuel Cumartesi
+  // çalışma tercihi) true ise iş günü sayılır — calculateMonthlyAllowances
+  // içindeki `isStandardWorkDay` ile AYNI kural, tek doğruluk kaynağı korunuyor.
+  const upcomingHolidays = useMemo(() => {
+    const rawUpcoming = getUpcomingHolidays(allHolidaysNearToday, today, 2);
+    return rawUpcoming.map(h => ({
+      ...h,
+      isWorkday: isSaturdayWork ? h.dayOfWeek !== 0 : (h.dayOfWeek !== 0 && h.dayOfWeek !== 6),
+    }));
+  }, [allHolidaysNearToday, today, isSaturdayWork]);
+
   // isLoading true iken aşağıdaki türetilmiş finansal değerler hesaplanamaz
   // (orijinal kod erken return ile bunu engelliyordu). ready=false ise
   // çağıran component'in loading/skeleton göstermesi gerekiyor.
@@ -192,7 +228,8 @@ export function useMonthlyStatsLogic(currentDate: Date) {
     isLoading,
     year, month,
     monthlyTotal, yearlyTotal, isOverLimit,
-    overtimeStats, allowanceData, severanceData,
+    overtimeStats, allowanceData, severanceData, noticePayData,
+    annualLeaveInfo, upcomingHolidays,
     monthlyGrossSalary, bonus, salaryBase, salarySum,
     currentTesRate, tesDeduction,
     netOvertimePayment, netOvertimeHours,
@@ -202,6 +239,7 @@ export function useMonthlyStatsLogic(currentDate: Date) {
     showLimitInfo, setShowLimitInfo,
     showSeveranceDetails, setShowSeveranceDetails,
     showOvertimeDetails, setShowOvertimeDetails,
+    showLeaveHolidayDetails, setShowLeaveHolidayDetails,
     clearMonthData,
   };
 }

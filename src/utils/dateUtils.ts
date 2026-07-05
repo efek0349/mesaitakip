@@ -18,6 +18,15 @@ export const TURKISH_DAY_NAMES = [
   'pazartesi', 'salı', 'çarşamba', 'perşembe', 'cuma', 'cumartesi', 'pazar'
 ];
 
+// JS Date.getDay() Pazar'ı (Sunday) 0 kabul eder, TURKISH_DAY_NAMES ise
+// haftayı Pazartesi ile başlatır (Türkçe konvansiyon). Bu yardımcı, ham
+// dayOfWeek (0=Pazar...6=Cumartesi) değerini büyük harfle başlayan
+// Türkçe gün adına çevirir (ör. "Pazar", "Cumartesi").
+export const getTurkishDayName = (dayOfWeek: number): string => {
+  const name = TURKISH_DAY_NAMES[(dayOfWeek + 6) % 7];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
+
 export const TURKISH_DAY_ABBR = [
   'Paz', 'Pzt', 'Sal', 'Çar', 'Prş', 'Cum', 'Cmt'
 ];

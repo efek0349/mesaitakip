@@ -1,8 +1,8 @@
 ## Screenshots
 
 <img src="pictures/main.jpg" width="13%"><img src="pictures/info.jpg" width="13%"><img src="pictures/set.jpg" width="13%">
-<img src="pictures/maas.jpg" width="13%"><img src="pictures/system.jpg" width="13%"><img src="pictures/data.jpg" width="13%">
-<img src="pictures/kidem.jpg" width="13%">
+<img src="pictures/widget.png" width="13%"><img src="pictures/short.jpg" width="13%"><img src="pictures/data1.jpg" width="13%">
+<img src="pictures/data2.jpg" width="13%">
 
 ```text
 ################################################################################
@@ -23,8 +23,8 @@
 [+] TARGET      : Modern ve kullanıcı dostu mesai takip uygulaması.
 [+] ENVIRONMENT : React, TypeScript & Tailwind CSS.
 [+] STATUS      : STABLE / READY FOR DEPLOYMENT
-[+] KERNEL      : Vite v8.0.13
-[+] ONLINE      : https://efek0349.github.io/mesaitakip/
+[+] KERNEL      : Vite v7.3.6
+[+] ONLINE      : https://mesaitakip.github.io
 ---
 
 [FEATURES_MANIFEST]

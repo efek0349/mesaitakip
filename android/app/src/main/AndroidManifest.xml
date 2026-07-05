@@ -17,6 +17,10 @@
             android:launchMode="singleTask"
             android:exported="true">
 
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -38,6 +42,20 @@
 
         </activity>
 
+        <!--
+          Ana ekran kısayolundan ("Hızlı Mesai Ekle") açılan, WebView/React'e
+          hiç dokunmayan, tamamen native anlık mesai giriş penceresi.
+          Widget'ın Activity açmayan kendine özgü davranışından FARKLI olarak
+          bu, kısayol/launcher üzerinden geldiği için gerçek bir Activity
+          olmak zorunda — ama tam MainActivity yerine bu minik/floating
+          pencereyi kullanarak WebView açılışını bekletmiyoruz.
+        -->
+        <activity
+            android:name=".widget.QuickOvertimeActivity"
+            android:theme="@style/QuickOvertimeDialogTheme"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -47,6 +65,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <receiver
+            android:name=".widget.MesaiWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mesai_widget_info" />
+        </receiver>
     </application>
 
     <!-- Permissions -->

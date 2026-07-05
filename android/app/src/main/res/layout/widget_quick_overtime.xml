@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center"
+    android:background="@drawable/widget_pill_bg"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- SAAT grubu -->
+    <Button
+        android:id="@+id/btn_hours_dec"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/widget_stepper_button_round_bg"
+        android:text="−"
+        android:textColor="#3B82F6"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:elevation="0dp"
+        android:stateListAnimator="@null" />
+
+    <TextView
+        android:id="@+id/text_hours_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="1dp"
+        android:gravity="center"
+        android:text="2"
+        android:textColor="@color/widget_value_text_color"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="5dp"
+        android:text="sa"
+        android:textColor="@color/widget_label_text_color"
+        android:textSize="9sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btn_hours_inc"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/widget_stepper_button_round_bg"
+        android:text="+"
+        android:textColor="#3B82F6"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:elevation="0dp"
+        android:stateListAnimator="@null" />
+
+    <!-- ayırıcı -->
+    <TextView
+        android:layout_width="1dp"
+        android:layout_height="26dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:text=""
+        android:background="@color/widget_divider_color" />
+
+    <!-- DAKİKA grubu -->
+    <Button
+        android:id="@+id/btn_minutes_dec"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/widget_stepper_button_round_bg"
+        android:text="−"
+        android:textColor="#3B82F6"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:elevation="0dp"
+        android:stateListAnimator="@null" />
+
+    <TextView
+        android:id="@+id/text_minutes_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="1dp"
+        android:gravity="center"
+        android:text="00"
+        android:textColor="@color/widget_value_text_color"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="5dp"
+        android:layout_marginTop="5dp"
+        android:text="dk"
+        android:textColor="@color/widget_label_text_color"
+        android:textSize="9sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btn_minutes_inc"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/widget_stepper_button_round_bg"
+        android:text="+"
+        android:textColor="#3B82F6"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:elevation="0dp"
+        android:stateListAnimator="@null" />
+
+    <!-- Ekle butonu -->
+    <Button
+        android:id="@+id/btn_confirm"
+        android:layout_width="58dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="10dp"
+        android:background="@drawable/widget_confirm_round_bg"
+        android:text="Ekle"
+        android:textColor="#FFFFFF"
+        android:textAllCaps="false"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:elevation="0dp"
+        android:stateListAnimator="@null" />
+
+</LinearLayout>

@@ -26,6 +26,14 @@ const IS_ANDROID = Capacitor.getPlatform() === 'android';
 let stableNavBarHeight = 0;
 let navBarDetected = false;
 
+// Algılama (JS heuristiği + env(safe-area-inset-bottom)) başarısız olduğunda
+// bile Android'de TaskBar'ın altında garanti edilecek minimum boşluk. Küçük
+// tutuluyor ki gerçek nav bar/gesture alanı algılandığında fark edilmesin,
+// ama algılama tamamen 0 döndüğünde (LineageOS 23.2 / Android 15+
+// zorunlu edge-to-edge gibi) TaskBar'ın ekranın gerçek alt kenarına
+// yapışmasını engellesin.
+const ANDROID_MIN_NAV_GAP = 12;
+
 export const getAndroidInfo = (): AndroidInfo => {
   const screenHeight = window.screen.height;
   const viewportHeight = window.innerHeight;
@@ -98,11 +106,37 @@ export const initializeViewportHandler = (): (() => void) => {
         stableNavBarHeight = bottomInset;
         navBarDetected = true;
         root.style.setProperty('--nav-bar-height', `${stableNavBarHeight}px`);
-      } else if (bottomInset === 0) {
-        // Gesture navigation (navigasyon çubuğu yok)
-        stableNavBarHeight = 0;
-        navBarDetected = false;
-        root.style.setProperty('--nav-bar-height', '0px');
+      } else {
+        // Gesture navigation (navigasyon çubuğu yok) YA DA Android 15+
+        // zorunlu edge-to-edge render'ında (LineageOS 23.2 gibi) WebView'in
+        // gesture-nav alanını hiç raporlamaması (bkz. dosya başındaki not).
+        // Bu iki durumu JS'ten kesin ayırt edemiyoruz — ikinci durumda
+        // env(safe-area-inset-bottom) DE 0 döndüğü için CSS tarafındaki
+        // max(...) yedeği de devreye girmiyor ve TaskBar gerçek ekran
+        // kenarına yapışıp gesture çubuğunun/ekranın en altına "gömülmüş"
+        // görünüyor. Bu yüzden Android'de HER ZAMAN küçük, sabit bir
+        // minimum boşluk (ANDROID_MIN_NAV_GAP) bırakıyoruz — algılama
+        // başarılı olsa da olmasa da TaskBar'ın altında hafif bir "yüzen
+        // pencere" boşluğu garantileniyor; algılama zaten çalışıyorsa
+        // (ör. Android 13) bu ekstra birkaç piksel görsel olarak fark
+        // edilmiyor, ama başarısız olduğu cihazlarda (LineageOS 23.2)
+        // TaskBar'ın ekrana yapışmasını önlüyor.
+        //
+        // DÜZELTME: Önceden burada `bottomInset === 0` (KESİN sıfıra
+        // eşitlik) kontrol ediliyordu. Android'de kesirli device-pixel-ratio
+        // (2.625, 3.5 gibi) çok yaygın olduğu için `bottomInset` gürültü
+        // yüzünden tam 0 değil, 1-9px gibi ufak bir değer olarak gelebiliyor
+        // — bu durumda YUKARIDAKİ aralık kontrolüne de (10-120) GİRMİYOR,
+        // KESİN 0 kontrolüne de girmiyordu, yani hiçbir dal çalışmıyor,
+        // `--nav-bar-height` hiç set edilmiyor ve sonsuza kadar 0px
+        // fallback'ine düşüyordu — TaskBar'ın altında/ana pencerede hiç
+        // boşluk kalmamasının gerçek sebebi tam olarak buydu. Artık "gerçek
+        // nav bar aralığında değilse" (10-120 dışında, 0 dahil, negatif
+        // dahil, ufak gürültü değerleri dahil) HER durumda minimum boşluk
+        // garantisi devreye giriyor.
+        stableNavBarHeight = IS_ANDROID ? ANDROID_MIN_NAV_GAP : 0;
+        navBarDetected = IS_ANDROID;
+        root.style.setProperty('--nav-bar-height', `${stableNavBarHeight}px`);
       }
       // Klavye kapandığında baseViewportHeight'i güncelle
       baseViewportHeight = height;
@@ -124,7 +158,7 @@ export const initializeViewportHandler = (): (() => void) => {
   } else {
     const fallbackUpdate = () => {
       root.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
-      root.style.setProperty('--nav-bar-height', '0px');
+      root.style.setProperty('--nav-bar-height', IS_ANDROID ? `${ANDROID_MIN_NAV_GAP}px` : '0px');
     };
     fallbackUpdate();
     window.addEventListener('resize', fallbackUpdate);

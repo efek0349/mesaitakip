@@ -1058,12 +1058,15 @@ export const DataBackupModalTailwind: React.FC<DataBackupModalTailwindProps> = (
 
                   <div>
                     <label className="block text-[0.625rem] font-black text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">Tarih</label>
-                    <input
-                      type="date"
-                      value={newHolidayDate}
-                      onChange={(e) => setNewHolidayDate(e.target.value)}
-                      className="w-full p-3.5 text-sm font-bold border-2 rounded-2xl dark:bg-gray-950 dark:text-gray-200 border-indigo-100 dark:border-indigo-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner"
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={newHolidayDate}
+                        onChange={(e) => setNewHolidayDate(e.target.value)}
+                        className="w-full p-3.5 pr-10 text-sm font-bold border-2 rounded-2xl dark:bg-gray-950 dark:text-gray-200 border-indigo-100 dark:border-indigo-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner"
+                      />
+                      <CalendarDays size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   <div>

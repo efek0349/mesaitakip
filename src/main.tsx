@@ -27,6 +27,18 @@ if (import.meta.hot) {
 
 const rootElement = document.getElementById('root');
 
+// Service worker'ı SADECE web'de kaydet — native (Capacitor) uygulamada
+// gereksiz/anlamsız, WebView zaten kendi native shell'i üzerinden çalışıyor.
+// window.Capacitor global'i, native ortamda Capacitor tarafından otomatik
+// enjekte edilir; import gerektirmeyen en hafif tespit yöntemi bu.
+if ('serviceWorker' in navigator && !(window as any).Capacitor?.isNativePlatform?.()) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service worker kaydı başarısız:', err);
+    });
+  });
+}
+
 if (!rootElement) {
   throw new Error('Root element (#root) bulunamadı. index.html dosyasını kontrol edin.');
 }

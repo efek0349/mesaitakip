@@ -3,7 +3,7 @@
   "compatibility_date": "2026-06-06",
   "main": "worker.js",
   "vars": {
-    "ALLOWED_ORIGIN": "https://efek0349.github.io",
+    "ALLOWED_ORIGIN": "https://mesaitakip.github.io,https://efek0349.github.io",
     "GOOGLE_CLIENT_ID": "971204589871-r2gf4ca92i7om90ffijlgns165sng61k.apps.googleusercontent.com",
     "GOOGLE_DESKTOP_CLIENT_ID": "971204589871-igmu2avtapj0va839c3o3cmqu1vt6fhi.apps.googleusercontent.com"
   }

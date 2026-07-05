@@ -40,6 +40,7 @@ export const AboutModalWin95: React.FC<AboutModalWin95Props> = ({ isOpen, onClos
 
   return (
     <Modal
+      key={`about-modal-${position.orientationKey}`}
       id="about-modal"
       title="Mesai Takip Hakkında"
       titleBarOptions={[

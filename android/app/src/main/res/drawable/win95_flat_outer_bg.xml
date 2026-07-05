@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Win95 widget'ının DIŞ çerçevesi için: kabarık (raised) bevel efekti
+     YOK — sadece düz gri dolgu. Sebep: birçok launcher, widget'a kendi
+     köşe yuvarlatma maskesini zorla uyguluyor; win95_raised_bg'nin keskin
+     köşeli beyaz/siyah bevel çizgileri bu maskeyle kesişince kenarlarda
+     düzensiz/kırık bir görüntü oluşuyordu. İçerideki butonlar/kutular
+     (win95_raised_bg / win95_sunken_bg) küçük ve köşeleri maskeye
+     takılmadığı için sorunsuz kalıyor, sadece dış çerçeve sadeleştirildi. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#C0C0C0" />
+    <corners android:radius="12dp" />
+</shape>
