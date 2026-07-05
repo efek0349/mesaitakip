@@ -73,6 +73,8 @@ export interface SeveranceSettings {
   showSeverancePay?: boolean;
   showMealInExport?: boolean;
   allowanceStartDate?: string; // YYYY-MM-DD — yol/yemek başlangıç tarihi
+  usedAnnualLeaveDays?: number; // Mevcut izin döneminde kullanılan yıllık izin günü
+  noticePayCumulativeBase?: number; // İhbar tazminatı gelir vergisi hesabı için opsiyonel yıl içi matrah
 }
 
 export interface BackupSettings {
@@ -81,9 +83,25 @@ export interface BackupSettings {
   lastBackupDate?: string;
 }
 
+/**
+ * Brüt/Net maaş hesaplayıcısında kullanılan, kullanıcı tarafından
+ * değiştirilebilen gelir vergisi dilimleri ve asgari ücret. Varsayılan
+ * değerler 2026 yılı tarifesidir (src/utils/incomeTaxUtils.ts içindeki
+ * DEFAULT_* sabitleriyle aynı). Dilim sınırları her yıl yeniden değerleme
+ * oranına göre değiştiği için kullanıcı burada güncelleyebilir.
+ */
+export interface TaxSettings {
+  minimumWageGross?: number;
+  taxBracket1Limit?: number; taxBracket1Rate?: number;
+  taxBracket2Limit?: number; taxBracket2Rate?: number;
+  taxBracket3Limit?: number; taxBracket3Rate?: number;
+  taxBracket4Limit?: number; taxBracket4Rate?: number;
+  taxBracket5Rate?: number; // Son dilim sınırsızdır, üst sınırı yoktur
+}
+
 // Ana Ayarlar Interface'i
 export interface SalarySettings extends 
-  PersonalInfo, PaySettings, ShiftSettings, SeveranceSettings, BackupSettings {
+  PersonalInfo, PaySettings, ShiftSettings, SeveranceSettings, BackupSettings, TaxSettings {
   salaryHistory?: { [monthKey: string]: MonthlySalary };
   allowanceHistory?: { [date: string]: { meal: number; travel: number; departure?: number; return?: number } };
 }

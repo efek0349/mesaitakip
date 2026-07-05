@@ -18,6 +18,7 @@ export const BilgiModalWin95: React.FC<BilgiModalWin95Props> = ({ isOpen, onClos
 
   return (
     <Modal
+      key={`bilgi-modal-${position.orientationKey}`}
       id="bilgi-modal"
       title="Bilgi ve Duyurular"
       titleBarOptions={[

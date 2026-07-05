@@ -4,9 +4,11 @@ import { useSalarySettings } from './useSalarySettings';
 import { SalarySettings as SalarySettingsType } from '../types/overtime';
 import { APP_VERSION } from '../constants';
 import { getMonthKey, isSaturdayWorkday, calculateDailyGrossHours, calculateEffectiveHours } from '../utils/dateUtils';
-import { calculateSeverancePay } from '../utils/salaryUtils';
+import { calculateSeverancePay, calculateNoticePay } from '../utils/salaryUtils';
+import { calculateAnnualLeave } from '../utils/annualLeaveUtils';
+import { calculateGrossToNet, getIncomeTaxBrackets, getMinimumWageGross, DEFAULT_INCOME_TAX_BRACKETS, DEFAULT_MINIMUM_WAGE_GROSS } from '../utils/incomeTaxUtils';
 
-export type SettingsTab = 'general' | 'salary' | 'severance' | 'system';
+export type SettingsTab = 'general' | 'salary' | 'tax' | 'severance' | 'system';
 
 /**
  * useSettingsLogic — Settings.tsx'in TÜM state/handler mantığı.
@@ -33,6 +35,14 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
     severanceCeiling: settings.severanceCeiling ?? 64948.77,
     severanceStampTaxRate: settings.severanceStampTaxRate ?? 0.759,
     severanceBaseGross: settings.severanceBaseGross ?? 33030.00,
+    usedAnnualLeaveDays: settings.usedAnnualLeaveDays ?? 0,
+    noticePayCumulativeBase: settings.noticePayCumulativeBase ?? 0,
+    minimumWageGross: settings.minimumWageGross ?? 33030,
+    taxBracket1Limit: settings.taxBracket1Limit ?? 190000, taxBracket1Rate: settings.taxBracket1Rate ?? 15,
+    taxBracket2Limit: settings.taxBracket2Limit ?? 400000, taxBracket2Rate: settings.taxBracket2Rate ?? 20,
+    taxBracket3Limit: settings.taxBracket3Limit ?? 1500000, taxBracket3Rate: settings.taxBracket3Rate ?? 27,
+    taxBracket4Limit: settings.taxBracket4Limit ?? 5300000, taxBracket4Rate: settings.taxBracket4Rate ?? 35,
+    taxBracket5Rate: settings.taxBracket5Rate ?? 40,
     departureTravelAllowance: settings.departureTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0),
     returnTravelAllowance: settings.returnTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0)
   }));
@@ -61,6 +71,14 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
         severanceCeiling: settings.severanceCeiling ?? 64948.77,
         severanceStampTaxRate: settings.severanceStampTaxRate ?? 0.759,
         severanceBaseGross: settings.severanceBaseGross ?? 33030.00,
+        usedAnnualLeaveDays: settings.usedAnnualLeaveDays ?? 0,
+        noticePayCumulativeBase: settings.noticePayCumulativeBase ?? 0,
+        minimumWageGross: settings.minimumWageGross ?? 33030,
+        taxBracket1Limit: settings.taxBracket1Limit ?? 190000, taxBracket1Rate: settings.taxBracket1Rate ?? 15,
+        taxBracket2Limit: settings.taxBracket2Limit ?? 400000, taxBracket2Rate: settings.taxBracket2Rate ?? 20,
+        taxBracket3Limit: settings.taxBracket3Limit ?? 1500000, taxBracket3Rate: settings.taxBracket3Rate ?? 27,
+        taxBracket4Limit: settings.taxBracket4Limit ?? 5300000, taxBracket4Rate: settings.taxBracket4Rate ?? 35,
+        taxBracket5Rate: settings.taxBracket5Rate ?? 40,
         departureTravelAllowance: settings.departureTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0),
         returnTravelAllowance: settings.returnTravelAllowance ?? (settings.dailyTravelAllowance ? settings.dailyTravelAllowance / 2 : 0)
       });
@@ -132,7 +150,14 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
       'tesRate', 'salaryAttachmentRate', 'dailyMealAllowance', 'dailyTravelAllowance',
       'departureTravelAllowance', 'returnTravelAllowance',
       'severanceCeiling', 'severanceStampTaxRate', 'severanceBaseGross',
-      'weekdayMultiplier', 'saturdayMultiplier', 'sundayMultiplier', 'holidayMultiplier'
+      'weekdayMultiplier', 'saturdayMultiplier', 'sundayMultiplier', 'holidayMultiplier',
+      'usedAnnualLeaveDays',
+      'minimumWageGross',
+      'taxBracket1Limit', 'taxBracket1Rate',
+      'taxBracket2Limit', 'taxBracket2Rate',
+      'taxBracket3Limit', 'taxBracket3Rate',
+      'taxBracket4Limit', 'taxBracket4Rate',
+      'taxBracket5Rate'
     ];
 
     if (numericFields.includes(field)) {
@@ -220,6 +245,58 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
     return calculateSeverancePay(formData, monthSalary);
   }, [formData, currentDate, getSalaryForDate]);
 
+  const noticePayPreview = useMemo(() => {
+    return calculateNoticePay(formData, Number(formData.noticePayCumulativeBase) || 0, getIncomeTaxBrackets(formData));
+  }, [formData]);
+
+  const annualLeavePreview = useMemo(() => {
+    return calculateAnnualLeave(formData);
+  }, [formData]);
+
+  // --- Brüt/Net Maaş Hesaplayıcı (gelir vergisi dilimi otomatik tespiti) ---
+  const [taxCalcGross, setTaxCalcGross] = useState('');
+  const [taxCalcCumulativeBase, setTaxCalcCumulativeBase] = useState('');
+
+  const handleTaxCalcGrossChange = useCallback((value: string) => {
+    let stringValue = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const parts = stringValue.split('.');
+    if (parts.length > 2) stringValue = parts[0] + '.' + parts.slice(1).join('');
+    setTaxCalcGross(stringValue);
+  }, []);
+
+  const handleTaxCalcCumulativeBaseChange = useCallback((value: string) => {
+    let stringValue = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const parts = stringValue.split('.');
+    if (parts.length > 2) stringValue = parts[0] + '.' + parts.slice(1).join('');
+    setTaxCalcCumulativeBase(stringValue);
+  }, []);
+
+  const taxCalcResult = useMemo(() => {
+    const gross = Number(taxCalcGross);
+    if (!gross || gross <= 0) return null;
+    return calculateGrossToNet(gross, Number(taxCalcCumulativeBase) || 0, {
+      brackets: getIncomeTaxBrackets(formData),
+      minimumWageGross: getMinimumWageGross(formData),
+    });
+  }, [taxCalcGross, taxCalcCumulativeBase, formData]);
+
+  const applyTaxCalcResultToSalary = useCallback(() => {
+    if (!taxCalcResult) return;
+    handleInputChange('monthlyGrossSalary', taxCalcResult.netSalary.toFixed(2));
+  }, [taxCalcResult, handleInputChange]);
+
+  const resetTaxSettingsToDefault = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
+      minimumWageGross: DEFAULT_MINIMUM_WAGE_GROSS,
+      taxBracket1Limit: DEFAULT_INCOME_TAX_BRACKETS[0].upTo, taxBracket1Rate: DEFAULT_INCOME_TAX_BRACKETS[0].rate * 100,
+      taxBracket2Limit: DEFAULT_INCOME_TAX_BRACKETS[1].upTo, taxBracket2Rate: DEFAULT_INCOME_TAX_BRACKETS[1].rate * 100,
+      taxBracket3Limit: DEFAULT_INCOME_TAX_BRACKETS[2].upTo, taxBracket3Rate: DEFAULT_INCOME_TAX_BRACKETS[2].rate * 100,
+      taxBracket4Limit: DEFAULT_INCOME_TAX_BRACKETS[3].upTo, taxBracket4Rate: DEFAULT_INCOME_TAX_BRACKETS[3].rate * 100,
+      taxBracket5Rate: DEFAULT_INCOME_TAX_BRACKETS[4].rate * 100,
+    }));
+  }, []);
+
   return {
     isWeb,
     activeTab, setActiveTab,
@@ -231,5 +308,14 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
     handleNumericFocus,
     handleNumericBlur,
     severancePreview,
+    noticePayPreview,
+    annualLeavePreview,
+    taxCalcGross,
+    setTaxCalcGross: handleTaxCalcGrossChange,
+    taxCalcCumulativeBase,
+    setTaxCalcCumulativeBase: handleTaxCalcCumulativeBaseChange,
+    taxCalcResult,
+    applyTaxCalcResultToSalary,
+    resetTaxSettingsToDefault,
   };
 }

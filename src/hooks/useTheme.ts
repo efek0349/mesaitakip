@@ -153,10 +153,44 @@ export const useTheme = () => {
     saveFont();
   }, [win95Font]);
 
-  // Yazı boyutu ölçeğini uygula ve kaydet
+  // Yazı boyutu ölçeğini uygula ve kaydet.
+  //
+  // EK: Yatay (landscape) + dar genişlik (örn. telefon döndürülünce) durumunda
+  // Takvim/Özet artık 2 sütun yan yana diziliyor (bkz. App.tsx `landscape:grid`).
+  // Sütun genişliği yarıya indiği halde butonlar/ikonlar/paddingler hâlâ TAM
+  // genişlik için tasarlanmış rem boyutlarında kaldığı için orantısız/"çok
+  // büyük" görünüyorlardı. Uygulamadaki neredeyse tüm boyutlar (Tailwind
+  // sınıfları VE Win95'teki `fontSize: '0.625rem'` gibi inline stiller) rem
+  // birimiyle tanımlı olduğundan, kök font-size'ı bu durumda ek bir çarpanla
+  // biraz küçültmek — kullanıcının FontScale tercihine dokunmadan — TÜM
+  // boyutları orantılı şekilde küçültüp sütuna sığdırıyor. Sadece dar
+  // (telefon) landscape'te devreye giriyor; geniş masaüstü/tablet
+  // landscape'inde sütun zaten yeterince geniş olduğu için çarpan 1 kalıyor.
   useEffect(() => {
     const root = window.document.documentElement;
-    root.style.fontSize = `${FONT_SCALE_PERCENT[fontScale]}%`;
+
+    const NARROW_VW = 700;   // bu genişlikte/altında en dar telefonlar (örn. iPhone SE landscape)
+    const WIDE_VW = 1000;    // bu genişlikte/üstünde küçültme uygulanmaz (tablet/masaüstü)
+    const MIN_LANDSCAPE_SCALE = 0.85;
+
+    const getLandscapeScale = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isLandscape = vw > vh;
+      if (!isLandscape || vw >= WIDE_VW) return 1;
+      if (vw <= NARROW_VW) return MIN_LANDSCAPE_SCALE;
+      const t = (vw - NARROW_VW) / (WIDE_VW - NARROW_VW);
+      return MIN_LANDSCAPE_SCALE + t * (1 - MIN_LANDSCAPE_SCALE);
+    };
+
+    const applyFontSize = () => {
+      const combined = FONT_SCALE_PERCENT[fontScale] * getLandscapeScale();
+      root.style.fontSize = `${combined}%`;
+    };
+
+    applyFontSize();
+    window.addEventListener('resize', applyFontSize);
+    window.addEventListener('orientationchange', applyFontSize);
 
     const saveFontScale = async () => {
       try {
@@ -167,6 +201,11 @@ export const useTheme = () => {
       }
     };
     saveFontScale();
+
+    return () => {
+      window.removeEventListener('resize', applyFontSize);
+      window.removeEventListener('orientationchange', applyFontSize);
+    };
   }, [fontScale]);
 
   const toggleTheme = useCallback(() => {

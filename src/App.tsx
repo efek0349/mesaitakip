@@ -59,8 +59,8 @@ const App: React.FC = () => {
   const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
   const updateInfo = useUpdateCheck();
   // win95Enabled: Win95 görünümünün açık/kapalı olduğu kalıcı tercih.
-  // toggleWin95/setWin95: TaskBar'daki "Görünüm" menüsünden (Win95Shell) çağrılır.
-  const { win95Enabled, toggleWin95, setWin95, win95Font, setWin95Font } = useTheme();
+  // toggleWin95/setWin95: TaskBar'daki "Temayı Değiştir" öğesinden (Win95Shell) çağrılır.
+  const { win95Enabled, toggleWin95, setWin95 } = useTheme();
   useAutoBackup();
 
   React.useEffect(() => {
@@ -329,18 +329,20 @@ const App: React.FC = () => {
                 backgroundColor: '#c3c7cb',
               }}
             >
-              <Calendar
-                currentDate={currentDate}
-                onDateChange={handleDateChange}
-                onDateClick={handleDateClick}
-                win95Enabled={true}
-              />
-              <MonthlyStats
-                currentDate={currentDate}
-                onOpenSettings={handleOpenSettings}
-                onOpenDataBackup={handleOpenDataBackup}
-                win95Enabled={true}
-              />
+              <div className="landscape:grid landscape:grid-cols-2 landscape:gap-3 landscape:items-start">
+                <Calendar
+                  currentDate={currentDate}
+                  onDateChange={handleDateChange}
+                  onDateClick={handleDateClick}
+                  win95Enabled={true}
+                />
+                <MonthlyStats
+                  currentDate={currentDate}
+                  onOpenSettings={handleOpenSettings}
+                  onOpenDataBackup={handleOpenDataBackup}
+                  win95Enabled={true}
+                />
+              </div>
             </div>
           </Frame>
         </div>
@@ -362,18 +364,48 @@ const App: React.FC = () => {
             Gerçek Android gesture-navigasyon güvenli alanı düzeltmesi artık
             Win95Shell.tsx + win95-overrides.css'te (`win95-taskbar-safe-area`
             / `win95-taskbar-safe-area-filler`, `transform: translateY(...)`)
-            uygulanıyor — orada hem CSS `env(safe-area-inset-bottom)` hem de
-            androidUtils.ts'nin JS ile hesapladığı `--nav-bar-height`
-            değişkeninin BÜYÜĞÜ (`max()`) kullanılıyor, çünkü Android 15+
-            zorunlu edge-to-edge render'ında (LineageOS 23.2 gibi) JS
-            heuristiği tek başına güvenilir değil. Buradaki paddingBottom da
-            AYNI `max(...)` ifadesini kullanmalı ki rezerve edilen boşluk,
-            gerçekte kaydırılan TaskBar yüksekliğiyle birebir eşleşsin. */}
+            uygulanıyor — orada `--win95-taskbar-safe-bottom` adlı TEK bir
+            CSS custom property, hem CSS `env(safe-area-inset-bottom, 0px)`
+            hem de androidUtils.ts'nin JS ile hesapladığı `--nav-bar-height`
+            değişkeninin BÜYÜĞÜNÜ (`max()`) tutuyor.
+
+            DÜZELTME (bkz. rapor: Android 16 / LineageOS'ta ana ekranın
+            TaskBar'ın ALTINA sarkması): Buradaki paddingBottom eskiden AYNI
+            `max(...)` ifadesini fallback'siz `env(safe-area-inset-bottom)`
+            ile elle TEKRAR yazıyordu. İki yerde aynı hesabı iki farklı
+            şekilde (biri env() fallback'li, biri fallback'siz) yazmak,
+            bazı WebView'lerde ikisinin farklı sonuç vermesine yol
+            açabiliyordu: TaskBar doğru miktar kadar yukarı kayarken, bu
+            div'in payı o miktarı rezerve edemiyor, üstteki pencere flex-1
+            ile o boşluğu da kendine katıp TaskBar'ın ARKASINA/ALTINA doğru
+            büyüyordu (Android 13'te ikisi çakışarak aynı sonucu verdiği
+            için sorun görünmüyordu). Artık ikisi de TEK bir ortak
+            `--win95-taskbar-safe-bottom` değişkenini okuyor — aynı sayı,
+            aynı anda, iki yerde de garanti ediliyor, formüller ayrışamaz. */}
         <div
           style={{
             position: 'relative',
-            paddingBottom: 'max(env(safe-area-inset-bottom), var(--nav-bar-height, 0px))',
-            minHeight: 28,
+            paddingBottom: 'var(--win95-taskbar-safe-bottom, 0px)',
+            // ÖNEMLİ DÜZELTME: Bu proje `box-sizing: border-box` kullanıyor
+            // (Tailwind preflight). border-box modelinde `min-height`,
+            // padding'i İÇİNE alır — padding'in ÜSTÜNE eklemez. Yani
+            // `minHeight: 28` + `paddingBottom: 24` yazıldığında, tarayıcı
+            // toplam kutuyu `max(28, 0+24)=28` olarak hesaplıyor; padding
+            // (24) min-height'ı (28) geçmediği için TÜM güvenli alan payı
+            // sessizce yutuluyor ve kutunun toplam yüksekliği hep 28px'de
+            // kalıyor — ana pencere de bu "kayıp" 24px'in içine akıp
+            // TaskBar'ın üstüne/arkasına biniyordu (bkz. rapor: Android 16 /
+            // LineageOS'ta ana ekranın TaskBar'a gömülmesi). Android 13'te
+            // güvenli alan payı 28'den büyük çıktığı için (`max(28,0+48)=48`)
+            // bu tuzağa hiç girilmiyordu, o yüzden sorun görünmüyordu.
+            //
+            // ÇÖZÜM: min-height'ı, güvenli alan payını da İÇİNDE barındıran
+            // TEK bir toplam olarak ifade ediyoruz (`calc(28px + pay)`).
+            // Böylece hangi box-sizing modeli kullanılırsa kullanılsın,
+            // kutunun toplam yüksekliği her zaman en az "TaskBar (28px) +
+            // güvenli alan payı" olmak zorunda — payın min-height'a "yenilip"
+            // yutulması artık mümkün değil.
+            minHeight: 'calc(28px + var(--win95-taskbar-safe-bottom, 0px))',
           }}
           className="flex-shrink-0"
         >
@@ -387,8 +419,6 @@ const App: React.FC = () => {
             canShare={hasData}
             canClear={hasData}
             onTurnOffWin95={() => setWin95(false)}
-            win95Font={win95Font}
-            onSetWin95Font={setWin95Font}
           />
         </div>
       </div>
@@ -448,19 +478,21 @@ const App: React.FC = () => {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="container mx-auto px-2 max-w-4xl">
-          <Calendar
-            currentDate={currentDate}
-            onDateChange={handleDateChange}
-            onDateClick={handleDateClick}
-            win95Enabled={false}
-          />
-          <MonthlyStats
-            currentDate={currentDate}
-            onOpenSettings={handleOpenSettings}
-            onOpenDataBackup={handleOpenDataBackup}
-            win95Enabled={false}
-          />
+        <div className="container mx-auto px-2 max-w-4xl landscape:max-w-6xl">
+          <div className="landscape:grid landscape:grid-cols-2 landscape:gap-4 landscape:items-start">
+            <Calendar
+              currentDate={currentDate}
+              onDateChange={handleDateChange}
+              onDateClick={handleDateClick}
+              win95Enabled={false}
+            />
+            <MonthlyStats
+              currentDate={currentDate}
+              onOpenSettings={handleOpenSettings}
+              onOpenDataBackup={handleOpenDataBackup}
+              win95Enabled={false}
+            />
+          </div>
         </div>
       </div>
 

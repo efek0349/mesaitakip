@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TaskBar, List, Frame } from '@react95/core';
 import {
   Settings as SettingsIcon,
@@ -8,13 +8,8 @@ import {
   AlertTriangle,
   Info,
   Monitor,
-  Check,
-  ChevronRight,
-  Type,
-  Palette,
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Win95Font } from '../../hooks/useTheme';
 
 /**
  * Win95Shell — ActionIcons.tsx'in Win95 temalı karşılığı.
@@ -28,11 +23,9 @@ import { Win95Font } from '../../hooks/useTheme';
  * Başlat menüsü içeriği olarak render eder. Saat göstergesi TaskBar'ın
  * sağında otomatik olarak gösterilir (varsayılan davranış).
  *
- * "Görünüm" alt menüsü: React95'in List bileşeni resmi bir nested-submenu
- * prop'u sunmuyor (ListItem sade bir <li>, alt menü API'si yok). Bunu
- * React95'in belirsiz dahili davranışına güvenmek yerine kendi basit
- * state'imizle (hangi alt menü açık) kontrol ediyoruz — Win95'in klasik
- * "Görünüm ▸" yan panel hissini, garantili ve test edilebilir şekilde verir.
+ * NOT: "Görünüm" (yazı tipi) alt menüsü Başlat menüsünden kaldırıldı —
+ * aynı kontroller zaten Ayarlar > Sistem sekmesinde (Win95ThemeSwitcher)
+ * mevcut olduğu için burada tekrar etmeye gerek yoktu.
  */
 
 interface Win95ShellProps {
@@ -45,8 +38,6 @@ interface Win95ShellProps {
   canShare: boolean;
   canClear: boolean;
   onTurnOffWin95: () => void;
-  win95Font: Win95Font;
-  onSetWin95Font: (font: Win95Font) => void;
 }
 
 export const Win95Shell: React.FC<Win95ShellProps> = React.memo(({
@@ -59,69 +50,8 @@ export const Win95Shell: React.FC<Win95ShellProps> = React.memo(({
   canShare,
   canClear,
   onTurnOffWin95,
-  win95Font,
-  onSetWin95Font,
 }) => {
   const isShareAvailable = Capacitor.isNativePlatform() || !!navigator.share;
-  const [viewSubmenuOpen, setViewSubmenuOpen] = useState(false);
-  const [submenuPos, setSubmenuPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
-  const viewItemRef = useRef<HTMLLIElement>(null);
-
-  // "Görünüm" satırına tıklanınca, o satırın GERÇEK ekran konumunu ölçüp
-  // (getBoundingClientRect) alt menüyü tam onun sağına, aynı yükseklikte
-  // yapıştırıyoruz — Win95'in klasik "▸" yana açılan alt menü hissi.
-  // Ekranın sağına taşacaksa (item ekranın sağ yarısındaysa) otomatik
-  // olarak sola açılır. -2px'lik örtüşme, iki panelin kenar çizgisinin
-  // çakışıp TEK PARÇA gibi görünmesini sağlar.
-  //
-  // ÖNEMLİ EK NOT: Bu alt menü ayrı bir position:fixed eleman olduğu için
-  // (bkz. dosya sonundaki mimari not), TaskBar'ın kendi Başlat menüsünü
-  // NE ZAMAN kapattığını bilmiyoruz — React95'in TaskBar'ı kendi iç
-  // açık/kapalı durumunu bize dışarı açmıyor. "Görünüm"e tıklamak TaskBar'ın
-  // kendi menüsünü de kapatıyorsa (öğeye tıklayınca menü kapanan tipik
-  // davranış), bizim alt menümüz TEK BAŞINA, sanki bağlantısız bir kutu
-  // gibi ekranda kalabiliyordu — "ayrı blok gibi açılıyor, görünüm
-  // ile beraber değil" sorunu tam buydu. Çözüm iki parçalı:
-  // 1) stopPropagation, TaskBar'ın olası "dışına tıklandı" kapanışını
-  //    tetiklememesi için tıklamanın document'a kadar yayılmasını engeller.
-  // 2) Aşağıdaki useEffect, "Görünüm" satırı görünmez olduğu anda (TaskBar
-  //    kendi menüsünü her ne sebeple kapatırsa kapatsın) bizim alt menümüzü
-  //    de otomatik kapatır — böylece hiçbir zaman öksüz/bağlantısız bir
-  //    kutu olarak ekranda asılı kalmaz.
-  const handleToggleViewSubmenu = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    e?.preventDefault();
-    if (viewSubmenuOpen) {
-      setViewSubmenuOpen(false);
-      return;
-    }
-    const rect = viewItemRef.current?.getBoundingClientRect();
-    if (rect) {
-      const openToLeft = rect.left > window.innerWidth / 2;
-      setSubmenuPos(
-        openToLeft
-          ? { top: rect.top - 2, right: window.innerWidth - rect.left - 2 }
-          : { top: rect.top - 2, left: rect.right - 2 }
-      );
-    }
-    setViewSubmenuOpen(true);
-  };
-
-  // Güvenlik ağı: "Görünüm" satırı (viewItemRef) herhangi bir sebeple
-  // ekrandan kaybolursa (TaskBar kendi Başlat menüsünü kapattıysa) alt
-  // menüyü de hemen kapat. offsetParent === null, bir eleman `display:none`
-  // olduğunda veya DOM'dan kaldırıldığında true olur — hafif ve güvenilir
-  // bir "hâlâ görünür mü" kontrolü.
-  useEffect(() => {
-    if (!viewSubmenuOpen) return;
-    const checkStillAttached = () => {
-      if (!viewItemRef.current || viewItemRef.current.offsetParent === null) {
-        setViewSubmenuOpen(false);
-      }
-    };
-    const intervalId = window.setInterval(checkStillAttached, 120);
-    return () => window.clearInterval(intervalId);
-  }, [viewSubmenuOpen]);
 
   // List.Item'in resmi 'disabled' prop'u yok; işlevsel devre dışı bırakma
   // onClick'i undefined yaparak sağlanıyor, görsel soluklaştırma ise
@@ -171,50 +101,15 @@ export const Win95Shell: React.FC<Win95ShellProps> = React.memo(({
         </List.Item>
         <List.Divider />
 
-        {/* Görünüm — tıklanınca yanına/üstüne açılan ikinci seviye liste.
-            Win95'in klasik "▸" alt menü okuyla işaretlendi.
-            "Win95 Temasını Kapat"ın ÜSTÜNE alındı (sıralama önceliği).
-
-            ÖNEMLİ TEKNİK NOT: React95'in kendi List.css'i, bir List.Item
-            içine <ul> (List) konulduğunda onu varsayılan olarak
-            `display: none` yapıp SADECE `:hover` durumunda gösterir
-            (bkz. `.list-item:has(ul):hover > ul { display: block }`).
-            Bu masaüstünde fare ile çalışır ama dokunmatik ekranda/mobilde
-            hover hiç tetiklenmediği için alt menü HİÇBİR ZAMAN görünmez.
-
-            Çözüm: alt <List>'e doğrudan `style={{ display: ... }}` inline
-            stilini veriyoruz — inline style her zaman class tabanlı CSS
-            kuralından önceliklidir, bu yüzden React95'in :hover kuralını
-            geçersiz kılıp kendi viewSubmenuOpen state'imizle kontrol
-            edebiliyoruz. Dokunmatik ekranda da çalışır. */}
-        <List.Item
-          ref={viewItemRef}
-          icon={<Palette size={16} />}
-          onClick={handleToggleViewSubmenu}
-          style={{
-            ...compactItemStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            ...(viewSubmenuOpen ? { backgroundColor: '#000e7a', color: '#ffffff' } : {}),
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, color: viewSubmenuOpen ? '#ffffff' : undefined }}>
-            Görünüm (Yazı Tipi)
-          </span>
-          <ChevronRight size={14} color={viewSubmenuOpen ? '#ffffff' : undefined} />
-        </List.Item>
-
-        <List.Divider />
-
-        {/* Win95'i Kapat — DOĞRUDAN ana menüde, tek tıkla.
-            Geri bildirim: "Görünüm" alt menüsünün içinde kalan kapatma
-            seçeneği yeterince görünür/net değildi. Bu yüzden en sık
-            ihtiyaç duyulacak eylem (orijinal temaya geri dönme) artık
-            alt menüye girmeden, ana listede tek tıkla erişilebilir. */}
+        {/* Temayı Değiştir — DOĞRUDAN ana menüde, tek tıkla.
+            En sık ihtiyaç duyulacak eylem (orijinal temaya geri dönme)
+            ana listede tek tıkla erişilebilir. */}
         <List.Item
           icon={<Monitor size={16} />}
           onClick={onTurnOffWin95}
           style={{ ...compactItemStyle, fontWeight: 700 }}
         >
-          Win95 Temasını Kapat
+          Temayı Değiştir
         </List.Item>
 
         <List.Divider />
@@ -253,56 +148,11 @@ export const Win95Shell: React.FC<Win95ShellProps> = React.memo(({
           `bottom: 28px` gibi TaskBar'ın kendi kutusuna göre SABİT
           değerlerle konumlanıyor (react95 kaynağından doğrulandı). TaskBar
           kutusunun kendi yüksekliğini/padding'ini artırmak bu iç hesapları
-          bozar (Start menüsü/Görünüm alt menüsü olması gerekenden farklı
-          yere düşer). transform ise kutunun boyutunu DEĞİL sadece render
-          konumunu değiştirdiği için iç konumlandırma tamamen korunur. */}
+          bozar (Start menüsü olması gerekenden farklı yere düşer).
+          transform ise kutunun boyutunu DEĞİL sadece render konumunu
+          değiştirdiği için iç konumlandırma tamamen korunur. */}
       <div className="win95-taskbar-safe-area-filler" aria-hidden="true" />
       <TaskBar list={startMenuList} className="win95-taskbar-safe-area" />
-
-      {/* ÖNEMLİ MİMARİ NOT: Bu alt menü artık "Görünüm" List.Item'ının
-          İÇİNDE değil, Win95Shell'in KENDİ EN DIŞ JSX'inde (TaskBar'ın
-          sibling'i) render ediliyor. Sebep: React95'in ListItem'ı kendi
-          CSS class'ında ZATEN `position: relative` içeriyor (gerçek
-          kaynaktan doğrulandı, .r95_1lxkvz40 class'ı) — bu yüzden içine
-          koyduğum herhangi bir position:fixed/absolute child, App.tsx'teki
-          güvenli kapsayıcıya değil, bu ListItem'a göre konumlanıyordu ve
-          asla TaskBar'ın gerçek üstüne çıkamıyordu.
-          Konum artık sabit değil — handleToggleViewSubmenu,
-          tıklanan anda "Görünüm" satırının GERÇEK ekran koordinatlarını
-          ölçüp (submenuPos) alt menüyü tam o satırın sağına yapıştırıyor,
-          Win95'in klasik yana açılan flyout hissini veriyor. */}
-      {viewSubmenuOpen && submenuPos && (
-        <List
-          bgColor="material"
-          boxShadow="out"
-          style={{
-            position: 'fixed', top: submenuPos.top, left: submenuPos.left, right: submenuPos.right, zIndex: 1000,
-            color: '#1a1a1a', backgroundColor: '#c3c7cb',
-            width: 'max-content', maxWidth: 'calc(100vw - 16px)',
-          }}
-        >
-          <List.Item
-            icon={<Type size={16} />}
-            onClick={() => { onSetWin95Font('pixel'); setViewSubmenuOpen(false); }}
-            style={compactItemStyle}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-              Klasik (Piksel)
-              {win95Font === 'pixel' && <Check size={14} />}
-            </span>
-          </List.Item>
-          <List.Item
-            icon={<Type size={16} />}
-            onClick={() => { onSetWin95Font('system'); setViewSubmenuOpen(false); }}
-            style={compactItemStyle}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%', color: '#1a1a1a', whiteSpace: 'nowrap' }}>
-              Okunaklı Font
-              {win95Font === 'system' && <Check size={14} />}
-            </span>
-          </List.Item>
-        </List>
-      )}
     </>
   );
 });

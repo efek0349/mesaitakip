@@ -30,6 +30,7 @@ export const UpdateModalWin95: React.FC<UpdateModalWin95Props> = ({ isOpen, onCl
 
   return (
     <Modal
+      key={`update-modal-${position.orientationKey}`}
       id="update-modal"
       title="Yeni Güncelleme!"
       titleBarOptions={[

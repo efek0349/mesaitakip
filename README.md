@@ -24,7 +24,7 @@
 [+] ENVIRONMENT : React, TypeScript & Tailwind CSS.
 [+] STATUS      : STABLE / READY FOR DEPLOYMENT
 [+] KERNEL      : Vite v8.0.13
-[+] ONLINE      : https://efek0349.github.io/mesaitakip/
+[+] ONLINE      : https://mesaitakip.github.io
 ---
 
 [FEATURES_MANIFEST]

@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "deploy": "gh-pages -d dist -r https://github.com/efek0349/mesaitakip.git",
+    "deploy": "gh-pages -d dist -r git@github.com-mesaitakip:mesaitakip/mesaitakip.github.io.git",
     "build:android": "vite build && npx cap add android && npx cap copy android && npx cap open android",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -54,7 +54,6 @@
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
-    "@vitejs/plugin-react-oxc": "^0.4.3",
     "autoprefixer": "^10.4.18",
     "dotenv": "^17.4.2",
     "eslint": "^9.9.1",

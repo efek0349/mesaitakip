@@ -8,7 +8,8 @@
  *   GOOGLE_CLIENT_SECRET          = Web Client Secret
  *   GOOGLE_DESKTOP_CLIENT_ID      = Desktop Client ID
  *   GOOGLE_DESKTOP_CLIENT_SECRET  = Desktop Client Secret (Secret olarak ekle)
- *   ALLOWED_ORIGIN                = https://efek0349.github.io
+ *   ALLOWED_ORIGIN                = https://mesaitakip.github.io,https://efek0349.github.io
+ *                                   (virgülle ayırarak birden fazla origin eklenebilir)
  */
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -20,8 +21,14 @@ const DEV_ORIGINS = [
 ];
 
 function getAllowedOrigin(requestOrigin, envOrigin) {
-  const prodOrigin = envOrigin || 'https://efek0349.github.io';
-  if (requestOrigin && requestOrigin.startsWith(prodOrigin)) return prodOrigin;
+  const prodOrigins = (envOrigin || 'https://mesaitakip.github.io')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  if (requestOrigin && prodOrigins.some((o) => requestOrigin.startsWith(o))) {
+    return requestOrigin;
+  }
   if (DEV_ORIGINS.includes(requestOrigin)) return requestOrigin;
   return null;
 }

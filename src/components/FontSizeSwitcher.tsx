@@ -1,13 +1,15 @@
 import React from 'react';
-import { useTheme, FontScale } from '../hooks/useTheme';
+import { useTheme, FontScale, FONT_SCALE_PERCENT } from '../hooks/useTheme';
 import { Type } from 'lucide-react';
 
-const OPTIONS: { value: FontScale; label: string }[] = [
-  { value: 'small', label: 'Küçük' },
-  { value: 'medium', label: 'Normal' },
-  { value: 'large', label: 'Büyük' },
-  { value: 'xlarge', label: 'Çok Büyük' },
-];
+const SCALE_ORDER: FontScale[] = ['small', 'medium', 'large', 'xlarge'];
+
+const LABELS: Record<FontScale, string> = {
+  small: 'Küçük',
+  medium: 'Normal',
+  large: 'Büyük',
+  xlarge: 'Çok Büyük',
+};
 
 /**
  * FontSizeSwitcher — uygulamanın kendi iç yazı boyutu ayarı.
@@ -15,9 +17,18 @@ const OPTIONS: { value: FontScale; label: string }[] = [
  * yalnızca bu uygulama içindeki metinleri büyütür/küçültür (bkz. useTheme.ts'teki
  * FONT_SCALE_PERCENT — <html> kök font-size'ını değiştirir, uygulama genelinde
  * rem tabanlı tüm yazı boyutları buna göre orantılı ölçeklenir).
+ *
+ * TASARIM: Eskiden 4 küçük buton yan yanaydı (KÜÇÜK/NORMAL/BÜYÜK/ÇOK BÜYÜK).
+ * Bunun yerine iOS'un "Yazı Tipi Boyutu" ayarına benzer bir sürgü (slider)
+ * kullanıyoruz: üstte seçilen boyutta canlı bir "Aa" önizlemesi, altında da
+ * küçükten büyüğe artan "A" harfleriyle işaretlenmiş bir sürgü. Sürüklemek
+ * tek tek butonlara basmaktan daha doğal ve boyutlar arasındaki farkı direkt
+ * gözle görmeyi sağlıyor.
  */
 export const FontSizeSwitcher: React.FC = () => {
   const { fontScale, setFontScale } = useTheme();
+  const activeIndex = SCALE_ORDER.indexOf(fontScale);
+  const fillPercent = (activeIndex / (SCALE_ORDER.length - 1)) * 100;
 
   return (
     <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-xl border border-transparent dark:border-white/5 transition-all">
@@ -32,20 +43,44 @@ export const FontSizeSwitcher: React.FC = () => {
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-1.5">
-        {OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setFontScale(opt.value)}
-            className={`py-2 px-1 rounded-lg text-[0.625rem] font-black uppercase tracking-tight transition-all border-b-2 active:translate-y-0.5 active:border-b-0 ${
-              fontScale === opt.value
-                ? 'bg-blue-500 text-white border-blue-700 shadow-md'
-                : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+
+      {/* Canlı önizleme */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg py-3 px-4 mb-4 text-center border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <span
+          className="font-black text-gray-800 dark:text-white transition-all duration-150 inline-block"
+          style={{ fontSize: `${14 * (FONT_SCALE_PERCENT[fontScale] / 100)}px` }}
+        >
+          Aa Örnek Yazı
+        </span>
+      </div>
+
+      {/* Sürgü */}
+      <div className="px-1">
+        <input
+          type="range"
+          min={0}
+          max={SCALE_ORDER.length - 1}
+          step={1}
+          value={activeIndex}
+          onChange={(e) => setFontScale(SCALE_ORDER[Number(e.target.value)])}
+          className="font-size-slider w-full h-7 cursor-pointer touch-action-none"
+          style={{ ['--font-size-slider-fill' as string]: `${fillPercent}%` }}
+          aria-label="Yazı boyutu"
+        />
+        <div className="flex justify-between items-end px-0.5 -mt-1">
+          {SCALE_ORDER.map((s, i) => (
+            <button
+              key={s}
+              onClick={() => setFontScale(s)}
+              className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+                fontScale === s ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
+              }`}
+            >
+              <span className="font-black leading-none" style={{ fontSize: `${11 + i * 3}px` }} aria-hidden="true">A</span>
+              <span className="text-[0.5rem] font-bold uppercase tracking-tight whitespace-nowrap">{LABELS[s]}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

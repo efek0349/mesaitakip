@@ -1,6 +1,6 @@
 import React from 'react';
-import { Clock, CheckCircle, Briefcase, ChevronDown, Info, Shield } from 'lucide-react';
-import { formatHours, TURKISH_MONTHS } from '../utils/dateUtils';
+import { Clock, CheckCircle, Briefcase, ChevronDown, Info, Shield, Umbrella, AlertTriangle } from 'lucide-react';
+import { formatHours, TURKISH_MONTHS, getTurkishDayName } from '../utils/dateUtils';
 import { Dialog } from '@capacitor/dialog';
 import { YEARLY_LIMIT_HOURS } from '../constants';
 import { useMonthlyStatsLogic } from '../hooks/useMonthlyStatsLogic';
@@ -16,7 +16,8 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
     ready, isLoading,
     year, month,
     monthlyTotal, yearlyTotal, isOverLimit,
-    overtimeStats, allowanceData, severanceData,
+    overtimeStats, allowanceData, severanceData, noticePayData,
+    annualLeaveInfo, upcomingHolidays,
     bonus, salaryBase,
     currentTesRate, tesDeduction,
     netOvertimePayment, netOvertimeHours,
@@ -25,6 +26,7 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
     showLimitInfo, setShowLimitInfo,
     showSeveranceDetails, setShowSeveranceDetails,
     showOvertimeDetails, setShowOvertimeDetails,
+    showLeaveHolidayDetails, setShowLeaveHolidayDetails,
   } = useMonthlyStatsLogic(currentDate);
 
   if (isLoading) {
@@ -192,7 +194,7 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
       {/* Tabs */}
       <div className="px-1 flex gap-3 mb-4">
         <button 
-          onClick={() => { setShowOvertimeDetails(!showOvertimeDetails); setShowSeveranceDetails(false); }}
+          onClick={() => { setShowOvertimeDetails(!showOvertimeDetails); setShowSeveranceDetails(false); setShowLeaveHolidayDetails(false); }}
           className={`flex-1 py-3 px-4 rounded-[20px] transition-all border-b-4 ${showOvertimeDetails ? 'bg-indigo-600 text-white border-indigo-900 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-950'}`}
         >
           <div className="flex items-center gap-2">
@@ -204,7 +206,7 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
 
         {settings.showSeverancePay && severanceData?.eligible && (
           <button 
-            onClick={() => { setShowSeveranceDetails(!showSeveranceDetails); setShowOvertimeDetails(false); }}
+            onClick={() => { setShowSeveranceDetails(!showSeveranceDetails); setShowOvertimeDetails(false); setShowLeaveHolidayDetails(false); }}
             className={`flex-1 py-3 px-4 rounded-[20px] transition-all border-b-4 ${showSeveranceDetails ? 'bg-emerald-600 text-white border-emerald-900 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-950'}`}
           >
             <div className="flex items-center gap-2">
@@ -214,6 +216,17 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
             </div>
           </button>
         )}
+
+        <button
+          onClick={() => { setShowLeaveHolidayDetails(!showLeaveHolidayDetails); setShowOvertimeDetails(false); setShowSeveranceDetails(false); }}
+          className={`flex-1 py-3 px-4 rounded-[20px] transition-all border-b-4 ${showLeaveHolidayDetails ? 'bg-amber-500 text-white border-amber-800 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-950'}`}
+        >
+          <div className="flex items-center gap-2">
+            <Umbrella size={16} />
+            <span className="text-[0.6875rem] font-black uppercase">İzin & Tatil</span>
+            <ChevronDown size={14} className={`ml-auto transition-transform ${showLeaveHolidayDetails ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
       </div>
 
       {/* Detail Sections */}
@@ -323,25 +336,85 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
                 <span className="text-xs font-black text-gray-700 dark:text-gray-200">₺{severanceData.netSeverance.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
               </div>
               
-              {(severanceData.months > 0 || severanceData.days > 0) && (
-                <div className="flex justify-between items-center p-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl">
-                  <span className="text-[0.625rem] font-bold text-gray-500 uppercase">
-                    +{severanceData.months > 0 ? `${severanceData.months} AY ` : ''}{severanceData.days > 0 ? `${severanceData.days} GÜN ` : ''}EKSTRA
-                  </span>
-                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₺{(severanceData.monthNetSeverance + severanceData.dayNetSeverance).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                </div>
-              )}
-
               <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 space-y-1.5">
                 <div className="flex justify-between items-center px-1">
                   <span className="text-[0.625rem] font-bold text-amber-600 uppercase tracking-tighter">Damga Vergisi Kesintisi</span>
                   <span className="text-[0.625rem] font-bold text-amber-600">-₺{severanceData.totalStampTax.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                {noticePayData && (
+                  <div className="flex justify-between items-center p-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl">
+                    <span className="text-[0.625rem] font-bold text-gray-500 uppercase">İhbar Tazm. ({noticePayData.noticeWeeks} Hafta, Net)</span>
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₺{noticePayData.netNoticePay.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center px-1 pt-1">
-                  <span className="text-xs font-black text-gray-900 dark:text-white uppercase">Toplam Net</span>
-                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₺{severanceData.totalNetSeverance.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  <span className="text-xs font-black text-gray-900 dark:text-white uppercase">Toplam Net (Kıdem + İhbar)</span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₺{(severanceData.totalNetSeverance + (noticePayData?.netNoticePay || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLeaveHolidayDetails && (
+        <div className="px-1 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="p-4 bg-white dark:bg-gray-900/50 rounded-2xl border border-amber-100 dark:border-amber-800/50 space-y-3 shadow-sm">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-1 h-3 bg-amber-500 rounded-full" />
+              <span className="text-[0.625rem] font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest">Yıllık İzin</span>
+            </div>
+
+            {annualLeaveInfo ? (
+              <div className="flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[0.5625rem] font-bold text-gray-500 uppercase">Hak Edilen</span>
+                  <span className="text-xs font-black text-gray-800 dark:text-white">{annualLeaveInfo.entitledDays} gün</span>
+                </div>
+                <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[0.5625rem] font-bold text-gray-500 uppercase">Kalan</span>
+                  <span className={`text-xs font-black ${annualLeaveInfo.remainingDays < 0 ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
+                    {annualLeaveInfo.remainingDays} gün
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-3 text-center">
+                <p className="text-[0.625rem] text-gray-400 font-medium">
+                  Yıllık izin bilgisi için Ayarlar &gt; Kıdem sekmesinden işe giriş tarihini girin.
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 space-y-1.5">
+              <p className="text-[0.5625rem] font-black text-gray-500 uppercase px-1 mb-1.5">Yaklaşan Tatiller</p>
+              {upcomingHolidays.length > 0 ? (
+                upcomingHolidays.map(h => (
+                  <div key={h.date} className="flex items-start justify-between gap-2 px-1">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      {h.isWorkday ? (
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${h.type === 'religious' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      ) : (
+                        <AlertTriangle size={11} strokeWidth={2.5} className="flex-shrink-0 mt-0.5 text-gray-300 dark:text-gray-600" />
+                      )}
+                      <div className="min-w-0">
+                        <span className={`text-[0.625rem] font-bold block truncate ${h.isWorkday ? 'text-gray-700 dark:text-gray-200' : 'italic text-gray-400 dark:text-gray-500'}`}>{h.name}</span>
+                        {!h.isWorkday && (
+                          <span className="text-[0.5rem] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">
+                            {getTurkishDayName(h.dayOfWeek)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[0.5625rem] font-bold text-gray-400 flex-shrink-0">
+                      {h.daysUntil === 0 ? 'Bugün' : h.daysUntil === 1 ? 'Yarın' : `${h.daysUntil} gün sonra`}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[0.625rem] text-gray-400 text-center py-2">Yaklaşan tatil bulunmuyor.</p>
+              )}
             </div>
           </div>
         </div>
