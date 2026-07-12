@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modern "kabarık" (raised) yuvarlak stepper butonu: üstte açık, altta
+     biraz daha koyu degrade + ince kenarlık, gerçek elevation (bkz. layout)
+     ile birlikte belirgin bir 3D buton hissi verir. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/widget_stepper_button_bg_color" />
-    <corners android:radius="9dp" />
+    <corners android:radius="10dp" />
+    <gradient
+        android:angle="270"
+        android:startColor="#FFFFFF"
+        android:centerColor="#F3F8FF"
+        android:endColor="#DCE9FB" />
+    <stroke
+        android:width="1dp"
+        android:color="#C7D9F5" />
 </shape>

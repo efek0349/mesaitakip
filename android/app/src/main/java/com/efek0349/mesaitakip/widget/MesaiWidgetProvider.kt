@@ -152,6 +152,20 @@ class MesaiWidgetProvider : AppWidgetProvider() {
             refreshWidget(context, appWidgetId)
         }
 
+        private fun openAppPendingIntent(context: Context): PendingIntent {
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            } ?: Intent(context, com.efek0349.mesaitakip.MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            return PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+
         private fun actionPendingIntent(context: Context, appWidgetId: Int, action: String): PendingIntent {
             val intent = Intent(context, MesaiWidgetProvider::class.java).apply {
                 this.action = action
@@ -187,6 +201,26 @@ class MesaiWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.btn_minutes_inc, actionPendingIntent(context, appWidgetId, ACTION_INC_MINUTES))
             views.setOnClickPendingIntent(R.id.btn_minutes_dec, actionPendingIntent(context, appWidgetId, ACTION_DEC_MINUTES))
             views.setOnClickPendingIntent(R.id.btn_confirm, actionPendingIntent(context, appWidgetId, ACTION_CONFIRM))
+
+            // Widget'ın kendisine (butonların dışındaki her yere) tıklanınca
+            // uygulamayı açar. +/-/Ekle butonları kendi PendingIntent'lerini
+            // koruyor; bu sadece boş alan/zemin için geçerli.
+            views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context))
+
+            // Alt satır — "Bu Ay" özeti: burada HİÇBİR hesaplama yapmıyoruz.
+            // JS tarafı (useWidgetSummarySync.ts, tek doğruluk kaynağı) hazır
+            // metni WidgetUpdatePlugin.updateSummary() ile ayrı bir
+            // SharedPreferences dosyasına ("MesaiSummaryWidgetState") yazıyor,
+            // biz sadece onu okuyup gösteriyoruz. Önceden ayrı bir widget'ta
+            // (MesaiSummaryWidgetProvider) gösterilen bu veri, artık kullanıcı
+            // isteğiyle bu widget'ın alt satırına taşındı.
+            val summaryPrefs = context.getSharedPreferences("MesaiSummaryWidgetState", Context.MODE_PRIVATE)
+            val summaryHours = summaryPrefs.getString("hoursText", null) ?: "—"
+            val summaryAmount = summaryPrefs.getString("amountText", null) ?: "—"
+            val summaryOvertimeAmount = summaryPrefs.getString("overtimeAmountText", null) ?: "—"
+            views.setTextViewText(R.id.text_widget_summary_hours, summaryHours)
+            views.setTextViewText(R.id.text_widget_summary_amount, summaryAmount)
+            views.setTextViewText(R.id.text_widget_summary_overtime, summaryOvertimeAmount)
 
             return views
         }

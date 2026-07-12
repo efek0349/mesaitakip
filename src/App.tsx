@@ -12,6 +12,7 @@ import { useHolidays } from './hooks/useHolidays';
 import { useTheme } from './hooks/useTheme';
 import { useAutoBackup } from './hooks/useAutoBackup';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
+import { useWidgetSummarySync } from './hooks/useWidgetSummarySync';
 import { TURKISH_MONTHS } from './utils/dateUtils';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
 import { googleDriveService } from './utils/googleDriveService';
@@ -50,6 +51,11 @@ const App: React.FC = () => {
 
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
+
+  // Ana ekran özet widget'ını ("Bu Ay") her zaman güncel tutar — bkz. hook
+  // içindeki açıklama. Görsel bir şey render etmiyor, sadece arka planda
+  // native tarafa senkron sağlıyor.
+  useWidgetSummarySync();
 
   // Visual Progress Logic
     React.useEffect(() => {

@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { storage } from '../utils/storageUtils';
+import { WidgetUpdate } from '../utils/widgetUpdate';
 
 // Ana ekrandaki "Mesai Ekle" widget'ını, uygulama içinden tema değiştiğinde
 // anında yeniden çizdirmek için native köprü (bkz. android/.../WidgetUpdatePlugin.kt).
 // Sadece Android'de gerçek bir implementasyonu var; diğer platformlarda
 // (web/iOS) çağrı hiçbir şey yapmadan görmezden gelinmeli, bu yüzden her
 // zaman IS_ANDROID kontrolüyle ve try/catch içinde çağırıyoruz.
-interface WidgetUpdatePlugin {
-  refresh(): Promise<{ updated: number }>;
-}
-
-const WidgetUpdate = registerPlugin<WidgetUpdatePlugin>('WidgetUpdate');
-
 const notifyWidgetThemeChanged = () => {
   if (Capacitor.getPlatform() !== 'android') return;
   WidgetUpdate.refresh().catch((error) => {
