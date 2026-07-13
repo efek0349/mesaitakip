@@ -1,9 +1,11 @@
 import React, { useSyncExternalStore } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { OvertimeEntry, MonthlyData, calcTotalHours } from '../types/overtime';
 import { getMonthKey, getDateKey, calculateEffectiveHours, parseDate } from '../utils/dateUtils';
 import { useSalarySettings } from './useSalarySettings';
 import { useHolidays } from './useHolidays';
 import { storage } from '../utils/storageUtils';
+import { WidgetUpdate } from '../utils/widgetUpdate';
 
 import { EventEmitter } from '../utils/EventEmitter';
 
@@ -241,6 +243,15 @@ const saveGlobalData = async (specificMonthKey?: string) => {
       }
     }
     dataEmitter.emit();
+
+    // Uygulama İÇİNDEN bir kayıt eklenip/değiştirilip/silindiğinde "Mesai
+    // Ekle" widget'ının "Bu Ay" özetini (native tarafta, bkz.
+    // MonthlyStatsCalculator.kt) hemen tazelemesi için sinyal gönder —
+    // aksi halde widget bir sonraki periyodik sistem güncellemesine kadar
+    // eski rakamları göstermeye devam ederdi.
+    if (Capacitor.getPlatform() === 'android') {
+      WidgetUpdate.refresh().catch(() => {});
+    }
   } catch (error) {
     console.error('Kaydetme hatası:', error);
   }

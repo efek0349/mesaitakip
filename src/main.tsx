@@ -15,6 +15,12 @@ import '@react95/core/themes/win95.css';
 import './win95-overrides.css';
 import { initializeViewportHandler } from './utils/androidUtils';
 
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Root element (#root) bulunamadı. index.html dosyasını kontrol edin.');
+}
+
 // Initialize the viewport handler to manage safe areas and capture the cleanup function
 const cleanupViewport = initializeViewportHandler();
 
@@ -24,8 +30,6 @@ if (import.meta.hot) {
     cleanupViewport();
   });
 }
-
-const rootElement = document.getElementById('root');
 
 // Service worker'ı SADECE web'de kaydet — native (Capacitor) uygulamada
 // gereksiz/anlamsız, WebView zaten kendi native shell'i üzerinden çalışıyor.
@@ -37,10 +41,6 @@ if ('serviceWorker' in navigator && !(window as any).Capacitor?.isNativePlatform
       console.warn('Service worker kaydı başarısız:', err);
     });
   });
-}
-
-if (!rootElement) {
-  throw new Error('Root element (#root) bulunamadı. index.html dosyasını kontrol edin.');
 }
 
 createRoot(rootElement).render(

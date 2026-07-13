@@ -1,7 +1,9 @@
 import React, { useSyncExternalStore } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { SalarySettings, MonthlySalary } from '../types/overtime';
 import { getMonthKey, getNormalizedShiftStartDate, isSaturdayWorkday, getDateKey } from '../utils/dateUtils';
 import { storage } from '../utils/storageUtils';
+import { WidgetUpdate } from '../utils/widgetUpdate';
 
 import { EventEmitter } from '../utils/EventEmitter';
 
@@ -135,6 +137,13 @@ const saveGlobalSettings = async () => {
   try {
     await storage.set('mesai-salary-settings', JSON.stringify(globalSettings));
     salaryEmitter.emit();
+
+    // Maaş ayarları (mesai çarpanları, TES, icra kesintisi vb.) widget'ın
+    // "Bu Ay" özetini (native, bkz. MonthlyStatsCalculator.kt) de
+    // etkiliyor — değişince widget'ı hemen tazele.
+    if (Capacitor.getPlatform() === 'android') {
+      WidgetUpdate.refresh().catch(() => {});
+    }
   } catch (error) {
     console.error('Maaş ayarları kaydetme hatası:', error);
   }

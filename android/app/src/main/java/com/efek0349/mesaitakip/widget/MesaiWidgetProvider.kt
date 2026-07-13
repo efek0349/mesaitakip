@@ -11,8 +11,10 @@ import android.widget.Toast
 import com.efek0349.mesaitakip.R
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.math.roundToLong
 
 /**
  * MesaiWidgetProvider — Android ana ekranındaki "Mesai Ekle" widget'ı.
@@ -37,6 +39,13 @@ import java.util.Locale
  * verisine DOĞRUDAN dokunmuyor — uygulama açıkken kendi state'iyle üzerine
  * yazma riskini önlemek için). JS tarafı (useOvertimeData.ts,
  * processPendingWidgetEntries) bu kuyruğu güvenle entegre ediyor.
+ *
+ * "BU AY" ÖZETİ (saat / net mesai / net maaş): TAMAMEN NATIVE hesaplanıyor
+ * (bkz. MonthlyStatsCalculator.kt) — hiçbir Activity/WebView açılmıyor.
+ * Eski tasarım (WidgetSyncActivity) JS'in hesabını görünmez bir pencerede
+ * çalıştırıyordu, ama Activity açmanın kendisi bazı cihazlarda/launcher'larda
+ * bastırılamayan bir görev-geçiş flaşına sebep oluyordu — bu yüzden
+ * hesaplama saf Kotlin'e taşındı, artık hiçbir görsel yan etki yok.
  */
 class MesaiWidgetProvider : AppWidgetProvider() {
 
@@ -45,6 +54,7 @@ class MesaiWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        refreshSummary(context)
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, buildRemoteViews(context, appWidgetId))
         }
@@ -149,7 +159,53 @@ class MesaiWidgetProvider : AppWidgetProvider() {
                 .apply()
 
             Toast.makeText(context, context.getString(R.string.quick_overtime_toast_added), Toast.LENGTH_SHORT).show()
+            refreshSummary(context)
             refreshWidget(context, appWidgetId)
+        }
+
+        /**
+         * "Bu Ay" özetini (saat/net mesai/net maaş) TAMAMEN NATIVE olarak
+         * (bkz. MonthlyStatsCalculator) yeniden hesaplayıp "MesaiSummaryWidgetState"
+         * içine yazar. Eskiden bu iş, kullanıcıya görünmeyen bir WebView
+         * penceresi (WidgetSyncActivity) açıp JS'in aynı hesabını çalıştırarak
+         * yapılıyordu — ama bazı cihazlarda/launcher'larda Activity açmanın
+         * kendisi (ne kadar "görünmez" yapılırsa yapılsın) bastırılamayan bir
+         * görev-geçiş flaşına sebep oluyordu. Artık hiçbir Activity/WebView
+         * açılmıyor, hesap doğrudan burada, senkron ve anında tamamlanıyor.
+         */
+        private fun refreshSummary(context: Context) {
+            try {
+                val result = MonthlyStatsCalculator.calculate(context)
+                val hoursText = formatWidgetHours(result.monthlyTotalHours)
+                val amountText = "₺${formatTurkishAmount(result.finalEarnings)}"
+                val overtimeAmountText = "₺${formatTurkishAmount(result.netOvertimePayment)}"
+
+                context.getSharedPreferences("MesaiSummaryWidgetState", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("hoursText", hoursText)
+                    .putString("amountText", amountText)
+                    .putString("overtimeAmountText", overtimeAmountText)
+                    .apply()
+            } catch (e: Exception) {
+                // Hesaplama başarısız olsa bile widget'ın +/-/Ekle işlevi
+                // etkilenmemeli — özet satırı sadece bir önceki değeriyle kalır.
+            }
+        }
+
+        // JS: formatWidgetHours (useWidgetSummarySync.ts) ile birebir aynı —
+        // dakika yoksa sade saat, varsa "SS:DD dk".
+        private fun formatWidgetHours(totalHours: Double): String {
+            val hours = totalHours.toInt().coerceAtLeast(0)
+            val minutes = ((totalHours - hours) * 60).roundToLong().toInt().coerceAtLeast(0)
+            if (minutes == 0) return "$hours"
+            return "$hours:${minutes.toString().padStart(2, '0')} dk"
+        }
+
+        // JS: Math.round(x).toLocaleString('tr-TR') ile birebir aynı —
+        // binlik ayraç nokta ("28.450").
+        private fun formatTurkishAmount(value: Double): String {
+            val rounded = value.roundToLong()
+            return NumberFormat.getIntegerInstance(Locale("tr", "TR")).format(rounded)
         }
 
         private fun openAppPendingIntent(context: Context): PendingIntent {
@@ -207,13 +263,11 @@ class MesaiWidgetProvider : AppWidgetProvider() {
             // koruyor; bu sadece boş alan/zemin için geçerli.
             views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context))
 
-            // Alt satır — "Bu Ay" özeti: burada HİÇBİR hesaplama yapmıyoruz.
-            // JS tarafı (useWidgetSummarySync.ts, tek doğruluk kaynağı) hazır
-            // metni WidgetUpdatePlugin.updateSummary() ile ayrı bir
-            // SharedPreferences dosyasına ("MesaiSummaryWidgetState") yazıyor,
-            // biz sadece onu okuyup gösteriyoruz. Önceden ayrı bir widget'ta
-            // (MesaiSummaryWidgetProvider) gösterilen bu veri, artık kullanıcı
-            // isteğiyle bu widget'ın alt satırına taşındı.
+            // Alt satır — "Bu Ay" özeti: TAMAMEN NATIVE hesaplanıyor (bkz.
+            // MonthlyStatsCalculator + refreshSummary()). Burada sadece daha
+            // önce hesaplanıp "MesaiSummaryWidgetState"e yazılmış hazır metni
+            // okuyoruz — her +/- dokunuşunda yeniden hesaplamamak için
+            // (refreshSummary sadece onUpdate() ve "Ekle" sonrası çağrılır).
             val summaryPrefs = context.getSharedPreferences("MesaiSummaryWidgetState", Context.MODE_PRIVATE)
             val summaryHours = summaryPrefs.getString("hoursText", null) ?: "—"
             val summaryAmount = summaryPrefs.getString("amountText", null) ?: "—"
