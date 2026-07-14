@@ -81,6 +81,9 @@
 
     <!-- Permissions -->
     <!-- For Android 13 (API 33) and higher (Granular media permissions) -->
+    <!-- Widget'taki "Ekle" işleminden sonra kısa bilgilendirme göstermek için
+         (Toast yerine, arka planda daha güvenilir çalışsın diye bildirim kullanılıyor) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />

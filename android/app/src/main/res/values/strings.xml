@@ -15,5 +15,6 @@
     <string name="quick_overtime_cancel">İptal</string>
     <string name="quick_overtime_add">Ekle</string>
     <string name="quick_overtime_toast_added">Mesai eklendi ✓</string>
-    <string name="quick_overtime_toast_zero">Süre girmeden eklenemez</string>
+    <string name="quick_overtime_toast_zero">Bugünün mesaisi silindi ✓</string>
+    <string name="quick_overtime_feedback_channel_name">Mesai widget bildirimleri</string>
 </resources>

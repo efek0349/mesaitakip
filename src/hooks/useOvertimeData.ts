@@ -112,9 +112,24 @@ export const processPendingWidgetEntries = async () => {
       if (!raw || typeof raw.date !== 'string') continue;
       const hours = typeof raw.hours === 'number' ? raw.hours : 0;
       const minutes = typeof raw.minutes === 'number' ? raw.minutes : 0;
-      if (hours === 0 && minutes === 0) continue;
-
       const monthKey = raw.date.slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
+      const currentMonthData = globalData[monthKey] ? [...globalData[monthKey]] : [];
+
+      // Widget'ta saat/dakikayı 0/0'a getirip "Ekle"ye basmak, artık o günün
+      // mesai kaydını SİLMEK için kullanılıyor (kullanıcının "günü sıfırlama"
+      // isteği). `delete` bayrağı native taraftan geliyor; yoksa da hours ve
+      // minutes'ın ikisi de 0 ise aynı şekilde davranıyoruz (geriye dönük
+      // uyumluluk için).
+      const isDeleteRequest = raw.delete === true || (hours === 0 && minutes === 0);
+      if (isDeleteRequest) {
+        const filtered = currentMonthData.filter(entry => !(entry.date === raw.date && entry.type === 'overtime'));
+        if (filtered.length !== currentMonthData.length) {
+          globalData = { ...globalData, [monthKey]: filtered };
+          affectedMonthKeys.add(monthKey);
+        }
+        continue;
+      }
+
       const newEntry: OvertimeEntry = {
         id: `widget-${raw.date}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         date: raw.date,
@@ -126,7 +141,6 @@ export const processPendingWidgetEntries = async () => {
         deductFromOvertime: false,
       };
 
-      const currentMonthData = globalData[monthKey] ? [...globalData[monthKey]] : [];
       const existingIndex = currentMonthData.findIndex(entry => entry.date === newEntry.date && entry.type === newEntry.type);
       if (existingIndex >= 0) currentMonthData[existingIndex] = newEntry;
       else currentMonthData.push(newEntry);

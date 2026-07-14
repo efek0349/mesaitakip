@@ -112,7 +112,10 @@ object MonthlyStatsCalculator {
     // birleştirme mantığı — ama burada SADECE hesaplama için, kalıcı
     // veriye YAZMIYORUZ (kalıcı yazma hâlâ JS'in işi, uygulama bir sonraki
     // açılışında güvenle yapıyor). Tarih+tür eşleşirse mevcut kaydı
-    // değiştirir, yoksa ekler. ──
+    // değiştirir, yoksa ekler. Saat/dakika ikisi de 0 ise (veya "delete"
+    // bayrağı varsa) o tarihteki overtime kaydını LİSTEDEN ÇIKARIR — widget
+    // üzerinden "günü sıfırlama" yapıldığında özet de (uygulama açılmadan)
+    // anında güncellensin diye. ──
     private fun mergePendingWidgetEntries(prefs: android.content.SharedPreferences, monthlyData: MutableMap<String, List<Entry>>) {
         val raw = prefs.getString("quick-widget-pending", null) ?: return
         try {
@@ -123,9 +126,16 @@ object MonthlyStatsCalculator {
                 if (date.isEmpty()) continue
                 val hours = p.optDouble("hours", 0.0)
                 val minutes = p.optDouble("minutes", 0.0)
-                if (hours == 0.0 && minutes == 0.0) continue
-
                 val mKey = date.substring(0, 7)
+                val current = (monthlyData[mKey] ?: emptyList()).toMutableList()
+
+                val isDeleteRequest = p.optBoolean("delete", false) || (hours == 0.0 && minutes == 0.0)
+                if (isDeleteRequest) {
+                    val filtered = current.filter { !(it.date == date && it.type == "overtime") }
+                    monthlyData[mKey] = filtered
+                    continue
+                }
+
                 val newEntry = Entry(
                     date = date,
                     hours = hours,
@@ -137,7 +147,6 @@ object MonthlyStatsCalculator {
                     workedHalfDay = false
                 )
 
-                val current = (monthlyData[mKey] ?: emptyList()).toMutableList()
                 val existingIndex = current.indexOfFirst { it.date == newEntry.date && it.type == newEntry.type }
                 if (existingIndex >= 0) current[existingIndex] = newEntry else current.add(newEntry)
                 monthlyData[mKey] = current
@@ -147,6 +156,7 @@ object MonthlyStatsCalculator {
             // veriyle hesaplamaya devam edilir.
         }
     }
+
 
     fun calculate(context: Context): Result {
         val prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)

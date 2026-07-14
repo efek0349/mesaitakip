@@ -1,13 +1,17 @@
 package com.efek0349.mesaitakip.widget
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import android.widget.RemoteViews
-import android.widget.Toast
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.efek0349.mesaitakip.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -98,6 +102,74 @@ class MesaiWidgetProvider : AppWidgetProvider() {
         private const val DEFAULT_HOURS = 2
         private const val DEFAULT_MINUTES_INDEX = 0 // -> 0 dakika
 
+        private const val FEEDBACK_CHANNEL_ID = "mesai_widget_feedback_v2"
+        private const val FEEDBACK_NOTIFICATION_ID = 991100
+
+        /**
+         * "Ekle" işleminden sonra kısa bilgilendirme göstermek için kullanılıyor.
+         *
+         * Neden Toast DEĞİL: Toast.makeText, widget'ın BroadcastReceiver'ından
+         * (uygulama hiç açılmadan, tamamen arka plandan) tetiklendiğinde birçok
+         * OEM Android sürümünde (MIUI, ColorOS, EMUI vb.) sessizce bastırılıyor
+         * — "arka planda açılır pencere göster" izni kapalıysa toast hiç
+         * görünmüyor, ama widget'ın kendi işlevi (veri ekleme/silme) normal
+         * şekilde çalışmaya devam ediyor. Bildirimler ise standart bir Android
+         * izni (POST_NOTIFICATIONS) üzerinden çalıştığı ve bu OEM'lerin
+         * "arka plan pop-up" kısıtlamasına takılmadığı için çok daha güvenilir.
+         *
+         * setTimeoutAfter(...) ile bildirim birkaç saniye sonra sistem
+         * tarafından otomatik kaldırılıyor — Toast'a benzer "kısa süreli bilgi"
+         * hissi veriyor, kalıcı bir bildirim gibi durmuyor.
+         */
+        private fun showFeedback(context: Context, appWidgetId: Int, message: String) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    if (manager.getNotificationChannel(FEEDBACK_CHANNEL_ID) == null) {
+                        val channel = NotificationChannel(
+                            FEEDBACK_CHANNEL_ID,
+                            context.getString(R.string.quick_overtime_feedback_channel_name),
+                            // IMPORTANCE_HIGH: bildirim paneli indirilmeden,
+                            // ekranın üstünde otomatik açılan bir banner
+                            // ("heads-up") olarak belirmesi için gerekli.
+                            // IMPORTANCE_LOW ile sadece durum çubuğunda
+                            // sessiz bir ikon olarak kalıyordu.
+                            NotificationManager.IMPORTANCE_HIGH
+                        ).apply {
+                            setSound(null, null)
+                            enableVibration(false)
+                            setShowBadge(false)
+                        }
+                        manager.createNotificationChannel(channel)
+                    }
+                }
+
+                if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+
+                val notification = NotificationCompat.Builder(context, FEEDBACK_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_widget_add)
+                    .setContentText(message)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_STATUS)
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setTimeoutAfter(4000)
+                    .build()
+
+                // Aynı widget örneği için sabit bir bildirim ID'si kullanmak,
+                // arka arkaya birkaç ekleme yapılırsa bildirimlerin
+                // yığılmayıp birbirinin yerine geçmesini sağlıyor.
+                NotificationManagerCompat.from(context)
+                    .notify(FEEDBACK_NOTIFICATION_ID + appWidgetId, notification)
+            } catch (e: SecurityException) {
+                // Bildirim izni verilmemiş — sessizce yut, widget'ın asıl
+                // işlevi (veri ekleme/silme) bundan etkilenmiyor.
+            } catch (e: Exception) {
+                // Beklenmeyen bir bildirim hatası widget'ın çalışmasını
+                // engellemesin.
+            }
+        }
+
         private fun stateStore(context: Context): SharedPreferences =
             context.getSharedPreferences("MesaiWidgetState", Context.MODE_PRIVATE)
 
@@ -131,17 +203,19 @@ class MesaiWidgetProvider : AppWidgetProvider() {
         private fun confirmEntry(context: Context, appWidgetId: Int) {
             val hours = getHours(context, appWidgetId)
             val minutes = MINUTE_STEPS[getMinutesIndex(context, appWidgetId)]
-
-            if (hours == 0 && minutes == 0) {
-                Toast.makeText(context, context.getString(R.string.quick_overtime_toast_zero), Toast.LENGTH_SHORT).show()
-                return
-            }
+            val isResetRequest = hours == 0 && minutes == 0
 
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
             val entry = JSONObject().apply {
                 put("date", today)
                 put("hours", hours)
                 put("minutes", minutes)
+                // 0 saat / 0 dakika ile "Ekle"ye basmak artık engellenmiyor —
+                // bunun yerine o günün kaydını silmek isteyen kullanıcı için
+                // bir "sıfırlama" sinyali olarak kullanılıyor. JS tarafı
+                // (processPendingWidgetEntries) bu bayrağı görünce o tarihteki
+                // 'overtime' kaydını eklemek yerine SİLİYOR.
+                put("delete", isResetRequest)
             }
 
             // Uygulamanın kendi verisiyle ("CapacitorStorage") ASLA doğrudan
@@ -158,7 +232,8 @@ class MesaiWidgetProvider : AppWidgetProvider() {
                 .putInt(minutesIndexKey(appWidgetId), DEFAULT_MINUTES_INDEX)
                 .apply()
 
-            Toast.makeText(context, context.getString(R.string.quick_overtime_toast_added), Toast.LENGTH_SHORT).show()
+            val toastRes = if (isResetRequest) R.string.quick_overtime_toast_zero else R.string.quick_overtime_toast_added
+            showFeedback(context, appWidgetId, context.getString(toastRes))
             refreshSummary(context)
             refreshWidget(context, appWidgetId)
         }
