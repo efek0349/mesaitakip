@@ -4,6 +4,9 @@ import { SalarySettings, MonthlySalary } from '../types/overtime';
 import { getMonthKey, getNormalizedShiftStartDate, isSaturdayWorkday, getDateKey } from '../utils/dateUtils';
 import { storage } from '../utils/storageUtils';
 import { WidgetUpdate } from '../utils/widgetUpdate';
+import { syncSalaryReminder } from '../utils/salaryReminder';
+import { syncWorkEndReminder } from '../utils/workEndReminder';
+import { syncNativeBackupScheduler } from '../utils/nativeBackupScheduler';
 
 import { EventEmitter } from '../utils/EventEmitter';
 
@@ -34,6 +37,13 @@ const defaultSettings: SalarySettings = {
   autoBackupEnabled: false,
   autoBackupPeriod: 'weekly',
   lastBackupDate: '',
+  salaryReminderEnabled: false,
+  salaryReminderDay: 1,
+  salaryReminderTime: '09:00',
+  workEndReminderEnabled: false,
+  workEndReminderMinutesBefore: 5,
+  shiftStartTimes: {},
+  shiftIncludesSunday: false,
   dailyMealAllowance: 0,
   dailyTravelAllowance: 0,
   departureTravelAllowance: 0,
@@ -131,6 +141,9 @@ const loadGlobalSettings = async () => {
   }
   isSalaryLoaded = true;
   salaryEmitter.emit();
+  syncSalaryReminder(globalSettings).catch(() => {});
+  syncWorkEndReminder(globalSettings).catch(() => {});
+  syncNativeBackupScheduler(globalSettings).catch(() => {});
 };
 
 const saveGlobalSettings = async () => {
@@ -144,6 +157,10 @@ const saveGlobalSettings = async () => {
     if (Capacitor.getPlatform() === 'android') {
       WidgetUpdate.refresh().catch(() => {});
     }
+
+    syncSalaryReminder(globalSettings).catch(() => {});
+    syncWorkEndReminder(globalSettings).catch(() => {});
+    syncNativeBackupScheduler(globalSettings).catch(() => {});
   } catch (error) {
     console.error('Maaş ayarları kaydetme hatası:', error);
   }
@@ -255,7 +272,8 @@ export const useSalarySettings = () => {
     if (nextSettings.shiftSystemType !== currentSettings.shiftSystemType) {
       if (nextSettings.shiftSystemType === '3-shift') {
         nextSettings.defaultStartTime = '08:05';
-        nextSettings.defaultEndTime = '16:05';
+        nextSettings.defaultEndTime = '16:35';
+        nextSettings.shiftStartTimes = { morning: '08:05', afternoon: '16:05', night: '00:05' };
       } else {
         nextSettings.defaultStartTime = '08:05';
         nextSettings.defaultEndTime = '18:05';

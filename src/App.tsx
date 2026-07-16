@@ -12,7 +12,8 @@ import { useHolidays } from './hooks/useHolidays';
 import { useTheme } from './hooks/useTheme';
 import { useAutoBackup } from './hooks/useAutoBackup';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
-import { TURKISH_MONTHS } from './utils/dateUtils';
+import { TURKISH_MONTHS, getDateKey } from './utils/dateUtils';
+import { syncReminderExclusions } from './utils/reminderExclusions';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
 import { googleDriveService } from './utils/googleDriveService';
 import { Browser } from '@capacitor/browser';
@@ -48,7 +49,7 @@ const App: React.FC = () => {
   const [visualProgress, setVisualProgress] = useState(0);
   const [isFullyReady, setIsFullyReady] = useState(false);
 
-  const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData } = useOvertimeData();
+  const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData, getMonthlyEntries } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
 
   // Visual Progress Logic
@@ -75,7 +76,7 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [dataLoaded, salaryLoaded]);
 
-  const { getHoliday } = useHolidays(currentDate.getFullYear(), true);
+  const { getHoliday, allHolidays } = useHolidays(currentDate.getFullYear(), true);
   const updateInfo = useUpdateCheck();
   // win95Enabled: Win95 görünümünün açık/kapalı olduğu kalıcı tercih.
   // toggleWin95/setWin95: TaskBar'daki "Temayı Değiştir" öğesinden (Win95Shell) çağrılır.
@@ -85,6 +86,50 @@ const App: React.FC = () => {
   React.useEffect(() => {
     googleDriveService.init().catch(console.error);
   }, []);
+
+  // Mesai Bitiş Hatırlatıcısı, hangi günün "çalışma günü" olduğunu haftanın
+  // günü + vardiya döngüsüne göre hesaplıyor ama tatilleri/izin günlerini
+  // bilmiyor (bkz. reminderExclusions.ts). Burada önümüzdeki ~45 gün için
+  // resmi/dini tatilleri VE kullanıcının "izin" olarak işaretlediği günleri
+  // toplayıp native tarafa gönderiyoruz; native de alarmı bu tarihlerde
+  // atlıyor. Sadece ilgili veriler değiştiğinde (tatiller yüklendiğinde,
+  // mesai/izin kaydı eklenip çıkarıldığında) yeniden hesaplanır.
+  React.useEffect(() => {
+    if (!dataLoaded) return;
+
+    const REMINDER_EXCLUSION_WINDOW_DAYS = 45;
+    const today = new Date();
+    const windowEnd = new Date(today);
+    windowEnd.setDate(windowEnd.getDate() + REMINDER_EXCLUSION_WINDOW_DAYS);
+    const todayKey = getDateKey(today);
+    const windowEndKey = getDateKey(windowEnd);
+
+    const holidayDates = allHolidays
+      .filter(h => h.date >= todayKey && h.date <= windowEndKey)
+      .map(h => h.date);
+
+    // Pencere en fazla 2 ay sınırını aşabileceğinden (örn. ayın 20'si + 45
+    // gün ≈ 3. ay), 15 günlük aralıklarla örnekleyip olası tüm ayları
+    // topluyoruz.
+    const monthsToScan = new Set<string>();
+    for (let i = 0; i <= REMINDER_EXCLUSION_WINDOW_DAYS; i += 15) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      monthsToScan.add(`${d.getFullYear()}-${d.getMonth()}`);
+    }
+
+    const leaveDates: string[] = [];
+    monthsToScan.forEach(key => {
+      const [y, m] = key.split('-').map(Number);
+      getMonthlyEntries(y, m).forEach(entry => {
+        if (entry.type === 'leave' && entry.date >= todayKey && entry.date <= windowEndKey) {
+          leaveDates.push(entry.date);
+        }
+      });
+    });
+
+    syncReminderExclusions([...holidayDates, ...leaveDates]);
+  }, [dataLoaded, allHolidays, monthlyData, getMonthlyEntries]);
 
   // Hızlı mesai kısayolu (?action=quick-overtime) ile açıldıysa, modal'ı
   // state'i İLK RENDER'DA (useEffect'i BEKLEMEDEN) doğrudan açık başlat.

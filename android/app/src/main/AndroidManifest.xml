@@ -77,6 +77,30 @@
                 android:resource="@xml/mesai_widget_info" />
         </receiver>
 
+        <!-- Maaş günü hatırlatıcısı: AlarmManager tarafından belirlenen
+             gün/saatte tetiklenir, bildirimi gösterir ve bir sonraki ayın
+             alarmını kendisi yeniden kurar. -->
+        <receiver
+            android:name=".reminders.SalaryReminderReceiver"
+            android:exported="false" />
+
+        <!-- Mesai/vardiya bitiş hatırlatıcısı: her tetiklenişte o günün
+             doğru vardiya bitiş saatini hesaplayıp bir sonraki uygun günü
+             kendisi kurar (bkz. WorkEndReminderScheduler.kt). -->
+        <receiver
+            android:name=".reminders.WorkEndReminderReceiver"
+            android:exported="false" />
+
+        <!-- Cihaz yeniden başladığında (exact alarm'lar reboot'ta
+             sıfırlandığı için) hatırlatıcı hâlâ açıksa alarmı yeniden kurar. -->
+        <receiver
+            android:name=".reminders.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
     <!-- Permissions -->
@@ -84,6 +108,11 @@
     <!-- Widget'taki "Ekle" işleminden sonra kısa bilgilendirme göstermek için
          (Toast yerine, arka planda daha güvenilir çalışsın diye bildirim kullanılıyor) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Maaş günü hatırlatıcısı: belirlenen gün/saatte tam zamanlı alarm
+         kurabilmek için (Android 12+). Cihaz yeniden başladığında alarmı
+         geri kurabilmek için de RECEIVE_BOOT_COMPLETED gerekiyor. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />

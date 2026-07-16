@@ -9,12 +9,20 @@ import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 import com.efek0349.mesaitakip.plugins.SafBackupPlugin;
 import com.efek0349.mesaitakip.plugins.WidgetUpdatePlugin;
+import com.efek0349.mesaitakip.plugins.SalaryReminderPlugin;
+import com.efek0349.mesaitakip.plugins.WorkEndReminderPlugin;
+import com.efek0349.mesaitakip.plugins.ReminderExclusionsPlugin;
+import com.efek0349.mesaitakip.plugins.AutoBackupSchedulerPlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SafBackupPlugin.class);
         registerPlugin(WidgetUpdatePlugin.class);
+        registerPlugin(SalaryReminderPlugin.class);
+        registerPlugin(WorkEndReminderPlugin.class);
+        registerPlugin(ReminderExclusionsPlugin.class);
+        registerPlugin(AutoBackupSchedulerPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Ana ekrandaki "Mesai Ekle" widget'ı, "Ekle" işleminden sonra kısa bir

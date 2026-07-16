@@ -121,12 +121,19 @@ export const isSaturdayWorkday = (settings: any): boolean => {
   return grossHours < 9;
 };
 
+/**
+ * 4857 sayılı İş Kanunu madde 68'e göre ara dinlenme süreleri:
+ * - 4 saatten fazla, 7,5 saate KADAR (7,5 dahil) çalışmalarda 30 dakika,
+ * - 7,5 saatTEN FAZLA çalışmalarda en az 1 saat ara verilir.
+ * Hem normal çalışma düzeni (Günlük Standart) hem fazla mesai
+ * hesaplamalarında AYNI kural uygulanır.
+ */
 export const calculateEffectiveHours = (totalHours: number, deductBreakTime: boolean): number => {
   if (!deductBreakTime) {
     return totalHours;
   }
 
-  if (totalHours >= 8) {
+  if (totalHours > 7.5) {
     return totalHours - 1;
   } else if (totalHours >= 4.1) {
     return Math.max(3.5, totalHours - 0.5);
@@ -585,6 +592,71 @@ export const getNormalizedShiftStartDate = (dateStr: string): Date => {
   return new Date(date.setDate(diff));
 };
 
+/**
+ * "HH:mm" formatındaki bir saate, ondalıklı olabilen saat miktarı ekler
+ * ve yine "HH:mm" döndürür. Gece yarısını geçerse (örn. 22:00 + 9s = 07:00)
+ * otomatik olarak bir sonraki güne sarar — burada sadece SAAT metni
+ * döndüğü için tarih tarafı ayrıca yönetilmiyor, bu normal (vardiya
+ * bitiş saatinin "ertesi gün" olması etiketleme için yeterli bir uyarı).
+ */
+export const addHoursToTime = (startTime: string, hours: number): string => {
+  if (!startTime || !isFinite(hours)) return startTime;
+  const [h, m] = startTime.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return startTime;
+  let totalMinutes = h * 60 + m + Math.round(hours * 60);
+  totalMinutes = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const endH = Math.floor(totalMinutes / 60);
+  const endM = totalMinutes % 60;
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+};
+
+/**
+ * O gün için GEÇERLİ OLAN vardiyanın başlangıç/bitiş saatini döndürür.
+ * - Vardiya sistemi kapalıysa veya o tarih için vardiya bilgisi yoksa
+ *   global defaultStartTime/defaultEndTime kullanılır.
+ * - Vardiya sistemi açıksa: o haftanın hangi vardiya olduğu (getShiftType)
+ *   hesaplanır, o vardiya tipi için özel bir başlangıç saati
+ *   (shiftStartTimes) tanımlıysa o kullanılır (yoksa defaultStartTime'a
+ *   düşer), bitiş saati ise dailyWorkingHours kadar sonrası olarak
+ *   OTOMATİK hesaplanır — ayrıca saklanmaz.
+ *
+ * `shiftForDate` parametresi opsiyoneldir; verilmezse settings üzerindeki
+ * global shiftStartDate/shiftSystemType/shiftInitialType kullanılır
+ * (shiftHistory'deki tarihe özel geçmiş kayıtları dikkate ALMAZ — geçmişe
+ * dönük doğru sonuç için useSalarySettings().getShiftSettingsForDate(date)
+ * çağrılıp buraya verilmeli).
+ */
+export const getEffectiveShiftTimes = (
+  date: Date,
+  settings: SalarySettings,
+  shiftForDate?: { systemType: ShiftSystemType; initialType: ShiftType; normalizedStartDate: Date } | null
+): { start: string; end: string; shiftType: ShiftType | null } => {
+  const fallback = { start: settings.defaultStartTime, end: settings.defaultEndTime, shiftType: null as ShiftType | null };
+  if (!settings.shiftSystemEnabled) return fallback;
+
+  const effectiveShiftInfo = shiftForDate ?? (
+    settings.shiftStartDate
+      ? {
+          systemType: settings.shiftSystemType || '2-shift',
+          initialType: settings.shiftInitialType || 'day',
+          normalizedStartDate: getNormalizedShiftStartDate(settings.shiftStartDate),
+        }
+      : null
+  );
+  if (!effectiveShiftInfo) return fallback;
+
+  const shiftType = getShiftType(date, effectiveShiftInfo.normalizedStartDate, effectiveShiftInfo.initialType, effectiveShiftInfo.systemType);
+  const customStart = settings.shiftStartTimes?.[shiftType];
+  const start = customStart || settings.defaultStartTime;
+  // ÖNEMLİ: Bitiş saati BRÜT süreye (mola dahil, gerçek işten çıkış anı)
+  // göre hesaplanır — dailyWorkingHours (Günlük Standart) DEĞİL, çünkü o
+  // mola düşülmüş NET süre. Kişi molayı da işyerinde geçiriyor, çıkış
+  // saati molayla erkene alınmıyor.
+  const grossHours = calculateDailyGrossHours(settings.defaultStartTime, settings.defaultEndTime) || 9;
+  const end = addHoursToTime(start, grossHours);
+  return { start, end, shiftType };
+};
+
 export const generateExportText = async (monthlyData: MonthlyData, year: number, month: number, settings: SalarySettings, getHoliday?: (date: Date) => Holiday | undefined): Promise<string> => {
   const firstName = settings?.firstName || '';
   const lastName = settings?.lastName || '';
@@ -648,14 +720,13 @@ export const generateExportText = async (monthlyData: MonthlyData, year: number,
     const dayTotalGross = overtimeEntries.reduce((sum, e) => sum + calcTotalHours(e), 0);
     const dayTotalNet = calculateEffectiveHours(dayTotalGross, deductBreakTime);
 
-    // calculateEffectiveHours ile aynı sınırları kullan, aksi halde etiket
-    // gerçekte düşülen süreyle uyuşmaz (örn. 7.6 saatte "1s_MOLA" yazıp
-    // aslında 30 dk düşülmesi gibi).
+    // calculateEffectiveHours ile aynı sınırları kullan (İş Kanunu m.68:
+    // 7,5 saatten fazla → 1 saat, 4-7,5 saat arası → 30 dk).
     const wasDeducted = deductBreakTime && dayTotalGross >= 4.1;
 
     let statusText = '✓';
     if (wasDeducted) {
-        if (dayTotalGross >= 8) {
+        if (dayTotalGross > 7.5) {
             statusText = '1s_MOLA';
         } else {
             statusText = '30dk_MOLA';

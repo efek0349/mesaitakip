@@ -5,6 +5,7 @@ import { useTheme, FontScale } from '../../hooks/useTheme';
 import { APP_VERSION } from '../../constants';
 import { useSettingsLogic, SettingsTab } from '../../hooks/useSettingsLogic';
 import { useModalCenterPosition } from '../../hooks/useModalCenterPosition';
+import { addHoursToTime, calculateDailyGrossHours } from '../../utils/dateUtils';
 
 interface SettingsWin95Props {
   isOpen: boolean;
@@ -47,6 +48,8 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
     handleSave,
     checkUpdates,
     handleInputChange,
+    handleNumericFocus,
+    handleBoundedIntegerBlur,
     severancePreview,
     noticePayPreview,
     annualLeavePreview,
@@ -95,7 +98,7 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
         >
           {/* ─── GENEL ─────────────────────────────────────────────────── */}
           <Tab title="Genel">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 6 }}>
               <Frame boxShadow="in" style={{ padding: 6 }}>
                 <div style={{ fontSize: '0.625rem', fontWeight: 700, marginBottom: 4 }}>PROFİL BİLGİLERİ</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -198,6 +201,38 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
                         </Frame>
                       </div>
                     </div>
+
+                    <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px dashed #868a8e' }}>
+                      <div style={{ fontSize: '0.5625rem', fontWeight: 700, marginBottom: 2 }}>Vardiya Başlangıç Saatleri</div>
+                      <p style={{ fontSize: '0.5rem', opacity: 0.7, marginBottom: 4 }}>
+                        Sadece başlangıç saatini gir — bitiş, "Çalışma Düzeni"ndeki Başlangıç-Bitiş arasındaki toplam süreye (mola dahil) göre otomatik hesaplanır.
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: formData.shiftSystemType === '3-shift' ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6 }}>
+                        {(formData.shiftSystemType === '3-shift'
+                          ? [['morning', 'Sabah'], ['afternoon', 'Öğl. S.'], ['night', 'Gece']]
+                          : [['day', 'Gündüz'], ['night', 'Gece']]
+                        ).map(([type, label]) => {
+                          const startValue = (formData.shiftStartTimes as any)?.[type] || formData.defaultStartTime;
+                          const grossHours = calculateDailyGrossHours(formData.defaultStartTime, formData.defaultEndTime) || 9;
+                          const endValue = addHoursToTime(startValue, grossHours);
+                          return (
+                            <div key={type}>
+                              <div style={{ fontSize: '0.5rem', opacity: 0.7, marginBottom: 2 }}>{label}</div>
+                              <div style={{ position: 'relative' }}>
+                                <Input
+                                  type="time"
+                                  value={startValue}
+                                  onChange={(e) => handleInputChange('shiftStartTimes', { ...formData.shiftStartTimes, [type]: e.target.value } as any)}
+                                  style={{ width: '100%', paddingRight: 18 }}
+                                />
+                                <Clock size={11} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', color: '#5a5a5a', pointerEvents: 'none' }} />
+                              </div>
+                              <div style={{ fontSize: '0.4375rem', opacity: 0.6, textAlign: 'center', marginTop: 1 }}>→ {endValue}'te biter</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </Frame>
@@ -209,7 +244,7 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('deductBreakTime', e.target.checked)}
                   label="Ara Dinlenmesi (mesaiden mola düşümü)"
                 />
-                <p style={{ fontSize: '0.5625rem', marginTop: 6 }}>
+                <p style={{ fontSize: '0.4375rem', marginTop: 6, whiteSpace: 'nowrap' }}>
                   4857 sayılı İş Kanunu'na göre ara dinlenmeleri fazla mesai süresinden düşülür.
                 </p>
               </Frame>
@@ -711,6 +746,89 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
                 <p style={{ fontSize: '0.5rem', marginTop: 6, opacity: 0.7 }}>
                   Win95 görünümünü kapatmak için Başlat menüsündeki "Görünüm" seçeneğini kullanın.
                 </p>
+              </Frame>
+
+              <Frame boxShadow="in" style={{ padding: 6 }}>
+                <div style={{ fontSize: '0.625rem', fontWeight: 700, marginBottom: 4 }}>HATIRLATICILAR</div>
+                <Checkbox
+                  checked={!!formData.salaryReminderEnabled}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('salaryReminderEnabled', e.target.checked as any)}
+                  label="Maaş Günü Hatırlatıcısı"
+                />
+                {formData.salaryReminderEnabled && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+                    <div>
+                      <div style={{ fontSize: '0.5rem', marginBottom: 2, opacity: 0.7 }}>Ayın Günü</div>
+                      <div style={{ position: 'relative' }}>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.salaryReminderDay ?? 1}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('salaryReminderDay', e.target.value as any)}
+                          onFocus={handleNumericFocus}
+                          onBlur={handleBoundedIntegerBlur('salaryReminderDay', 1, 31, 1)}
+                          style={{ width: '100%', paddingRight: 18 }}
+                        />
+                        <Calendar size={11} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', color: '#5a5a5a', pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.5rem', marginBottom: 2, opacity: 0.7 }}>Saat</div>
+                      <div style={{ position: 'relative' }}>
+                        <Input
+                          type="time"
+                          value={formData.salaryReminderTime ?? '09:00'}
+                          onChange={(e) => handleInputChange('salaryReminderTime', e.target.value)}
+                          style={{ width: '100%', paddingRight: 18 }}
+                        />
+                        <Clock size={11} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', color: '#5a5a5a', pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.5rem', marginTop: 2, opacity: 0.7, gridColumn: '1 / -1' }}>
+                      31 gibi kısa aylarda olmayan bir gün seçilirse, o ayın son gününde hatırlatılır.
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px dashed #868a8e' }}>
+                  <Checkbox
+                    checked={!!formData.workEndReminderEnabled}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('workEndReminderEnabled', e.target.checked as any)}
+                    label="Mesai Bitiş Hatırlatıcısı"
+                  />
+                  {formData.workEndReminderEnabled && (
+                    <div style={{ marginTop: 6 }}>
+                      <p style={{ fontSize: '0.4375rem', opacity: 0.6, marginBottom: 6 }}>
+                        Vardiya bitiş saati otomatik hesaplanır. Tatiller ve "izin" günleri her zaman otomatik atlanır.
+                      </p>
+                      <div style={{ fontSize: '0.5rem', marginBottom: 2, opacity: 0.7 }}>Kaç Dakika Önce</div>
+                      <div style={{ position: 'relative' }}>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.workEndReminderMinutesBefore ?? 5}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('workEndReminderMinutesBefore', e.target.value as any)}
+                          onFocus={handleNumericFocus}
+                          onBlur={handleBoundedIntegerBlur('workEndReminderMinutesBefore', 1, 60, 5)}
+                          style={{ width: '100%', paddingRight: 18 }}
+                        />
+                        <Clock size={11} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', color: '#5a5a5a', pointerEvents: 'none' }} />
+                      </div>
+                      {formData.shiftSystemEnabled && (
+                        <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px dashed #868a8e' }}>
+                          <Checkbox
+                            checked={!!formData.shiftIncludesSunday}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('shiftIncludesSunday', e.target.checked as any)}
+                            label="Sürekli vardiya — Pazar da çalışılıyor"
+                          />
+                          <p style={{ fontSize: '0.375rem', opacity: 0.6, marginTop: 2, marginLeft: 18 }}>
+                            Sadece Pazar için geçerli. İşaretlemezsen Pazar hiç çalışma günü sayılmaz.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </Frame>
 
               <Frame boxShadow="in" style={{ padding: 6 }}>
