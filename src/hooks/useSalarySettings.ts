@@ -272,7 +272,8 @@ export const useSalarySettings = () => {
     if (nextSettings.shiftSystemType !== currentSettings.shiftSystemType) {
       if (nextSettings.shiftSystemType === '3-shift') {
         nextSettings.defaultStartTime = '08:05';
-        nextSettings.defaultEndTime = '16:05';
+        nextSettings.defaultEndTime = '16:35';
+        nextSettings.shiftStartTimes = { morning: '08:05', afternoon: '16:05', night: '00:05' };
       } else {
         nextSettings.defaultStartTime = '08:05';
         nextSettings.defaultEndTime = '18:05';

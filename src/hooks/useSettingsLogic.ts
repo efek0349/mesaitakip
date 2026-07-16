@@ -176,7 +176,8 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
         const next = { ...prev, shiftSystemType: newType };
         if (newType === '3-shift') {
           next.defaultStartTime = '08:05';
-          next.defaultEndTime = '16:05';
+          next.defaultEndTime = '16:35';
+          next.shiftStartTimes = { morning: '08:05', afternoon: '16:05', night: '00:05' };
         } else {
           next.defaultStartTime = '08:05';
           next.defaultEndTime = '18:05';
