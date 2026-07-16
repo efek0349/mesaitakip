@@ -17,4 +17,10 @@
     <string name="quick_overtime_toast_added">Mesai eklendi ✓</string>
     <string name="quick_overtime_toast_zero">Bugünün mesaisi silindi ✓</string>
     <string name="quick_overtime_feedback_channel_name">Mesai widget bildirimleri</string>
+    <string name="salary_reminder_channel_name">Maaş günü hatırlatıcısı</string>
+    <string name="salary_reminder_title">Maaş Günü 💰</string>
+    <string name="salary_reminder_text">Bugün maaş günün — hesabını kontrol etmeyi unutma.</string>
+    <string name="work_end_reminder_channel_name">Mesai bitiş hatırlatıcısı</string>
+    <string name="work_end_reminder_title">Mesai Bitiyor ⏰</string>
+    <string name="work_end_reminder_text">Bugünkü vardiyan az sonra sona eriyor.</string>
 </resources>

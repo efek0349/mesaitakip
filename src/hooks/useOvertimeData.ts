@@ -96,16 +96,32 @@ const validateAndCleanData = (data: any): MonthlyData => {
 // entegre ediyor, sonra kuyruğu temizliyor. Böylece native yazma ile JS'in
 // kendi state'i arasında hiçbir çakışma/veri kaybı riski kalmıyor.
 export const processPendingWidgetEntries = async () => {
+  let pending: any;
+
+  // 1. AŞAMA: Kuyruğu oku ve ayrıştır. Bu aşamada hata olursa (JSON gerçekten
+  // bozuksa) kurtarma imkanı yoktur, güvenle silinir — aksi halde her açılışta
+  // aynı hatayla sonsuz döngüye girer.
   try {
     const pendingRaw = await storage.get('quick-widget-pending');
     if (!pendingRaw) return;
+    pending = JSON.parse(pendingRaw);
+  } catch (parseError) {
+    console.error('Widget bekleme kuyruğu okunamadı/bozuk, temizleniyor:', parseError);
+    await storage.remove('quick-widget-pending').catch(() => {});
+    return;
+  }
 
-    const pending = JSON.parse(pendingRaw);
-    if (!Array.isArray(pending) || pending.length === 0) {
-      await storage.remove('quick-widget-pending');
-      return;
-    }
+  if (!Array.isArray(pending) || pending.length === 0) {
+    await storage.remove('quick-widget-pending').catch(() => {});
+    return;
+  }
 
+  // 2. AŞAMA: Veriyi birleştirip kaydet. Burada bir hata olursa (örn. disk
+  // dolu, storage plugin hatası) kuyruğu SİLMİYORUZ — veri kaybı olmasın
+  // diye bir sonraki uygulama açılışında tekrar denenecek. Tarih+tür bazlı
+  // birleştirme mantığı idempotent olduğu için (aynı kayıt tekrar işlense
+  // bile aynı sonucu verir), tekrar deneme güvenlidir.
+  try {
     const affectedMonthKeys = new Set<string>();
 
     for (const raw of pending) {
@@ -155,9 +171,8 @@ export const processPendingWidgetEntries = async () => {
     }
     await storage.remove('quick-widget-pending');
   } catch (error) {
-    console.error('Widget bekleme kuyruğu işlenemedi:', error);
-    // Bozuk veri sonsuz döngüye/tekrar denemeye yol açmasın diye temizle.
-    await storage.remove('quick-widget-pending').catch(() => {});
+    console.error('Widget bekleme kuyruğu işlenirken hata oluştu, bir sonraki açılışta tekrar denenecek:', error);
+    // Kuyruğu BİLEREK silmiyoruz — veri kaybını önlemek için.
   }
 };
 

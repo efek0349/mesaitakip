@@ -297,6 +297,25 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
     }));
   }, []);
 
+  /**
+   * Ayın Günü (1-31), Kaç Dakika Önce (1-60) gibi sınırlı tam sayı alanları
+   * için: YAZARKEN (onChange'de) sınırlama/dönüştürme YAPILMAZ — sadece ham
+   * string state'e yazılır, böylece "7" veya "07" gibi tek haneli/başında
+   * sıfır olan değerler serbestçe yazılabilir. Sınırlama SADECE odaktan
+   * çıkınca (onBlur) uygulanır. Her tuş vuruşunda Math.min/max ile anlık
+   * clamp yapmak, controlled input'un değerini/imleç konumunu her seferinde
+   * sıfırlıyordu — bu da örn. "7" yazmaya çalışırken alanın "1"e sabitlenip
+   * bir sonraki basılan rakamın başa eklenerek "71"e (sonra 31'e clamp)
+   * dönüşmesine yol açıyordu.
+   */
+  const handleBoundedIntegerBlur = useCallback(<K extends keyof SalarySettingsType>(field: K, min: number, max: number, fallback: number) => (e: React.FocusEvent<HTMLInputElement>) => {
+    const raw = e.target.value.trim();
+    let n = parseInt(raw, 10);
+    if (isNaN(n)) n = fallback;
+    n = Math.min(max, Math.max(min, n));
+    setFormData(prev => ({ ...prev, [field]: n as any }));
+  }, []);
+
   return {
     isWeb,
     activeTab, setActiveTab,
@@ -307,6 +326,7 @@ export function useSettingsLogic(isOpen: boolean, onClose: () => void, currentDa
     handleInputChange,
     handleNumericFocus,
     handleNumericBlur,
+    handleBoundedIntegerBlur,
     severancePreview,
     noticePayPreview,
     annualLeavePreview,

@@ -1,11 +1,12 @@
 import React from 'react';
-import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase, ArrowUpRight, ArrowDownLeft, Scale, FileText, Palmtree } from 'lucide-react';
+import { X, Settings as SettingsIcon, Percent, RefreshCw, Info, Calendar, Clock, ShieldCheck, CreditCard, Briefcase, ArrowUpRight, ArrowDownLeft, Scale, FileText, Palmtree, Bell } from 'lucide-react';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { FontSizeSwitcher } from './FontSizeSwitcher';
 import { APP_VERSION } from '../constants';
 import { TabButton } from './TabButton';
 import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
 import { useSettingsLogic } from '../hooks/useSettingsLogic';
+import { addHoursToTime, calculateDailyGrossHours } from '../utils/dateUtils';
 
 interface SettingsTailwindProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
     handleInputChange,
     handleNumericFocus,
     handleNumericBlur,
+    handleBoundedIntegerBlur,
     severancePreview,
     noticePayPreview,
     annualLeavePreview,
@@ -123,7 +125,7 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                   </button>
 
                   {formData.shiftSystemEnabled && (
-                    <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-3">
                       <div>
                         <label className="block text-[0.5625rem] font-black text-gray-400 uppercase mb-2 ml-1">Sistem Tipi</label>
                         <div className="grid grid-cols-2 gap-2">
@@ -183,6 +185,38 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                               </>
                             )}
                           </select>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                        <label className="block text-[0.5625rem] font-black text-gray-400 uppercase mb-2 ml-1">Vardiya Başlangıç Saatleri</label>
+                        <p className="text-[0.5625rem] text-gray-400 leading-tight mb-2 px-1">
+                          Sadece başlangıç saatini gir — bitiş, "Çalışma Düzeni"ndeki Başlangıç-Bitiş arasındaki toplam süreye (mola dahil) göre otomatik hesaplanır.
+                        </p>
+                        <div className={`grid gap-2 ${formData.shiftSystemType === '3-shift' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          {(formData.shiftSystemType === '3-shift'
+                            ? [['morning', 'Sabah'], ['afternoon', 'Öğleden S.'], ['night', 'Gece']]
+                            : [['day', 'Gündüz'], ['night', 'Gece']]
+                          ).map(([type, label]) => {
+                            const startValue = formData.shiftStartTimes?.[type as keyof typeof formData.shiftStartTimes] || formData.defaultStartTime;
+                            const grossHours = calculateDailyGrossHours(formData.defaultStartTime, formData.defaultEndTime) || 9;
+                            const endValue = addHoursToTime(startValue, grossHours);
+                            return (
+                              <div key={type} className="space-y-1">
+                                <label className="block text-[0.5rem] font-bold text-gray-400 ml-1">{label}</label>
+                                <div className="relative">
+                                  <input
+                                    type="time"
+                                    value={startValue}
+                                    onChange={(e) => handleInputChange('shiftStartTimes', { ...formData.shiftStartTimes, [type]: e.target.value } as any)}
+                                    className="w-full p-2 pr-7 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 outline-none"
+                                  />
+                                  <Clock size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                </div>
+                                <span className="block text-[0.5rem] text-gray-400 text-center">→ {endValue}'te biter</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -792,6 +826,131 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                 <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-4 shadow-sm">
                   <ThemeSwitcher />
                   <FontSizeSwitcher />
+                </div>
+              </section>
+
+              <section className="space-y-1.5 pt-1">
+                <h3 className="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest pl-1">Hatırlatıcılar</h3>
+                <div className="bg-gray-50/50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-3 shadow-sm">
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => handleInputChange('salaryReminderEnabled', !formData.salaryReminderEnabled)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg transition-colors ${formData.salaryReminderEnabled ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                        <Bell size={16} />
+                      </div>
+                      <div>
+                        <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">Maaş Günü Hatırlatıcısı</span>
+                        <span className="block text-[0.625rem] text-gray-500 dark:text-gray-400 mt-1 leading-none">Seçilen gün ve saatte bildirim gönderir</span>
+                      </div>
+                    </div>
+                    <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.salaryReminderEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.salaryReminderEnabled ? 'left-6' : 'left-1'}`} />
+                    </div>
+                  </div>
+
+                  {formData.salaryReminderEnabled && (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[0.625rem] font-bold text-gray-500 dark:text-gray-400 mb-1 pl-1">Ayın Günü</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={formData.salaryReminderDay ?? 1}
+                            onChange={(e) => handleInputChange('salaryReminderDay', e.target.value as any)}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleBoundedIntegerBlur('salaryReminderDay', 1, 31, 1)}
+                            className="w-full p-2.5 pr-7 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none"
+                          />
+                          <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[0.625rem] font-bold text-gray-500 dark:text-gray-400 mb-1 pl-1">Saat</label>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={formData.salaryReminderTime ?? '09:00'}
+                            onChange={(e) => handleInputChange('salaryReminderTime', e.target.value)}
+                            className="w-full p-2.5 pr-7 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none"
+                          />
+                          <Clock size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <p className="col-span-2 text-[0.625rem] text-gray-400 leading-tight pl-1">
+                        31 gibi kısa aylarda olmayan bir gün seçilirse, o ayın son gününde hatırlatılır.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <div
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => handleInputChange('workEndReminderEnabled', !formData.workEndReminderEnabled)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg transition-colors ${formData.workEndReminderEnabled ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">Mesai Bitiş Hatırlatıcısı</span>
+                          <span className="block text-[0.625rem] text-gray-500 dark:text-gray-400 mt-1 leading-none">O günkü vardiyanın bitişine az kala bildirim gönderir</span>
+                        </div>
+                      </div>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.workEndReminderEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.workEndReminderEnabled ? 'left-6' : 'left-1'}`} />
+                      </div>
+                    </div>
+
+                    {formData.workEndReminderEnabled && (
+                      <div className="pt-3 space-y-3">
+                        {/* Bu açıklama HER ZAMAN geçerli — aşağıdaki Pazar
+                            kutucuğunun işaretli olup olmamasından tamamen
+                            bağımsız. Karışıklığı önlemek için kutucuktan
+                            ayrı, üstte tutuluyor. */}
+                        <p className="text-[0.625rem] text-gray-400 leading-tight">
+                          Vardiya bitiş saati, Genel sekmesindeki vardiya başlangıç saatlerine ve Maaş sekmesindeki günlük çalışma saatine göre otomatik hesaplanır. Resmi/dini tatiller ve "izin" olarak işaretlediğin günler her zaman otomatik atlanır.
+                        </p>
+
+                        <div>
+                          <label className="block text-[0.625rem] font-bold text-gray-500 dark:text-gray-400 mb-1 pl-1">Kaç Dakika Önce</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={formData.workEndReminderMinutesBefore ?? 5}
+                              onChange={(e) => handleInputChange('workEndReminderMinutesBefore', e.target.value as any)}
+                              onFocus={handleNumericFocus}
+                              onBlur={handleBoundedIntegerBlur('workEndReminderMinutesBefore', 1, 60, 5)}
+                              className="w-full p-2.5 pr-7 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-800 dark:text-white outline-none"
+                            />
+                            <Clock size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        {formData.shiftSystemEnabled && (
+                          <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
+                            <label className="flex items-center gap-2.5 cursor-pointer pt-2">
+                              <input
+                                type="checkbox"
+                                checked={!!formData.shiftIncludesSunday}
+                                onChange={(e) => handleInputChange('shiftIncludesSunday', e.target.checked as any)}
+                                className="w-4 h-4 rounded accent-orange-500"
+                              />
+                              <span className="text-[0.625rem] text-gray-600 dark:text-gray-300 leading-tight">
+                                Sürekli/kesintisiz vardiya sistemi — Pazar günleri de çalışılıyor
+                              </span>
+                            </label>
+                            <p className="text-[0.5625rem] text-gray-400 leading-tight pl-[1.625rem] mt-1">
+                              Sadece Pazar günü için geçerlidir. İşaretlemezsen Pazar hiç çalışma günü sayılmaz ve o gün hatırlatma gelmez.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
 

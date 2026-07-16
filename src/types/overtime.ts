@@ -64,6 +64,20 @@ export interface ShiftSettings {
     systemType: ShiftSystemType;
     initialType: ShiftType;
   }[];
+  /**
+   * Vardiya sistemi aktifken, her vardiya tipi için AYRI başlangıç saati.
+   * Bitiş saati burada tutulmuyor — dailyWorkingHours'a göre otomatik
+   * hesaplanıyor (bkz. addHoursToTime / getEffectiveShiftTimes). Bir tip
+   * için özel saat girilmemişse defaultStartTime'a düşer.
+   */
+  shiftStartTimes?: Partial<Record<ShiftType, string>>;
+  /**
+   * Sürekli/kesintisiz vardiya sistemlerinde (7/24 üretim) Pazar günü de
+   * çalışılabilir. Varsayılan false — önceki davranış korunur (Pazar hiç
+   * çalışılmaz). Şu an sadece Mesai Bitiş Hatırlatıcısı'nın "bugün çalışma
+   * günü mü" hesabında kullanılıyor; takvim/aylık hesaplamalar etkilenmez.
+   */
+  shiftIncludesSunday?: boolean;
 }
 
 export interface SeveranceSettings {
@@ -84,6 +98,25 @@ export interface BackupSettings {
 }
 
 /**
+ * Maaş günü hatırlatıcısı. Vardiya/mesai bitiş hatırlatıcısı (mesai
+ * saatlerinin vardiyaya göre otomatik değişmesini gerektiriyor) henüz
+ * eklenmedi — bu sadece ayın belirli bir gününde, belirli bir saatte
+ * tetiklenen basit, tek amaçlı bir hatırlatıcı.
+ */
+export interface ReminderSettings {
+  salaryReminderEnabled?: boolean;
+  salaryReminderDay?: number;   // 1-31 (ayın günü; kısa aylarda o ayın son gününe düşer)
+  salaryReminderTime?: string;  // "HH:mm"
+  /**
+   * O günkü vardiyanın bitişine (getEffectiveShiftTimes ile hesaplanan
+   * bitiş saatine) belirli bir süre kala bildirim gönderir. Vardiya
+   * sistemi kapalıysa defaultStartTime/defaultEndTime baz alınır.
+   */
+  workEndReminderEnabled?: boolean;
+  workEndReminderMinutesBefore?: number; // örn. 5
+}
+
+/**
  * Brüt/Net maaş hesaplayıcısında kullanılan, kullanıcı tarafından
  * değiştirilebilen gelir vergisi dilimleri ve asgari ücret. Varsayılan
  * değerler 2026 yılı tarifesidir (src/utils/incomeTaxUtils.ts içindeki
@@ -101,7 +134,7 @@ export interface TaxSettings {
 
 // Ana Ayarlar Interface'i
 export interface SalarySettings extends 
-  PersonalInfo, PaySettings, ShiftSettings, SeveranceSettings, BackupSettings, TaxSettings {
+  PersonalInfo, PaySettings, ShiftSettings, SeveranceSettings, BackupSettings, TaxSettings, ReminderSettings {
   salaryHistory?: { [monthKey: string]: MonthlySalary };
   allowanceHistory?: { [date: string]: { meal: number; travel: number; departure?: number; return?: number } };
 }
