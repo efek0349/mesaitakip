@@ -40,6 +40,7 @@ const defaultSettings: SalarySettings = {
   salaryReminderEnabled: false,
   salaryReminderDay: 1,
   salaryReminderTime: '09:00',
+  salaryReminderSkipWeekend: true,
   workEndReminderEnabled: false,
   workEndReminderMinutesBefore: 5,
   shiftStartTimes: {},

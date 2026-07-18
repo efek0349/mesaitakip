@@ -86,6 +86,9 @@ const CalendarWin95Day = React.memo(({
         style={{
           aspectRatio: '1',
           minHeight: 44,
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: 2,
           border: '1px solid #d2d2d2',
           backgroundColor: '#f3f3f3',
           display: 'flex',
@@ -122,6 +125,7 @@ const CalendarWin95Day = React.memo(({
         padding: 2,
         cursor: 'pointer',
         width: '100%',
+        boxSizing: 'border-box',
         // Mini kart görünümü: ince gri kenarlık + beyaz/açık zemin
         // (Tailwind versiyonundaki "border border-gray-200 rounded-lg"
         // hissinin Win95 karşılığı). Bugün ise mavi kalın çerçeveyle
@@ -280,8 +284,13 @@ export const CalendarWin95: React.FC<CalendarWin95Props> = React.memo(({ current
         </Button>
       </div>
 
-      {/* Gün başlıkları — gri header şeridi, Win95 tablo başlığı hissi */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+      {/* Gün başlıkları — gri header şeridi, Win95 tablo başlığı hissi.
+          ÖNEMLİ: `minmax(0, 1fr)` — düz `1fr` kullanılırsa CSS Grid her
+          sütuna gizli bir "asgari genişlik" (içeriğin min-content boyutu)
+          uyguluyor; sütun (örn. landscape'te %50'lik dar bir alanda)
+          bunun altına küçülemediği için tüm grid taşıp sağdaki "Paz"
+          sütununun kesilmesine sebep oluyordu. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 2, marginBottom: 4 }}>
         {TURKISH_DAYS.map((day, index) => {
           const isWeekend = index === 5 || index === 6;
           return (
@@ -304,8 +313,10 @@ export const CalendarWin95: React.FC<CalendarWin95Props> = React.memo(({ current
       </div>
 
       {/* Takvim grid — her gün kendi mini çerçevesi içinde (Tailwind'deki
-          kart hissine yakın, ama Win95'in ince gri kenarlığıyla) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+          kart hissine yakın, ama Win95'in ince gri kenarlığıyla).
+          Aynı `minmax(0, 1fr)` düzeltmesi burada da gerekli (yukarıdaki
+          not). */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
         {filteredCalendarDays.map(({
           date,
           overtimeEntries,

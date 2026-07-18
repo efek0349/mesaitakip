@@ -359,14 +359,14 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
 
       {showLeaveHolidayDetails && (
         <div className="px-1 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="p-4 bg-white dark:bg-gray-900/50 rounded-2xl border border-amber-100 dark:border-amber-800/50 space-y-3 shadow-sm">
+          <div className="p-3 bg-white dark:bg-gray-900/50 rounded-2xl border border-amber-100 dark:border-amber-800/50 space-y-2 shadow-sm">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-3 bg-amber-500 rounded-full" />
               <span className="text-[0.625rem] font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest">Yıllık İzin</span>
             </div>
 
             {annualLeaveInfo ? (
-              <div className="flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl px-3 py-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[0.5625rem] font-bold text-gray-500 uppercase">Hak Edilen</span>
                   <span className="text-xs font-black text-gray-800 dark:text-white">{annualLeaveInfo.entitledDays} gün</span>
@@ -380,15 +380,15 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-3 text-center">
+              <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-2 text-center">
                 <p className="text-[0.625rem] text-gray-400 font-medium">
                   Yıllık izin bilgisi için Ayarlar &gt; Kıdem sekmesinden işe giriş tarihini girin.
                 </p>
               </div>
             )}
 
-            <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 space-y-1.5">
-              <p className="text-[0.5625rem] font-black text-gray-500 uppercase px-1 mb-1.5">Yaklaşan Tatiller</p>
+            <div className="pt-1.5 border-t border-dashed border-gray-200 dark:border-gray-700 space-y-1">
+              <p className="text-[0.5625rem] font-black text-gray-500 uppercase px-1 mb-1">Yaklaşan Tatiller</p>
               {upcomingHolidays.length > 0 ? (
                 upcomingHolidays.map(h => (
                   <div key={h.date} className="flex items-start justify-between gap-2 px-1">
@@ -413,7 +413,7 @@ export const MonthlyStatsTailwind: React.FC<MonthlyStatsTailwindProps> = ({ curr
                   </div>
                 ))
               ) : (
-                <p className="text-[0.625rem] text-gray-400 text-center py-2">Yaklaşan tatil bulunmuyor.</p>
+                <p className="text-[0.625rem] text-gray-400 text-center py-1.5">Yaklaşan tatil bulunmuyor.</p>
               )}
             </div>
           </div>

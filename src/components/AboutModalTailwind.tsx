@@ -1,5 +1,5 @@
 import React, { useState, useCallback, lazy, Suspense } from 'react';
-import { X, Info, Code, Check, Gamepad2, Sparkles, Hash, Type } from 'lucide-react';
+import { X, Info, Github, FolderGit2, Check, Gamepad2, Sparkles, Hash, Type } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { APP_VERSION } from '../constants';
 import { TabButton } from './TabButton';
@@ -126,14 +126,14 @@ export const AboutModalTailwind: React.FC<AboutModalProps> = ({ isOpen, onClose 
                         className="p-1.5 bg-white/15 hover:bg-white/25 rounded-lg transition-all active:scale-90 border border-white/10"
                         title="GitHub Profil"
                       >
-                        <Code size={13} />
+                        <Github size={13} />
                       </button>
                       <button 
                         onClick={() => openLink('https://github.com/efek0349/mesaitakip')}
                         className="p-1.5 bg-white/15 hover:bg-white/25 rounded-lg transition-all active:scale-90 border border-white/10"
                         title="Kaynak Kodu"
                       >
-                        <Code size={13} />
+                        <FolderGit2 size={13} />
                       </button>
                     </div>
                   </div>

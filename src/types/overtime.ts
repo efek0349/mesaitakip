@@ -108,6 +108,13 @@ export interface ReminderSettings {
   salaryReminderDay?: number;   // 1-31 (ayın günü; kısa aylarda o ayın son gününe düşer)
   salaryReminderTime?: string;  // "HH:mm"
   /**
+   * true (varsayılan): hesaplanan gün Cumartesi'ye denk gelirse bir önceki
+   * güne (Cuma), Pazar'a denk gelirse bir sonraki güne (Pazartesi) kaydırılır
+   * — "en yakın iş günü" kuralı. Maaşlar genelde hafta sonu yatmadığı için
+   * varsayılan olarak açık.
+   */
+  salaryReminderSkipWeekend?: boolean;
+  /**
    * O günkü vardiyanın bitişine (getEffectiveShiftTimes ile hesaplanan
    * bitiş saatine) belirli bir süre kala bildirim gönderir. Vardiya
    * sistemi kapalıysa defaultStartTime/defaultEndTime baz alınır.

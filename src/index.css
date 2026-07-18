@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ÖNEMLİ: html/body kendi scrollbar'ını açmasın diye kilitliyoruz.
+   Uygulama zaten kendi içinde (App.tsx -> h-screen-dynamic + flex +
+   overflow-y-auto olan "Scrollable Content" div'i) kayan bir alan
+   tanımlıyor. html/body bunun yerine devreye girip SAYFA seviyesinde
+   scroll yaparsa, "sticky" pozisyonlu öğeler (örn. masaüstünde sabit
+   duran Takvim) artık doğru referans noktasını kaybediyor ve sayfayla
+   birlikte kayıyormuş gibi görünüyor. Tarayıcı yakınlaştırması
+   (Ctrl+tekerlek zoom) sırasında 100dvh hesaplamasında oluşan alt-piksel
+   yuvarlama farkları, html/body'nin gereksiz yere kendi scrollbar'ını
+   açmasına sebep olabiliyor — bunu kökten engelliyoruz. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 .h-screen-dynamic {
   height: 100dvh;
 }

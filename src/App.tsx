@@ -12,6 +12,7 @@ import { useHolidays } from './hooks/useHolidays';
 import { useTheme } from './hooks/useTheme';
 import { useAutoBackup } from './hooks/useAutoBackup';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
+import { useAutoFitScale } from './hooks/useAutoFitScale';
 import { TURKISH_MONTHS, getDateKey } from './utils/dateUtils';
 import { syncReminderExclusions } from './utils/reminderExclusions';
 import { downloadTextFile, shareText, generateCsvContent, generateShareableSummaryText } from './utils/fileUtils';
@@ -48,6 +49,25 @@ const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [visualProgress, setVisualProgress] = useState(0);
   const [isFullyReady, setIsFullyReady] = useState(false);
+
+  // Takvimi kapladığı GERÇEK alana otomatik sığdırmak için (scrollbar
+  // açmak yerine gerekirse görsel olarak küçültür) — `calendarFitBounds`
+  // Takvim+Ay Özetleri'ni birlikte tutan ortak flex kapsayıcıya bağlanıyor,
+  // ölçüm o kapsayıcının GERÇEK piksel yüksekliği üzerinden yapılıyor
+  // (CSS vh/% yerine — TitleBar/Header/TaskBar kromunu doğru dışlamak
+  // ve flex zincirindeki "definite height" belirsizliklerinden etkilenmemek
+  // için). Callback-ref (state) kullanılıyor ki Win95 ⇄ normal görünüm
+  // geçişinde (DOM tamamen yeniden mount olduğunda) da doğru elemente
+  // yeniden bağlanabilsin. Aşağıda hem Win95 hem Tailwind görünümünde
+  // aynı hook örneği kullanılıyor (aynı anda sadece biri render edildiği
+  // için sorun yok).
+  const [calendarFitBounds, setCalendarFitBounds] = useState<HTMLDivElement | null>(null);
+  const {
+    outerRef: calendarFitOuterRef,
+    innerRef: calendarFitInnerRef,
+    scale: calendarFitScale,
+    outerHeight: calendarFitOuterHeight,
+  } = useAutoFitScale({ bounds: calendarFitBounds, heightRatio: 0.56 });
 
   const { isLoaded: dataLoaded, monthlyData, getMonthlyTotal, clearMonthData, hasMonthData, getMonthlyEntries } = useOvertimeData();
   const { isLoaded: salaryLoaded, settings, updateSettings, getOvertimeRate, getSalaryForDate } = useSalarySettings();
@@ -435,27 +455,52 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Scrollable İçerik — explicit arka plan rengi (#c3c7cb, Win95'in
+            {/* İçerik alanı — explicit arka plan rengi (#c3c7cb, Win95'in
                 klasik pencere gövdesi grisi) ki Calendar/MonthlyStats kendi
                 arka planlarını taşımadan bu zemin üzerinde doğru görünsün.
                 flexBasis: 0 ÖNEMLİ — flex-grow'un doğru hesaplanması için
-                (içerik boyutuna göre değil, kalan alana göre büyüsün). */}
+                (içerik boyutuna göre değil, kalan alana göre büyüsün).
+                ÖNEMLİ: Bu div artık KENDİSİ scroll OLMUYOR (eskiden
+                overflowY: 'auto' idi) — Takvim böylece kayan alanın
+                DIŞINDA kalıyor, "sticky" pozisyonlamaya bağımlı olmadan
+                gerçek anlamda sabit duruyor. Kayan TEK alan aşağıdaki
+                Ay Özetleri sütunu. */}
             <div
+              ref={setCalendarFitBounds}
               style={{
                 flex: '1 1 0',
                 minHeight: 0,
-                overflowY: 'auto',
                 padding: 8,
                 backgroundColor: '#c3c7cb',
               }}
+              className="flex flex-col landscape:flex-row gap-3 overflow-hidden"
             >
-              <div className="landscape:grid landscape:grid-cols-2 landscape:gap-3 landscape:items-start">
-                <Calendar
-                  currentDate={currentDate}
-                  onDateChange={handleDateChange}
-                  onDateClick={handleDateClick}
-                  win95Enabled={true}
-                />
+              {/* Takvim: SABİT — kaymaz, scrollbar açmaz. Kapladığı GERÇEK
+                  alana (yukarıdaki `calendarFitBounds` ile JS ile
+                  ölçülüyor: portrait'te bu alanın %56'sı, landscape'te
+                  sütunun tam yüksekliği) sığmıyorsa `useAutoFitScale` ile
+                  görsel olarak KÜÇÜLTÜLÜR (asla büyütülmez, asla scroll
+                  etmez). */}
+              <div
+                ref={calendarFitOuterRef}
+                style={{ height: calendarFitOuterHeight ?? undefined, overflow: 'hidden' }}
+                className="flex-shrink-0 landscape:basis-1/2"
+              >
+                <div
+                  ref={calendarFitInnerRef}
+                  style={{ transform: `scale(${calendarFitScale})`, transformOrigin: 'top center' }}
+                >
+                  <Calendar
+                    currentDate={currentDate}
+                    onDateChange={handleDateChange}
+                    onDateClick={handleDateClick}
+                    win95Enabled={true}
+                  />
+                </div>
+              </div>
+              {/* Ay Özetleri: TEK kayan alan — kıdem/mesai/izin detayları
+                  açıldığında sadece burası uzar ve kayar, Takvim etkilenmez. */}
+              <div className="flex-1 min-h-0 landscape:basis-1/2 overflow-y-auto">
                 <MonthlyStats
                   currentDate={currentDate}
                   onOpenSettings={handleOpenSettings}
@@ -596,16 +641,42 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="container mx-auto px-2 max-w-4xl landscape:max-w-6xl">
-          <div className="landscape:grid landscape:grid-cols-2 landscape:gap-4 landscape:items-start">
-            <Calendar
-              currentDate={currentDate}
-              onDateChange={handleDateChange}
-              onDateClick={handleDateClick}
-              win95Enabled={false}
-            />
+      {/* İçerik Alanı — ÖNEMLİ: Bu dış div artık KENDİSİ scroll OLMUYOR
+          (eskiden overflow-y-auto idi). Böylece Takvim, sayfanın kayan
+          alanının DIŞINDA kalıyor ve gerçek anlamda "sabit" oluyor —
+          "sticky" pozisyonlamaya bağımlı olmadığı için tarayıcı/zoom
+          kaynaklı kayma sorunlarından etkilenmiyor. Kayan TEK alan artık
+          sadece Ay Özetleri sütunu (flex-1 + overflow-y-auto). */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div
+          ref={setCalendarFitBounds}
+          className="container mx-auto px-2 max-w-4xl landscape:max-w-6xl flex-1 min-h-0 flex flex-col landscape:flex-row gap-4"
+        >
+          {/* Takvim: SABİT — kaymaz, scrollbar açmaz. Kapladığı GERÇEK
+              alana (yukarıdaki `calendarFitBounds` ile JS ile ölçülüyor:
+              portrait'te bu alanın %56'sı, landscape'te sütunun tam
+              yüksekliği) sığmıyorsa `useAutoFitScale` ile görsel olarak
+              KÜÇÜLTÜLÜR (asla büyütülmez, asla scroll etmez). */}
+          <div
+            ref={calendarFitOuterRef}
+            style={{ height: calendarFitOuterHeight ?? undefined, overflow: 'hidden' }}
+            className="flex-shrink-0 landscape:basis-1/2"
+          >
+            <div
+              ref={calendarFitInnerRef}
+              style={{ transform: `scale(${calendarFitScale})`, transformOrigin: 'top center' }}
+            >
+              <Calendar
+                currentDate={currentDate}
+                onDateChange={handleDateChange}
+                onDateClick={handleDateClick}
+                win95Enabled={false}
+              />
+            </div>
+          </div>
+          {/* Ay Özetleri: TEK kayan alan — kıdem/mesai/izin detayları
+              açıldığında sadece burası uzar ve kayar, Takvim etkilenmez. */}
+          <div className="flex-1 min-h-0 landscape:basis-1/2 overflow-y-auto">
             <MonthlyStats
               currentDate={currentDate}
               onOpenSettings={handleOpenSettings}
