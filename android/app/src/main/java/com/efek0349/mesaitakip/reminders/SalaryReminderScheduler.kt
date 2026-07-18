@@ -26,17 +26,19 @@ object SalaryReminderScheduler {
     private const val KEY_DAY = "day"
     private const val KEY_HOUR = "hour"
     private const val KEY_MINUTE = "minute"
+    private const val KEY_SKIP_WEEKEND = "skipWeekend"
     private const val REQUEST_CODE = 5001
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun save(context: Context, enabled: Boolean, day: Int, hour: Int, minute: Int) {
+    fun save(context: Context, enabled: Boolean, day: Int, hour: Int, minute: Int, skipWeekend: Boolean) {
         prefs(context).edit()
             .putBoolean(KEY_ENABLED, enabled)
             .putInt(KEY_DAY, day)
             .putInt(KEY_HOUR, hour)
             .putInt(KEY_MINUTE, minute)
+            .putBoolean(KEY_SKIP_WEEKEND, skipWeekend)
             .apply()
     }
 
@@ -44,13 +46,21 @@ object SalaryReminderScheduler {
     fun getDay(context: Context): Int = prefs(context).getInt(KEY_DAY, 1)
     fun getHour(context: Context): Int = prefs(context).getInt(KEY_HOUR, 9)
     fun getMinute(context: Context): Int = prefs(context).getInt(KEY_MINUTE, 0)
+    fun getSkipWeekend(context: Context): Boolean = prefs(context).getBoolean(KEY_SKIP_WEEKEND, true)
 
     /**
      * Verilen gün/saat/dakika için, "şimdi"den sonraki en yakın tetiklenme
      * zamanını hesaplar. Ayın o günü yoksa (örn. 31 çeken bir ayda Şubat),
      * o ayın SON gününe düşürülür.
+     *
+     * skipWeekend=true ise: hesaplanan gün Cumartesi'ye denk gelirse bir
+     * önceki güne (Cuma), Pazar'a denk gelirse bir sonraki güne
+     * (Pazartesi) kaydırılır — "en yakın iş günü" kuralı. Ay sonu/başı
+     * sınırını geçse bile (örn. ayın 1'i Pazar ise 2'sine, ayın 31'i
+     * Cumartesi ise 30'una kayar) sorun olmaz, tarih hesaplaması
+     * Calendar üzerinden doğal şekilde yürür.
      */
-    fun computeNextTriggerMillis(day: Int, hour: Int, minute: Int): Long {
+    fun computeNextTriggerMillis(day: Int, hour: Int, minute: Int, skipWeekend: Boolean = true): Long {
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
@@ -60,13 +70,27 @@ object SalaryReminderScheduler {
         }
         val maxDayThisMonth = target.getActualMaximum(Calendar.DAY_OF_MONTH)
         target.set(Calendar.DAY_OF_MONTH, minOf(day, maxDayThisMonth))
+        if (skipWeekend) adjustForWeekend(target)
 
         if (!target.after(now)) {
             target.add(Calendar.MONTH, 1)
+            // Ay değiştiği için gün ve hafta sonu kaydırmasını sıfırdan
+            // uygula — bir önceki adımda hafta sonu kayması olduysa bile
+            // burada tekrar temiz bir hesap yapılır.
+            target.set(Calendar.DAY_OF_MONTH, 1)
             val maxDayNextMonth = target.getActualMaximum(Calendar.DAY_OF_MONTH)
             target.set(Calendar.DAY_OF_MONTH, minOf(day, maxDayNextMonth))
+            if (skipWeekend) adjustForWeekend(target)
         }
         return target.timeInMillis
+    }
+
+    /** Cumartesi ise 1 gün geri (Cuma), Pazar ise 1 gün ileri (Pazartesi) kaydırır. */
+    private fun adjustForWeekend(target: Calendar) {
+        when (target.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.SATURDAY -> target.add(Calendar.DAY_OF_MONTH, -1)
+            Calendar.SUNDAY -> target.add(Calendar.DAY_OF_MONTH, 1)
+        }
     }
 
     private fun pendingIntent(context: Context): PendingIntent {
@@ -77,8 +101,8 @@ object SalaryReminderScheduler {
     }
 
     /** Ayarları kaydeder ve alarmı (aktifse) kurar, (değilse) iptal eder. */
-    fun apply(context: Context, enabled: Boolean, day: Int, hour: Int, minute: Int): Long? {
-        save(context, enabled, day, hour, minute)
+    fun apply(context: Context, enabled: Boolean, day: Int, hour: Int, minute: Int, skipWeekend: Boolean): Long? {
+        save(context, enabled, day, hour, minute, skipWeekend)
         return if (enabled) scheduleFromPrefs(context) else run { cancel(context); null }
     }
 
@@ -88,7 +112,8 @@ object SalaryReminderScheduler {
         val day = getDay(context)
         val hour = getHour(context)
         val minute = getMinute(context)
-        val triggerAt = computeNextTriggerMillis(day, hour, minute)
+        val skipWeekend = getSkipWeekend(context)
+        val triggerAt = computeNextTriggerMillis(day, hour, minute, skipWeekend)
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()

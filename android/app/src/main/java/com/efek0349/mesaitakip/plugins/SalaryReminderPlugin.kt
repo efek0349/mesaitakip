@@ -27,8 +27,9 @@ class SalaryReminderPlugin : Plugin() {
         val day = (call.getInt("day", 1) ?: 1).coerceIn(1, 31)
         val hour = (call.getInt("hour", 9) ?: 9).coerceIn(0, 23)
         val minute = (call.getInt("minute", 0) ?: 0).coerceIn(0, 59)
+        val skipWeekend = call.getBoolean("skipWeekend", true) ?: true
 
-        val triggerAt = SalaryReminderScheduler.apply(context, enabled, day, hour, minute)
+        val triggerAt = SalaryReminderScheduler.apply(context, enabled, day, hour, minute, skipWeekend)
 
         val result = JSObject()
         result.put("scheduled", triggerAt != null)

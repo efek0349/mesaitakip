@@ -882,6 +882,19 @@ export const SettingsTailwind: React.FC<SettingsTailwindProps> = ({ isOpen, onCl
                       <p className="col-span-2 text-[0.625rem] text-gray-400 leading-tight pl-1">
                         31 gibi kısa aylarda olmayan bir gün seçilirse, o ayın son gününde hatırlatılır.
                       </p>
+
+                      <div
+                        className="col-span-2 flex items-center justify-between cursor-pointer pt-1"
+                        onClick={() => handleInputChange('salaryReminderSkipWeekend', !(formData.salaryReminderSkipWeekend ?? true))}
+                      >
+                        <div>
+                          <span className="block text-[0.6875rem] font-semibold text-gray-600 dark:text-gray-300 leading-none">Hafta Sonuna Denk Gelirse Kaydır</span>
+                          <span className="block text-[0.625rem] text-gray-400 mt-1 leading-none">Cumartesi ise Cuma'ya, Pazar ise Pazartesi'ye kayar</span>
+                        </div>
+                        <div className={`w-9 h-[1.1rem] rounded-full relative transition-colors flex-shrink-0 ${(formData.salaryReminderSkipWeekend ?? true) ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                          <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${(formData.salaryReminderSkipWeekend ?? true) ? 'left-5' : 'left-0.5'}`} />
+                        </div>
+                      </div>
                     </div>
                   )}
 

@@ -787,6 +787,13 @@ export const SettingsWin95: React.FC<SettingsWin95Props> = ({ isOpen, onClose, c
                     <p style={{ fontSize: '0.5rem', marginTop: 2, opacity: 0.7, gridColumn: '1 / -1' }}>
                       31 gibi kısa aylarda olmayan bir gün seçilirse, o ayın son gününde hatırlatılır.
                     </p>
+                    <div style={{ gridColumn: '1 / -1', marginTop: 2 }}>
+                      <Checkbox
+                        checked={formData.salaryReminderSkipWeekend ?? true}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('salaryReminderSkipWeekend', e.target.checked as any)}
+                        label="Hafta sonuna denk gelirse en yakın iş gününe kaydır"
+                      />
+                    </div>
                   </div>
                 )}
 

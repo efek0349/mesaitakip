@@ -15,14 +15,15 @@ export interface SalaryReminderPlugin {
     day: number;   // 1-31
     hour: number;  // 0-23
     minute: number; // 0-59
+    skipWeekend: boolean; // hafta sonuna denk gelirse en yakın iş gününe kaydır
   }): Promise<{ scheduled: boolean; nextTrigger?: string }>;
 }
 
 export const SalaryReminder = registerPlugin<SalaryReminderPlugin>('SalaryReminder');
 
 /**
- * Ayarlardaki (salaryReminderEnabled/Day/Time) değerleri native tarafa
- * senkronize eder. Web'de (Capacitor native platformu yokken) plugin
+ * Ayarlardaki (salaryReminderEnabled/Day/Time/SkipWeekend) değerleri native
+ * tarafa senkronize eder. Web'de (Capacitor native platformu yokken) plugin
  * çağrısı başarısız olabileceğinden sessizce yutuyoruz — sadece
  * cihazda/APK'da anlamlı bir işlem.
  */
@@ -30,6 +31,7 @@ export async function syncSalaryReminder(settings: {
   salaryReminderEnabled?: boolean;
   salaryReminderDay?: number;
   salaryReminderTime?: string;
+  salaryReminderSkipWeekend?: boolean;
 }): Promise<void> {
   try {
     const enabled = settings.salaryReminderEnabled === true;
@@ -37,8 +39,9 @@ export async function syncSalaryReminder(settings: {
     const [hourRaw, minuteRaw] = (settings.salaryReminderTime ?? '09:00').split(':');
     const hour = Math.min(23, Math.max(0, parseInt(hourRaw, 10) || 0));
     const minute = Math.min(59, Math.max(0, parseInt(minuteRaw, 10) || 0));
+    const skipWeekend = settings.salaryReminderSkipWeekend !== false; // varsayılan: açık
 
-    await SalaryReminder.configure({ enabled, day, hour, minute });
+    await SalaryReminder.configure({ enabled, day, hour, minute, skipWeekend });
   } catch (e) {
     // Web önizlemesinde veya plugin bulunamadığında sessizce geç.
   }
